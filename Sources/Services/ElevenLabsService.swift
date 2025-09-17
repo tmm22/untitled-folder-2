@@ -1,0 +1,293 @@
+import Foundation
+
+class ElevenLabsService: TTSProvider {
+    // MARK: - Properties
+    var name: String { "ElevenLabs" }
+    private var apiKey: String?
+    private let baseURL = "https://api.elevenlabs.io/v1"
+    private let session = URLSession.shared
+    
+    // MARK: - Default Voice
+    var defaultVoice: Voice {
+        Voice(
+            id: "21m00Tcm4TlvDq8ikWAM",
+            name: "Rachel",
+            language: "en-US",
+            gender: .female,
+            provider: .elevenLabs,
+            previewURL: nil
+        )
+    }
+    
+    // MARK: - Available Voices
+    var availableVoices: [Voice] {
+        // These are some of the pre-made voices available in ElevenLabs
+        // In a production app, you would fetch these dynamically from the API
+        return [
+            Voice(id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "ErXwobaYiN019PkySvjV", name: "Antoni", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "VR6AewLTigWG4xSOukaG", name: "Arnold", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "pNInz6obpgDQGcFmaJgB", name: "Adam", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
+            Voice(id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil)
+        ]
+    }
+    
+    // MARK: - Initialization
+    init() {
+        // Load API key from keychain if available
+        self.apiKey = KeychainManager().getAPIKey(for: "ElevenLabs")
+    }
+    
+    // MARK: - API Key Management
+    func updateAPIKey(_ key: String) {
+        self.apiKey = key
+    }
+    
+    func hasValidAPIKey() -> Bool {
+        return apiKey != nil && !apiKey!.isEmpty
+    }
+    
+    // MARK: - Speech Synthesis
+    func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
+        guard let apiKey = apiKey, !apiKey.isEmpty else {
+            throw TTSError.invalidAPIKey
+        }
+        
+        guard text.count <= 5000 else {
+            throw TTSError.textTooLong(5000)
+        }
+        
+        // Prepare URL
+        let url = URL(string: "\(baseURL)/text-to-speech/\(voice.id)")!
+        
+        // Prepare request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        
+        // Prepare request body
+        let requestBody = ElevenLabsRequest(
+            text: text,
+            model_id: "eleven_monolingual_v1",
+            voice_settings: VoiceSettings(
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0.0,
+                use_speaker_boost: true
+            )
+        )
+        
+        request.httpBody = try JSONEncoder().encode(requestBody)
+        
+        // Make request
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            // Check response
+            if let httpResponse = response as? HTTPURLResponse {
+                switch httpResponse.statusCode {
+                case 200:
+                    return data
+                case 401:
+                    throw TTSError.invalidAPIKey
+                case 422:
+                    if let errorData = try? JSONDecoder().decode(ElevenLabsError.self, from: data) {
+                        throw TTSError.apiError(errorData.detail.message)
+                    }
+                    throw TTSError.apiError("Invalid request")
+                case 429:
+                    throw TTSError.quotaExceeded
+                case 400...499:
+                    if let errorData = try? JSONDecoder().decode(ElevenLabsError.self, from: data) {
+                        throw TTSError.apiError(errorData.detail.message)
+                    }
+                    throw TTSError.apiError("Client error: \(httpResponse.statusCode)")
+                case 500...599:
+                    throw TTSError.apiError("Server error: \(httpResponse.statusCode)")
+                default:
+                    throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
+                }
+            }
+            
+            throw TTSError.networkError("Invalid response")
+        } catch let error as TTSError {
+            throw error
+        } catch {
+            throw TTSError.networkError(error.localizedDescription)
+        }
+    }
+    
+    // MARK: - Fetch Available Voices
+    func fetchVoices() async throws -> [Voice] {
+        guard let apiKey = apiKey, !apiKey.isEmpty else {
+            throw TTSError.invalidAPIKey
+        }
+        
+        let url = URL(string: "\(baseURL)/voices")!
+        
+        var request = URLRequest(url: url)
+        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let voicesResponse = try JSONDecoder().decode(VoicesResponse.self, from: data)
+                return voicesResponse.voices.map { voiceData in
+                    Voice(
+                        id: voiceData.voice_id,
+                        name: voiceData.name,
+                        language: voiceData.labels?.language ?? "en-US",
+                        gender: parseGender(voiceData.labels?.gender),
+                        provider: .elevenLabs,
+                        previewURL: voiceData.preview_url
+                    )
+                }
+            }
+            
+            throw TTSError.apiError("Failed to fetch voices")
+        } catch {
+            throw TTSError.networkError(error.localizedDescription)
+        }
+    }
+    
+    private func parseGender(_ gender: String?) -> Voice.Gender {
+        switch gender?.lowercased() {
+        case "male":
+            return .male
+        case "female":
+            return .female
+        default:
+            return .neutral
+        }
+    }
+}
+
+// MARK: - Request/Response Models
+private struct ElevenLabsRequest: Codable {
+    let text: String
+    let model_id: String
+    let voice_settings: VoiceSettings
+}
+
+private struct VoiceSettings: Codable {
+    let stability: Double
+    let similarity_boost: Double
+    let style: Double
+    let use_speaker_boost: Bool
+}
+
+private struct ElevenLabsError: Codable {
+    let detail: ErrorDetail
+}
+
+private struct ErrorDetail: Codable {
+    let message: String
+    let status: String?
+}
+
+private struct VoicesResponse: Codable {
+    let voices: [VoiceData]
+}
+
+private struct VoiceData: Codable {
+    let voice_id: String
+    let name: String
+    let preview_url: String?
+    let labels: VoiceLabels?
+}
+
+private struct VoiceLabels: Codable {
+    let language: String?
+    let gender: String?
+    let age: String?
+    let accent: String?
+    let description: String?
+    let use_case: String?
+}
+
+// MARK: - Voice Extensions
+extension Voice {
+    static var elevenLabsVoices: [Voice] {
+        return [
+            Voice(
+                id: "21m00Tcm4TlvDq8ikWAM",
+                name: "Rachel",
+                language: "en-US",
+                gender: .female,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "AZnzlk1XvdvUeBnXmlld",
+                name: "Domi",
+                language: "en-US",
+                gender: .female,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "EXAVITQu4vr4xnSDxMaL",
+                name: "Bella",
+                language: "en-US",
+                gender: .female,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "ErXwobaYiN019PkySvjV",
+                name: "Antoni",
+                language: "en-US",
+                gender: .male,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "MF3mGyEYCl7XYWbV9V6O",
+                name: "Elli",
+                language: "en-US",
+                gender: .female,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "TxGEqnHWrfWFTfGW9XjX",
+                name: "Josh",
+                language: "en-US",
+                gender: .male,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "VR6AewLTigWG4xSOukaG",
+                name: "Arnold",
+                language: "en-US",
+                gender: .male,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "pNInz6obpgDQGcFmaJgB",
+                name: "Adam",
+                language: "en-US",
+                gender: .male,
+                provider: .elevenLabs,
+                previewURL: nil
+            ),
+            Voice(
+                id: "yoZ06aMxZJJ28mfd3POQ",
+                name: "Sam",
+                language: "en-US",
+                gender: .male,
+                provider: .elevenLabs,
+                previewURL: nil
+            )
+        ]
+    }
+}

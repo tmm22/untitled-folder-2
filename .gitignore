@@ -1,0 +1,23 @@
+# macOS / Xcode
+.DS_Store
+*.swp
+*.xcuserstate
+DerivedData/
+
+# Swift Package Manager
+.build/
+Package.pins
+Package.resolved
+.swiftpm/
+
+# Build products
+TextToSpeechApp.app/
+TextToSpeechApp 2.app/
+*.dSYM
+
+# User-specific settings
+.vscode/
+*.env
+
+# Other
+*.log
