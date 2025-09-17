@@ -122,30 +122,49 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testViewModelInitialization() {
         let viewModel = TTSViewModel()
-        
+
         XCTAssertTrue(viewModel.inputText.isEmpty)
         XCTAssertEqual(viewModel.selectedProvider, .openAI)
         XCTAssertFalse(viewModel.isGenerating)
         XCTAssertFalse(viewModel.isPlaying)
         XCTAssertEqual(viewModel.playbackSpeed, 1.0)
         XCTAssertEqual(viewModel.volume, 0.75)
+        XCTAssertEqual(viewModel.selectedFormat, .mp3)
+        XCTAssertTrue(viewModel.supportedFormats.contains(.flac))
     }
-    
+
     @MainActor
     func testViewModelProviderSwitch() {
         let viewModel = TTSViewModel()
-        
+
         viewModel.selectedProvider = .elevenLabs
         viewModel.updateAvailableVoices()
         XCTAssertFalse(viewModel.availableVoices.isEmpty)
-        
+        XCTAssertEqual(viewModel.supportedFormats, [.mp3])
+
         viewModel.selectedProvider = .openAI
         viewModel.updateAvailableVoices()
         XCTAssertFalse(viewModel.availableVoices.isEmpty)
-        
+        XCTAssertTrue(viewModel.supportedFormats.contains(.flac))
+
         viewModel.selectedProvider = .google
         viewModel.updateAvailableVoices()
         XCTAssertFalse(viewModel.availableVoices.isEmpty)
+        XCTAssertEqual(viewModel.supportedFormats, [.mp3, .wav])
+    }
+
+    @MainActor
+    func testFormatSelectionResetsWhenUnsupported() {
+        let viewModel = TTSViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+        viewModel.selectedFormat = .flac
+        XCTAssertEqual(viewModel.selectedFormat, .flac)
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        XCTAssertEqual(viewModel.selectedFormat, .mp3)
     }
     
     // MARK: - Utility Tests

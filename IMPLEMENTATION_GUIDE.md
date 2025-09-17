@@ -19,8 +19,6 @@
 
 #### Info.plist Additions
 ```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>This app requires microphone access for voice recording features.</string>
 <key>NSAppTransportSecurity</key>
 <dict>
     <key>NSAllowsArbitraryLoads</key>

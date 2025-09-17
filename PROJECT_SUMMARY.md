@@ -62,7 +62,7 @@ TextToSpeechApp/
 
 ### 4. **Audio Management**
 - ✅ AVFoundation integration
-- ✅ Multiple format support (MP3, WAV, AAC, FLAC, OPUS)
+- ✅ Multiple export formats: MP3 and WAV for all providers, AAC and FLAC when using OpenAI
 - ✅ Audio export functionality
 - ✅ Playback rate adjustment
 - ✅ Volume control

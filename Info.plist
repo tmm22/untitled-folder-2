@@ -55,8 +55,6 @@
             </dict>
         </dict>
     </dict>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>This app requires microphone access for voice recording features.</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>NSSupportsAutomaticTermination</key>

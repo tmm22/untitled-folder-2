@@ -20,6 +20,16 @@ class TTSViewModel: ObservableObject {
     @Published var isLoopEnabled: Bool = false
     @Published var generationProgress: Double = 0
     @Published var isMinimalistMode: Bool = false
+    @Published var selectedFormat: AudioSettings.AudioFormat = .mp3 {
+        didSet {
+            guard selectedFormat != oldValue else { return }
+            ensureFormatSupportedForSelectedProvider()
+            if audioData != nil && selectedFormat != currentAudioFormat {
+                clearGeneratedAudio()
+            }
+            saveSettings()
+        }
+    }
     
     // MARK: - Services
     private let audioPlayer = AudioPlayerService()
@@ -27,11 +37,27 @@ class TTSViewModel: ObservableObject {
     private let openAI = OpenAIService()
     private let googleTTS = GoogleTTSService()
     private let keychainManager = KeychainManager()
-    
+
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
     private(set) var audioData: Data?  // Make it readable but not writable from outside
+    private(set) var currentAudioFormat: AudioSettings.AudioFormat = .mp3
     private let maxTextLength = 5000
+
+    var supportedFormats: [AudioSettings.AudioFormat] {
+        supportedFormats(for: selectedProvider)
+    }
+
+    var exportFormatHelpText: String? {
+        switch selectedProvider {
+        case .elevenLabs:
+            return "ElevenLabs currently exports MP3 files only."
+        case .google:
+            return "Google Cloud supports MP3 or WAV output."
+        case .openAI:
+            return "OpenAI offers MP3, WAV, AAC, and FLAC options."
+        }
+    }
     
     // MARK: - Initialization
     init() {
@@ -64,9 +90,12 @@ class TTSViewModel: ObservableObject {
                 throw TTSError.invalidAPIKey
             }
             
+            let targetFormat = currentFormatForGeneration()
             let settings = AudioSettings(
                 speed: playbackSpeed,
-                volume: volume
+                volume: volume,
+                format: targetFormat,
+                sampleRate: sampleRate(for: targetFormat)
             )
             
             // Update progress
@@ -82,6 +111,7 @@ class TTSViewModel: ObservableObject {
             
             if let audioData = audioData {
                 try await audioPlayer.loadAudio(from: audioData)
+                currentAudioFormat = targetFormat
                 generationProgress = 1.0
                 await play()
             }
@@ -138,14 +168,15 @@ class TTSViewModel: ObservableObject {
     
     func exportAudio() {
         guard let audioData = audioData else { return }
-        
+
         let savePanel = NSSavePanel()
-        // Use only allowedContentTypes for macOS 12+
-        savePanel.allowedContentTypes = [.mp3, .wav, .audio]
-        savePanel.nameFieldStringValue = "speech.mp3"
+        if let contentType = selectedFormat.contentType {
+            savePanel.allowedContentTypes = [contentType]
+        }
+        savePanel.nameFieldStringValue = "speech.\(selectedFormat.fileExtension)"
         savePanel.title = "Export Audio"
         savePanel.message = "Choose where to save the audio file"
-        
+
         if savePanel.runModal() == .OK {
             if let url = savePanel.url {
                 do {
@@ -160,13 +191,14 @@ class TTSViewModel: ObservableObject {
     func clearText() {
         inputText = ""
         stop()
-        audioData = nil
+        clearGeneratedAudio()
     }
     
     func updateAvailableVoices() {
         let provider = getCurrentProvider()
         availableVoices = provider.availableVoices
-        
+        ensureFormatSupportedForSelectedProvider()
+
         // Select default voice if none selected
         if selectedVoice == nil || selectedVoice?.provider.rawValue != selectedProvider.rawValue {
             selectedVoice = provider.defaultVoice
@@ -232,7 +264,7 @@ class TTSViewModel: ObservableObject {
         if let savedProvider = UserDefaults.standard.string(forKey: "selectedProvider") {
             selectedProvider = TTSProviderType(rawValue: savedProvider) ?? .openAI
         }
-        
+
         playbackSpeed = UserDefaults.standard.double(forKey: "playbackSpeed")
         if playbackSpeed == 0 { playbackSpeed = 1.0 }
         
@@ -241,7 +273,13 @@ class TTSViewModel: ObservableObject {
         
         isLoopEnabled = UserDefaults.standard.bool(forKey: "loopEnabled")
         isMinimalistMode = UserDefaults.standard.bool(forKey: "isMinimalistMode")
-        
+        if let savedFormat = UserDefaults.standard.string(forKey: "audioFormat"),
+           let format = AudioSettings.AudioFormat(rawValue: savedFormat) {
+            selectedFormat = format
+        }
+
+        ensureFormatSupportedForSelectedProvider()
+
         // Load API keys from keychain
         if let elevenLabsKey = getAPIKey(for: .elevenLabs) {
             elevenLabs.updateAPIKey(elevenLabsKey)
@@ -260,6 +298,7 @@ class TTSViewModel: ObservableObject {
         UserDefaults.standard.set(volume, forKey: "volume")
         UserDefaults.standard.set(isLoopEnabled, forKey: "loopEnabled")
         UserDefaults.standard.set(isMinimalistMode, forKey: "isMinimalistMode")
+        UserDefaults.standard.set(selectedFormat.rawValue, forKey: "audioFormat")
     }
 }
 
@@ -282,5 +321,53 @@ enum TTSProviderType: String, CaseIterable {
         case .google:
             return "cloud"
         }
+    }
+}
+
+// MARK: - Format Helpers
+private extension TTSViewModel {
+    func currentFormatForGeneration() -> AudioSettings.AudioFormat {
+        let formats = supportedFormats(for: selectedProvider)
+        guard formats.contains(selectedFormat) else {
+            return formats.first ?? .mp3
+        }
+        return selectedFormat
+    }
+
+    func supportedFormats(for provider: TTSProviderType) -> [AudioSettings.AudioFormat] {
+        switch provider {
+        case .elevenLabs:
+            return [.mp3]
+        case .openAI:
+            return [.mp3, .wav, .aac, .flac]
+        case .google:
+            return [.mp3, .wav]
+        }
+    }
+
+    func sampleRate(for format: AudioSettings.AudioFormat) -> Int {
+        switch format {
+        case .wav, .flac:
+            return 44100
+        case .aac:
+            return 48000
+        case .mp3:
+            return 44100
+        case .opus:
+            return 48000
+        }
+    }
+
+    func ensureFormatSupportedForSelectedProvider() {
+        let formats = supportedFormats(for: selectedProvider)
+        if !formats.contains(selectedFormat) {
+            selectedFormat = formats.first ?? .mp3
+        }
+    }
+
+    func clearGeneratedAudio() {
+        audioData = nil
+        currentAudioFormat = selectedFormat
+        stop()
     }
 }

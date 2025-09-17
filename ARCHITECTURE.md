@@ -18,9 +18,7 @@ A native macOS application built with SwiftUI that provides text-to-speech funct
 TextToSpeechApp/
 ├── TextToSpeechApp.swift          # App entry point
 ├── Models/
-│   ├── TTSProvider.swift          # TTS provider protocol
-│   ├── AudioSettings.swift        # Audio configuration
-│   └── SpeechRequest.swift        # Request models
+│   └── TTSProvider.swift          # Provider protocol, voice model, and AudioSettings
 ├── Services/
 │   ├── ElevenLabsService.swift    # ElevenLabs API integration
 │   ├── OpenAIService.swift        # OpenAI TTS integration
@@ -34,8 +32,9 @@ TextToSpeechApp/
 │   ├── PlaybackControlsView.swift # Playback controls
 │   └── SettingsView.swift         # API configuration
 ├── Utilities/
+│   ├── AppConfiguration.swift     # URLs and static configuration
 │   ├── KeychainManager.swift      # Secure API key storage
-│   └── NetworkManager.swift       # Network utilities
+│   └── AudioFormat+Extensions.swift # File type helpers for exports
 └── Resources/
     └── Info.plist                  # App configuration
 ```
@@ -43,29 +42,28 @@ TextToSpeechApp/
 ## Key Features
 
 ### 1. Text Input
-- **Multi-line text editor** with syntax highlighting for better readability
-- **Character count** display
-- **Text formatting** preservation
-- **Import/Export** functionality for text files
-- **Recent texts** history
+- **Multi-line text editor** sized for long-form scripts with hover/focus chrome
+- **Character counter** that highlights when the 5,000-character limit is exceeded
+- **Context menu shortcuts** for copy, paste, clear, and sample text insertion
+- **Placeholder guidance** that disappears as soon as the user types
+- **Minimalist layout support** that adapts padding and frame height
 
 ### 2. TTS Provider Integration
 
 #### ElevenLabs API
 - **Endpoint**: `https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`
 - **Features**:
-  - Multiple voice options
-  - Voice cloning support
-  - Emotion and style controls
-  - High-quality neural voices
+  - Multiple curated voice presets selectable in-app
+  - Built-in stability, similarity boost, and speaker boost defaults
+  - High-quality neural voices tuned for English content
 - **Authentication**: API Key in header
 
 #### OpenAI TTS API
 - **Endpoint**: `https://api.openai.com/v1/audio/speech`
 - **Features**:
   - Multiple voice models (alloy, echo, fable, onyx, nova, shimmer)
-  - HD quality option
-  - Response format selection (mp3, opus, aac, flac)
+  - Adjustable response formats (MP3, WAV, AAC, FLAC)
+  - Speed control forwarded from the view model
 - **Authentication**: Bearer token
 
 #### Google Cloud TTS

@@ -90,7 +90,7 @@ struct AdvancedControlsPanelView: View {
             }
             
             Divider()
-            
+
             // Loop Control
             HStack {
                 Toggle(isOn: $viewModel.isLoopEnabled) {
@@ -102,11 +102,35 @@ struct AdvancedControlsPanelView: View {
                     viewModel.saveSettings()
                 }
             }
-            
+
+            Divider()
+
+            // Export Format
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Export Format", systemImage: "square.and.arrow.down")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Picker("Export Format", selection: $viewModel.selectedFormat) {
+                    ForEach(viewModel.supportedFormats, id: \.self) { format in
+                        Text(format.displayName)
+                            .tag(format)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .frame(width: 160)
+
+                if let helpText = viewModel.exportFormatHelpText {
+                    Text(helpText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             // Audio Status
             if viewModel.audioData != nil {
                 Divider()
-                
+
                 HStack(spacing: 4) {
                     Image(systemName: "waveform")
                         .font(.system(size: 12))

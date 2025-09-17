@@ -414,9 +414,15 @@ struct AboutView: View {
                 .frame(width: 200)
             
             VStack(alignment: .leading, spacing: 8) {
-                Link("Documentation", destination: URL(string: "https://github.com/yourusername/macos-tts-app")!)
-                Link("Report an Issue", destination: URL(string: "https://github.com/yourusername/macos-tts-app/issues")!)
-                Link("Privacy Policy", destination: URL(string: "https://github.com/yourusername/macos-tts-app#privacy")!)
+                if let documentationURL = AppConfiguration.documentationURL {
+                    Link("Documentation", destination: documentationURL)
+                }
+                if let issueTrackerURL = AppConfiguration.issueTrackerURL {
+                    Link("Report an Issue", destination: issueTrackerURL)
+                }
+                if let privacyPolicyURL = AppConfiguration.privacyPolicyURL {
+                    Link("Privacy Policy", destination: privacyPolicyURL)
+                }
             }
             
             Spacer()

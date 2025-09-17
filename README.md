@@ -21,7 +21,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Playback Controls**: Play, pause, stop, seek, and loop functionality
 - **Speed Control**: Adjust playback speed from 0.5x to 2.0x
 - **Volume Control**: Fine-tune audio volume with visual feedback
-- **Audio Export**: Save generated speech as MP3, WAV, AAC, or FLAC files
+- **Audio Export**: Save generated speech as MP3 or WAV everywhere, with AAC and FLAC available when supported (OpenAI)
 
 ### 🔒 Security & Privacy
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
@@ -31,7 +31,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 ### 🎨 User Experience
 - **Native macOS Design**: Built with SwiftUI for a seamless Mac experience
 - **Dark Mode Support**: Automatically adapts to system appearance
-- **Keyboard Shortcuts**: Efficient workflow with customizable shortcuts
+- **Keyboard Shortcuts**: Efficient workflow with built-in shortcuts (remap through macOS Keyboard settings if needed)
 - **Progress Indicators**: Visual feedback during speech generation
 - **Error Handling**: Clear error messages and recovery options
 - **Minimalist Layout (Compact) Option**: Toggleable in Settings or via the header button; reduces chrome and moves advanced controls to a popover; preserves all functionality and persists between launches
@@ -88,32 +88,34 @@ Tip: Use the slider.horizontal.3 button in the header to open the Advanced Contr
 
 ## Installation
 
-### Option 1: Download Pre-built App
-1. Download the latest release from [Releases](https://github.com/yourusername/macos-tts-app/releases)
-2. Open the DMG file
-3. Drag the app to your Applications folder
-4. Open the app (you may need to right-click and select "Open" the first time)
-
-### Option 2: Build from Source
-
-#### Prerequisites
+### Prerequisites
 - macOS 13.0 (Ventura) or later
-- Xcode 15.0 or later
-- Swift 5.9 or later
-- Active Apple Developer account (for code signing)
+- Xcode 15.0 (or the matching Command Line Tools)
+- Apple Developer account only if you plan to ship notarized builds
 
-#### Build Steps
+### Option 1: Build with the automation script
+1. From the repository root, run `./build.sh`.
+2. The script performs a clean release build, signs it ad hoc, and places `TextToSpeechApp.app` alongside the script.
+3. Launch the app by double-clicking `TextToSpeechApp.app` or by running `open TextToSpeechApp.app`.
+
+### Option 2: Build & run with Swift Package Manager
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/macos-tts-app.git
-cd macos-tts-app
+# Build a debug binary
+swift build
 
-# Open in Xcode
-open TextToSpeechApp.xcodeproj
+# or build a release binary
+swift build -c release
 
-# Select your development team in project settings
-# Build and run (Cmd+R)
+# Run the app from the command line
+swift run TextToSpeechApp
 ```
+
+### Option 3: Open in Xcode
+1. Run `open Package.swift` to open the Swift Package in Xcode.
+2. Pick your signing team if you intend to archive the app.
+3. Build and run with `Cmd+R`.
+
+> Prebuilt downloads will be published on the repository Releases page once the packaging workflow is live. Until then, use one of the workflows above.
 
 ## Configuration
 
@@ -123,25 +125,35 @@ open TextToSpeechApp.xcodeproj
 2. **Add API Keys**: Enter your API keys for each provider you want to use
 3. **Save**: Keys are automatically saved to macOS Keychain
 
+### Managing API Keys
+
+- **Rotate**: Open Settings, paste the replacement key for the provider, and click **Save**. The previous credential is overwritten in Keychain immediately.
+- **Remove**: Open **Keychain Access**, search for `TextToSpeechApp`, right-click the provider entry, and delete it. Restart the app if it still shows the old key cached.
+- **Recover**: Use the eye button in Settings to reveal the stored key for copy/paste, or open Keychain Access and copy the value from the corresponding entry.
+
 ### Getting API Keys
 
 #### ElevenLabs
 1. Sign up at [ElevenLabs](https://elevenlabs.io)
-2. Go to Profile Settings
-3. Copy your API key
-4. Free tier: 10,000 characters/month
+2. Verify your email and complete any creator onboarding prompts
+3. Navigate to **Profile Settings → API Keys** and create a key dedicated to this Mac
+4. Confirm you have free-tier characters or an active subscription before generating audio
+5. Optional: enable usage notifications to avoid exhausting your monthly allotment
 
 #### OpenAI
 1. Sign up at [OpenAI](https://platform.openai.com)
-2. Go to API Keys section
-3. Create a new API key
-4. Pricing: $15.00 per 1M characters
+2. Open **Billing → Overview** and attach a payment method or purchase credits (required for production use)
+3. Go to **User → View API keys** and create a new secret key; label it for this project to allow revocation later
+4. Store the key securely—OpenAI will only show it once—then paste it into the app
+5. Pricing reference: ~$15 per 1M characters for `tts-1` as of May 2024
 
 #### Google Cloud TTS
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
-2. Enable Cloud Text-to-Speech API
-3. Create credentials (API key)
-4. Free tier: 1 million characters/month
+2. Enable billing for the project (required even when staying within the free tier)
+3. Enable the **Cloud Text-to-Speech API** under **APIs & Services → Library**
+4. Create an API key via **APIs & Services → Credentials → Create credentials → API key**
+5. Restrict the key to the Text-to-Speech API (and optionally to your Mac's IP for extra safety)
+6. Copy the generated key and paste it into the app's Settings
 
 ## Usage
 
@@ -166,6 +178,22 @@ open TextToSpeechApp.xcodeproj
 | Settings | `Cmd+,` |
 | Increase Speed | `Cmd+]` |
 | Decrease Speed | `Cmd+[` |
+
+> Need a different shortcut? macOS lets you remap them via **System Settings → Keyboard → Keyboard Shortcuts → App Shortcuts**. Add entries for `TextToSpeechApp` and choose replacements.
+
+### Text Length Limits
+
+- The editor enforces a 5,000-character ceiling, matching ElevenLabs and Google Cloud quotas.
+- OpenAI's `tts-1` currently accepts 4,096 characters; the app surfaces an inline error if you exceed that while OpenAI is selected.
+- For longer scripts, split the content into multiple runs or batch them with the `---` delimiter feature described below.
+
+### Export Formats
+
+- Choose the export format from the Advanced Controls popover (slider icon in the header).
+- MP3 and WAV exports are supported by every provider.
+- AAC and FLAC exports are available when the OpenAI provider is selected.
+- Switching formats clears previously generated audio to prevent mismatched file extensions—regenerate before exporting.
+- Prefer WAV or FLAC for lossless editing, and MP3/AAC for lightweight distribution.
 
 ### Advanced Features
 
@@ -302,15 +330,16 @@ swiftlint --fix
 - **Network Access**: Required for API calls
 - **File System**: For saving audio files and settings
 - **Keychain**: For secure API key storage
+- **Microphone**: Not requested; the app only plays generated audio
 
 ## Support
 
 ### Getting Help
-- **Documentation**: Check the [Wiki](https://github.com/yourusername/macos-tts-app/wiki)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/macos-tts-app/issues)
-- **Discussions**: Join our [GitHub Discussions](https://github.com/yourusername/macos-tts-app/discussions)
-- **Email**: support@yourcompany.com
+- **Documentation**: Start with `AGENTS.md`, `IMPLEMENTATION_GUIDE.md`, and the inline help in Settings
+- **Issues**: Use the repository's GitHub Issues tab to report bugs or request features
+- **Discussions**: Until Discussions is enabled, consolidate feedback in Issues so the team has one queue
 - **Donations**: Update `Sources/Utilities/AppConfiguration.swift` with your GitHub Sponsors URL to enable the in-app Donate button
+- **Direct contact**: Coordinate via your team channel (Slack/Teams) until a public support alias is published
 
 ### Feature Requests
 We welcome feature requests! Please:
