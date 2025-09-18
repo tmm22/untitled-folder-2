@@ -30,16 +30,28 @@ extension AudioSettings.AudioFormat {
 
     var contentType: UTType? {
         switch self {
-        case .mp3:
-            return .mp3
-        case .wav:
-            return .wav
-        case .aac:
-            return .aacAudio
-        case .flac:
-            return .flac
         case .opus:
             return UTType(filenameExtension: "ogg")
+        default:
+            return UTType(filenameExtension: fileExtension)
+        }
+    }
+
+    init?(fileExtension: String) {
+        let normalized = fileExtension.lowercased()
+        switch normalized {
+        case "mp3":
+            self = .mp3
+        case "wav":
+            self = .wav
+        case "aac", "m4a":
+            self = .aac
+        case "flac":
+            self = .flac
+        case "ogg", "opus":
+            self = .opus
+        default:
+            return nil
         }
     }
 }

@@ -167,24 +167,133 @@ class TTSViewModel: ObservableObject {
     }
     
     func exportAudio() {
-        guard let audioData = audioData else { return }
+        guard audioData != nil else { return }
 
         let savePanel = NSSavePanel()
-        if let contentType = selectedFormat.contentType {
-            savePanel.allowedContentTypes = [contentType]
+        let providerFormats = supportedFormats(for: selectedProvider)
+        let orderedFormats: [AudioSettings.AudioFormat]
+
+        if let currentIndex = providerFormats.firstIndex(of: currentAudioFormat) {
+            var formats = providerFormats
+            formats.swapAt(0, currentIndex)
+            orderedFormats = formats
+        } else {
+            orderedFormats = providerFormats
         }
-        savePanel.nameFieldStringValue = "speech.\(selectedFormat.fileExtension)"
+
+        let contentTypes = orderedFormats.compactMap { $0.contentType }
+        if !contentTypes.isEmpty {
+            savePanel.allowedContentTypes = contentTypes
+            savePanel.allowsOtherFileTypes = false
+        }
+
+        savePanel.canCreateDirectories = true
+        savePanel.nameFieldStringValue = "speech.\(currentAudioFormat.fileExtension)"
         savePanel.title = "Export Audio"
         savePanel.message = "Choose where to save the audio file"
 
-        if savePanel.runModal() == .OK {
-            if let url = savePanel.url {
-                do {
-                    try audioData.write(to: url)
-                } catch {
-                    errorMessage = "Failed to save audio: \(error.localizedDescription)"
-                }
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            let chosenExtension = url.pathExtension.isEmpty ? currentAudioFormat.fileExtension : url.pathExtension
+            let chosenFormat = AudioSettings.AudioFormat(fileExtension: chosenExtension) ?? currentAudioFormat
+
+            Task { [weak self] in
+                await self?.performExport(to: url, format: chosenFormat)
             }
+        }
+    }
+
+    private func performExport(to url: URL, format: AudioSettings.AudioFormat) async {
+        do {
+            let data = try await dataForExport(using: format)
+            var destinationURL = url
+            let expectedExtension = format.fileExtension
+
+            if destinationURL.pathExtension.lowercased() != expectedExtension {
+                destinationURL = url.deletingPathExtension().appendingPathExtension(expectedExtension)
+            }
+
+            try data.write(to: destinationURL, options: .atomic)
+        } catch let error as TTSError {
+            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = "Failed to save audio: \(error.localizedDescription)"
+        }
+    }
+
+    private func dataForExport(using format: AudioSettings.AudioFormat) async throws -> Data {
+        if format == currentAudioFormat, let data = audioData {
+            return data
+        }
+
+        guard !inputText.isEmpty else {
+            throw TTSError.apiError("No text available to regenerate audio for export.")
+        }
+
+        let provider = getCurrentProvider()
+        guard provider.hasValidAPIKey() else {
+            throw TTSError.invalidAPIKey
+        }
+
+        let voice = selectedVoice ?? provider.defaultVoice
+        let settings = AudioSettings(
+            speed: playbackSpeed,
+            volume: volume,
+            format: format,
+            sampleRate: sampleRate(for: format)
+        )
+
+        let previousAudioData = audioData
+        let previousFormat = currentAudioFormat
+
+        isGenerating = true
+        generationProgress = 0.2
+        errorMessage = nil
+
+        defer {
+            isGenerating = false
+            generationProgress = 0
+        }
+
+        do {
+            let newData = try await provider.synthesizeSpeech(
+                text: inputText,
+                voice: voice,
+                settings: settings
+            )
+
+            generationProgress = 0.9
+            try await audioPlayer.loadAudio(from: newData)
+
+            audioData = newData
+            currentAudioFormat = format
+
+            if selectedFormat != format {
+                selectedFormat = format
+            }
+
+            return newData
+        } catch let error as TTSError {
+            audioData = previousAudioData
+            currentAudioFormat = previousFormat
+
+            if let previousAudioData {
+                try? await audioPlayer.loadAudio(from: previousAudioData)
+            } else {
+                stop()
+            }
+
+            throw error
+        } catch {
+            audioData = previousAudioData
+            currentAudioFormat = previousFormat
+
+            if let previousAudioData {
+                try? await audioPlayer.loadAudio(from: previousAudioData)
+            } else {
+                stop()
+            }
+
+            throw TTSError.apiError("Failed to regenerate audio: \(error.localizedDescription)")
         }
     }
     

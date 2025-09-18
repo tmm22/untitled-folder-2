@@ -2,6 +2,17 @@ import XCTest
 @testable import TextToSpeechApp
 
 final class TextToSpeechAppTests: XCTestCase {
+    private func resetPersistedSettings() {
+        let defaults = UserDefaults.standard
+        [
+            "selectedProvider",
+            "playbackSpeed",
+            "volume",
+            "loopEnabled",
+            "isMinimalistMode",
+            "audioFormat"
+        ].forEach { defaults.removeObject(forKey: $0) }
+    }
     
     // MARK: - Model Tests
     
@@ -109,18 +120,28 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testSupportedAudioFormats() {
         let formats = AudioPlayerService.supportedFormats
-        
+
         XCTAssertTrue(formats.contains("mp3"))
         XCTAssertTrue(formats.contains("wav"))
         XCTAssertTrue(formats.contains("aac"))
         XCTAssertTrue(AudioPlayerService.isFormatSupported("mp3"))
         XCTAssertTrue(AudioPlayerService.isFormatSupported("MP3"))
     }
+
+    func testAudioFormatInitializationFromFileExtension() {
+        XCTAssertEqual(AudioSettings.AudioFormat(fileExtension: "MP3"), .mp3)
+        XCTAssertEqual(AudioSettings.AudioFormat(fileExtension: "wav"), .wav)
+        XCTAssertEqual(AudioSettings.AudioFormat(fileExtension: "m4a"), .aac)
+        XCTAssertEqual(AudioSettings.AudioFormat(fileExtension: "ogg"), .opus)
+        XCTAssertEqual(AudioSettings.AudioFormat(fileExtension: "flac"), .flac)
+        XCTAssertNil(AudioSettings.AudioFormat(fileExtension: "txt"))
+    }
     
     // MARK: - View Model Tests
     
     @MainActor
     func testViewModelInitialization() {
+        resetPersistedSettings()
         let viewModel = TTSViewModel()
 
         XCTAssertTrue(viewModel.inputText.isEmpty)
@@ -135,6 +156,7 @@ final class TextToSpeechAppTests: XCTestCase {
 
     @MainActor
     func testViewModelProviderSwitch() {
+        resetPersistedSettings()
         let viewModel = TTSViewModel()
 
         viewModel.selectedProvider = .elevenLabs
