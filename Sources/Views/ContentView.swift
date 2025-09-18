@@ -46,9 +46,16 @@ struct ContentView: View {
             PlaybackControlsView()
                 .padding(viewModel.isMinimalistMode ? 8 : 16)
                 .background(Color(NSColor.controlBackgroundColor))
+
+            Divider()
+
+            ActionButtonsView(showingSettings: $showingSettings)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, viewModel.isMinimalistMode ? 8 : 16)
+                .padding(.vertical, viewModel.isMinimalistMode ? 8 : 16)
+                .background(Color(NSColor.windowBackgroundColor))
             
         }
-        .padding(.bottom, actionBarHeight)
         .frame(minWidth: 800, minHeight: 600)
         .sheet(isPresented: $showingSettings) {
             SettingsView()
@@ -89,22 +96,6 @@ struct ContentView: View {
         .onAppear {
             viewModel.updateAvailableVoices()
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                Divider()
-                ActionButtonsView(showingSettings: $showingSettings)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, viewModel.isMinimalistMode ? 8 : 16)
-                    .padding(.vertical, viewModel.isMinimalistMode ? 6 : 12)
-                    .background(Color(NSColor.windowBackgroundColor))
-            }
-        }
-    }
-}
-
-private extension ContentView {
-    var actionBarHeight: CGFloat {
-        viewModel.isMinimalistMode ? 60 : 76
     }
 }
 
