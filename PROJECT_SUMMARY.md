@@ -27,7 +27,8 @@ TextToSpeechApp/
 │   │   ├── AudioPlayerService.swift # Audio playback management
 │   │   ├── OpenAIService.swift     # OpenAI TTS integration
 │   │   ├── ElevenLabsService.swift # ElevenLabs API integration
-│   │   └── GoogleTTSService.swift  # Google Cloud TTS integration
+│   │   ├── GoogleTTSService.swift  # Google Cloud TTS integration
+│   │   └── LocalTTSService.swift   # On-device synthesis via AVSpeechSynthesizer
 │   └── Utilities/
 │       └── KeychainManager.swift    # Secure API key storage
 └── Tests/
@@ -40,6 +41,7 @@ TextToSpeechApp/
 - ✅ OpenAI TTS API integration
 - ✅ ElevenLabs API integration  
 - ✅ Google Cloud TTS integration
+- ✅ Tight Ass Mode for offline, on-device synthesis
 - ✅ Dynamic voice selection per provider
 - ✅ Provider-specific error handling
 
@@ -148,7 +150,7 @@ Before using the app, you need to configure API keys:
 1. **Launch the app**
 2. **Open Settings** (Cmd+, or click Settings button)
 3. **Navigate to API Keys tab**
-4. **Enter your API keys** for the providers you want to use:
+4. **Enter your API keys** for any cloud providers you want to use (skip if you only need the local Tight Ass Mode):
    - **ElevenLabs**: Get from https://elevenlabs.io
    - **OpenAI**: Get from https://platform.openai.com
    - **Google Cloud**: Get from https://console.cloud.google.com

@@ -120,6 +120,14 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertFalse(service.availableVoices.isEmpty)
         XCTAssertNotNil(service.defaultVoice)
     }
+
+    func testLocalTTSServiceInitialization() {
+        let service = LocalTTSService()
+
+        XCTAssertEqual(service.name, "Tight Ass Mode")
+        XCTAssertFalse(service.availableVoices.isEmpty)
+        XCTAssertEqual(service.defaultVoice.provider, .tightAss)
+    }
     
     // MARK: - Keychain Manager Tests
     
@@ -207,6 +215,11 @@ final class TextToSpeechAppTests: XCTestCase {
         viewModel.updateAvailableVoices()
         XCTAssertFalse(viewModel.availableVoices.isEmpty)
         XCTAssertEqual(viewModel.supportedFormats, [.mp3, .wav])
+
+        viewModel.selectedProvider = .tightAss
+        viewModel.updateAvailableVoices()
+        XCTAssertFalse(viewModel.availableVoices.isEmpty)
+        XCTAssertEqual(viewModel.supportedFormats, [.wav])
     }
 
     @MainActor
@@ -505,6 +518,11 @@ final class TextToSpeechAppTests: XCTestCase {
         viewModel.updateAvailableVoices()
         viewModel.inputText = String(repeating: "a", count: 20_000)
         XCTAssertTrue(viewModel.costEstimateSummary.contains("$0.50"))
+
+        viewModel.selectedProvider = .tightAss
+        viewModel.updateAvailableVoices()
+        viewModel.inputText = String(repeating: "a", count: 1_000)
+        XCTAssertTrue(viewModel.costEstimateSummary.localizedCaseInsensitiveContains("no usage fees"))
     }
     
     // MARK: - Utility Tests
@@ -527,12 +545,14 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(TTSProviderType.elevenLabs.displayName, "ElevenLabs")
         XCTAssertEqual(TTSProviderType.openAI.displayName, "OpenAI")
         XCTAssertEqual(TTSProviderType.google.displayName, "Google")
+        XCTAssertEqual(TTSProviderType.tightAss.displayName, "Tight Ass Mode")
     }
     
     func testProviderTypeIcons() {
         XCTAssertEqual(TTSProviderType.elevenLabs.icon, "waveform")
         XCTAssertEqual(TTSProviderType.openAI.icon, "cpu")
         XCTAssertEqual(TTSProviderType.google.icon, "cloud")
+        XCTAssertEqual(TTSProviderType.tightAss.icon, "internaldrive")
     }
 }
 

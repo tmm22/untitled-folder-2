@@ -84,6 +84,13 @@ extension ProviderCostProfile {
                 pricePerMillionCharsUSD: 50.0,
                 detail: "ElevenLabs Creator plan includes 10K characters/month; additional usage billed at about $5 per 100K."
             )
+        case .tightAss:
+            return ProviderCostProfile(
+                provider: provider,
+                freeTierChars: nil,
+                pricePerMillionCharsUSD: nil,
+                detail: "Tight Ass Mode runs locally using system voices, so there are no usage fees."
+            )
         }
     }
 

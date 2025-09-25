@@ -1,7 +1,7 @@
 # macOS Text-to-Speech App Architecture
 
 ## Overview
-A native macOS application built with SwiftUI that provides text-to-speech functionality using multiple TTS providers (ElevenLabs, OpenAI, Google Cloud TTS) with comprehensive playback controls.
+A native macOS application built with SwiftUI that provides text-to-speech functionality using multiple TTS providers (ElevenLabs, OpenAI, Google Cloud TTS, plus a local-on-device mode) with comprehensive playback controls.
 
 ## Technology Stack
 - **Platform**: macOS 13.0+
@@ -23,6 +23,7 @@ TextToSpeechApp/
 │   ├── ElevenLabsService.swift    # ElevenLabs API integration
 │   ├── OpenAIService.swift        # OpenAI TTS integration
 │   ├── GoogleTTSService.swift     # Google Cloud TTS integration
+│   ├── LocalTTSService.swift      # On-device AVSpeechSynthesizer integration
 │   └── AudioPlayerService.swift   # Audio playback management
 ├── ViewModels/
 │   └── TTSViewModel.swift         # Main view model
@@ -74,6 +75,14 @@ TextToSpeechApp/
   - SSML support
   - Voice pitch and speaking rate control
 - **Authentication**: API Key or OAuth 2.0
+
+#### Tight Ass Mode (Local)
+- **Engine**: `AVSpeechSynthesizer`
+- **Features**:
+  - Uses installed macOS system voices, so no network calls or API keys
+  - Streams PCM buffers directly to disk as WAV
+  - Honors playback speed, pitch, and volume bounds from the view model
+- **Authentication**: Not required
 
 ### 3. Playback Controls
 - **Play/Pause** toggle

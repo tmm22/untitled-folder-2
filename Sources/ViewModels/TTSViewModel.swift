@@ -80,6 +80,7 @@ class TTSViewModel: ObservableObject {
     private let elevenLabs = ElevenLabsService()
     private let openAI = OpenAIService()
     private let googleTTS = GoogleTTSService()
+    private let localTTS = LocalTTSService()
     private let keychainManager = KeychainManager()
 
     // MARK: - Private Properties
@@ -112,6 +113,8 @@ class TTSViewModel: ObservableObject {
             return "Google Cloud supports MP3 or WAV output."
         case .openAI:
             return "OpenAI offers MP3, WAV, AAC, and FLAC options."
+        case .tightAss:
+            return "Tight Ass Mode saves audio using the system voices in WAV format."
         }
     }
 
@@ -715,6 +718,7 @@ class TTSViewModel: ObservableObject {
     }
     
     func saveAPIKey(_ key: String, for provider: TTSProviderType) {
+        guard provider != .tightAss else { return }
         keychainManager.saveAPIKey(key, for: provider.rawValue)
         
         // Update the service with new key
@@ -725,10 +729,13 @@ class TTSViewModel: ObservableObject {
             openAI.updateAPIKey(key)
         case .google:
             googleTTS.updateAPIKey(key)
+        case .tightAss:
+            break
         }
     }
     
     func getAPIKey(for provider: TTSProviderType) -> String? {
+        guard provider != .tightAss else { return nil }
         return keychainManager.getAPIKey(for: provider.rawValue)
     }
     
@@ -1077,6 +1084,7 @@ enum TTSProviderType: String, CaseIterable {
     case elevenLabs = "ElevenLabs"
     case openAI = "OpenAI"
     case google = "Google"
+    case tightAss = "Tight Ass Mode"
     
     var displayName: String {
         return self.rawValue
@@ -1090,6 +1098,8 @@ enum TTSProviderType: String, CaseIterable {
             return "cpu"
         case .google:
             return "cloud"
+        case .tightAss:
+            return "internaldrive"
         }
     }
 }
@@ -1104,6 +1114,8 @@ private extension TTSViewModel {
             return openAI
         case .google:
             return googleTTS
+        case .tightAss:
+            return localTTS
         }
     }
 
@@ -1374,6 +1386,8 @@ private extension TTSViewModel {
             return [.mp3, .wav, .aac, .flac]
         case .google:
             return [.mp3, .wav]
+        case .tightAss:
+            return [.wav]
         }
     }
 

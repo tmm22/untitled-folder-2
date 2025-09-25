@@ -1,6 +1,6 @@
 # macOS Text-to-Speech App
 
-A powerful native macOS application that converts text to speech using multiple AI-powered TTS providers including ElevenLabs, OpenAI, and Google Cloud Text-to-Speech.
+A powerful native macOS application that converts text to speech using multiple AI-powered TTS providers including ElevenLabs, OpenAI, Google Cloud Text-to-Speech, plus a local “Tight Ass Mode” that never leaves your machine.
 
 ![macOS 13.0+](https://img.shields.io/badge/macOS-13.0%2B-blue)
 ![Swift 5.9](https://img.shields.io/badge/Swift-5.9-orange)
@@ -15,7 +15,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 ## Features
 
 ### 🎯 Core Functionality
-- **Multi-Provider Support**: Choose between ElevenLabs, OpenAI, and Google Cloud TTS
+- **Multi-Provider Support**: Choose between ElevenLabs, OpenAI, Google Cloud TTS, or the new Tight Ass Mode for local synthesis
 - **Rich Text Editor**: Large text input area with character counting
 - **Voice Selection**: Multiple voice options per provider with different accents and styles
 - **Playback Controls**: Play, pause, stop, seek, and loop functionality
@@ -29,9 +29,9 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Web Page Import**: Paste a URL and pull readable article text straight into the editor
 - **Auto-Chunks Long Scripts**: Seamlessly splits text that exceeds provider limits and stitches audio back together for you
 
-### 🔒 Security & Privacy
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
 - **No Data Collection**: Your text and audio never leave your device (except for API calls)
+- **Local-Only Option**: Tight Ass Mode generates speech entirely on-device using the system voice set
 - **Sandboxed Application**: Runs in a secure environment with limited system access
 
 ### 🎨 User Experience
@@ -132,8 +132,13 @@ swift run TextToSpeechApp
 ### Setting Up API Keys
 
 1. **Open Settings**: Press `Cmd+,` or click Settings button
-2. **Add API Keys**: Enter your API keys for each provider you want to use
+2. **Add API Keys**: Enter the API keys for any cloud providers you plan to use (skip this if you only need Tight Ass Mode)
 3. **Save**: Keys are automatically saved to macOS Keychain
+
+#### Tight Ass Mode (Local Voices)
+- Uses the built-in macOS speech engine and voices—no account or internet required
+- All audio is rendered locally to WAV format, so nothing is uploaded
+- Install extra system voices under **System Settings → Accessibility → Spoken Content → System Voice** if you want more languages or accents
 
 ### Managing API Keys
 
@@ -170,7 +175,7 @@ swift run TextToSpeechApp
 ### Basic Workflow
 
 1. **Enter Text**: Type or paste your text in the editor
-2. **Select Provider**: Choose your preferred TTS provider
+2. **Select Provider**: Choose your preferred TTS provider—including Tight Ass Mode if you want to keep everything local
 3. **Choose Voice**: Select a voice that suits your content
 4. **Generate**: Click "Generate" to create the audio
 5. **Playback**: Use controls to play, pause, or adjust speed
@@ -225,6 +230,7 @@ swift run TextToSpeechApp
 - The Character counter area now surfaces the estimated spend per provider for the current text.
 - OpenAI and Google calculations use their published $15/1M and $4/1M character rates, respectively.
 - ElevenLabs reflects the 10K character monthly allowance and approximates $5 per 100K thereafter.
+- Tight Ass Mode highlights that generations are free because synthesis happens on-device.
 - Treat estimates as guidance—always confirm against your own plan and dashboard usage.
 
 #### Batch Processing
@@ -275,6 +281,7 @@ Use SSML markup for advanced control:
 | **ElevenLabs** | 10,000 chars/month | From $5/month | Excellent | 28+ |
 | **OpenAI** | No free tier | $15/1M chars | Very Good | 50+ |
 | **Google** | 1M chars/month | $4-16/1M chars | Good | 40+ |
+| **Tight Ass Mode** | Unlimited | Free (local synthesis) | Depends on installed macOS voices | Dozens (based on system voices) |
 
 ### Rate Limits
 

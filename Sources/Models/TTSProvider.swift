@@ -28,6 +28,7 @@ struct Voice: Identifiable, Hashable {
         case elevenLabs = "ElevenLabs"
         case openAI = "OpenAI"
         case google = "Google"
+        case tightAss = "Tight Ass Mode"
     }
 }
 

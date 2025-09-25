@@ -92,6 +92,7 @@ class TTSViewModel: ObservableObject {
     private let elevenLabs = ElevenLabsService()
     private let openAI = OpenAIService()
     private let googleTTS = GoogleTTSService()
+    private let localTTS = LocalTTSService()
     
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
@@ -212,6 +213,7 @@ enum TTSProviderType: String, CaseIterable {
     case elevenLabs = "ElevenLabs"
     case openAI = "OpenAI"
     case google = "Google"
+    case tightAss = "Tight Ass Mode"
 }
 ```
 
