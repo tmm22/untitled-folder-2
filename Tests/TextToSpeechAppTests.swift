@@ -10,8 +10,29 @@ final class TextToSpeechAppTests: XCTestCase {
             "volume",
             "loopEnabled",
             "isMinimalistMode",
-            "audioFormat"
+            "audioFormat",
+            "appearancePreference",
+            "textSnippets"
         ].forEach { defaults.removeObject(forKey: $0) }
+    }
+
+    private struct StubURLContentLoader: URLContentLoading {
+        let result: Result<String, Error>
+
+        func fetchPlainText(from url: URL) async throws -> String {
+            switch result {
+            case .success(let value):
+                return value
+            case .failure(let error):
+                throw error
+            }
+        }
+    }
+
+    @MainActor
+    private func makeTestViewModel(urlContentResult: Result<String, Error> = .success("")) -> TTSViewModel {
+        let loader = StubURLContentLoader(result: urlContentResult)
+        return TTSViewModel(notificationCenterProvider: { nil }, urlContentLoader: loader)
     }
     
     // MARK: - Model Tests
@@ -33,7 +54,20 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(voice.provider, .openAI)
         XCTAssertNil(voice.previewURL)
     }
-    
+
+    func testTextSanitizerRemovesBoilerplate() {
+        let raw = "Skip to content\nMenu\nArticle heading\nThis is the body.\nSign in\nFooter navigation"
+        let cleaned = TextSanitizer.cleanImportedText(raw)
+        XCTAssertEqual(cleaned, "Article heading This is the body.")
+    }
+
+    func testTextChunkerRespectsLimits() {
+        let text = Array(repeating: "Sentence one. Sentence two.", count: 20).joined(separator: " ")
+        let chunks = TextChunker.chunk(text: text, limit: 60)
+        XCTAssertGreaterThan(chunks.count, 1)
+        XCTAssertTrue(chunks.allSatisfy { $0.count <= 60 })
+    }
+
     func testAudioSettingsDefaults() {
         let settings = AudioSettings()
         
@@ -142,7 +176,7 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testViewModelInitialization() {
         resetPersistedSettings()
-        let viewModel = TTSViewModel()
+        let viewModel = makeTestViewModel()
 
         XCTAssertTrue(viewModel.inputText.isEmpty)
         XCTAssertEqual(viewModel.selectedProvider, .openAI)
@@ -157,7 +191,7 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testViewModelProviderSwitch() {
         resetPersistedSettings()
-        let viewModel = TTSViewModel()
+        let viewModel = makeTestViewModel()
 
         viewModel.selectedProvider = .elevenLabs
         viewModel.updateAvailableVoices()
@@ -176,8 +210,27 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    func testAppearancePreferencePersistence() {
+        resetPersistedSettings()
+        var viewModel = makeTestViewModel()
+        XCTAssertNil(viewModel.colorSchemeOverride)
+
+        viewModel.appearancePreference = .dark
+
+        // Reinitialize to confirm persistence
+        viewModel = makeTestViewModel()
+        XCTAssertEqual(viewModel.appearancePreference, .dark)
+        XCTAssertEqual(viewModel.colorSchemeOverride, .dark)
+
+        viewModel.appearancePreference = .light
+        XCTAssertEqual(viewModel.colorSchemeOverride, .light)
+
+        resetPersistedSettings()
+    }
+
+    @MainActor
     func testFormatSelectionResetsWhenUnsupported() {
-        let viewModel = TTSViewModel()
+        let viewModel = makeTestViewModel()
 
         viewModel.selectedProvider = .openAI
         viewModel.updateAvailableVoices()
@@ -187,6 +240,271 @@ final class TextToSpeechAppTests: XCTestCase {
         viewModel.selectedProvider = .elevenLabs
         viewModel.updateAvailableVoices()
         XCTAssertEqual(viewModel.selectedFormat, .mp3)
+    }
+
+    @MainActor
+    func testImportTextFromURLPopulatesEditor() async {
+        let raw = "Skip to content\nMenu\nHello world article content.\nRead more"
+        let viewModel = makeTestViewModel(urlContentResult: .success(raw))
+
+        await viewModel.importText(from: "https://example.com/post", autoGenerate: false)
+
+        XCTAssertEqual(viewModel.inputText, "Hello world article content.")
+        XCTAssertFalse(viewModel.isImportingFromURL)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    @MainActor
+    func testImportTextTruncatesLongContent() async {
+        let longText = String(repeating: "A", count: 6000)
+        let viewModel = makeTestViewModel(urlContentResult: .success(longText))
+
+        await viewModel.importText(from: "https://example.com/long", autoGenerate: false)
+
+        XCTAssertEqual(viewModel.inputText.count, 5000)
+        XCTAssertEqual(viewModel.errorMessage, "Imported text exceeded 5,000 characters. The content was truncated.")
+    }
+
+    @MainActor
+    func testImportTextRejectsInvalidURL() async {
+        let viewModel = makeTestViewModel()
+
+        await viewModel.importText(from: "ftp://example.com", autoGenerate: false)
+
+        XCTAssertEqual(viewModel.errorMessage, "URL must start with http:// or https://.")
+        XCTAssertFalse(viewModel.isImportingFromURL)
+    }
+
+    @MainActor
+    func testRecentHistoryMaintainsOrderAndLimit() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        let voice = Voice(
+            id: "voice-test",
+            name: "History Voice",
+            language: "en-US",
+            gender: .neutral,
+            provider: .openAI,
+            previewURL: nil
+        )
+
+        (0..<6).forEach { index in
+            let text = "Sample text \(index)"
+            let audio = Data(repeating: UInt8(index), count: 10)
+            viewModel.recordGenerationHistory(
+                audioData: audio,
+                format: .mp3,
+                text: text,
+                voice: voice,
+                provider: .openAI,
+                duration: TimeInterval(index + 1),
+                transcript: nil
+            )
+        }
+
+        XCTAssertEqual(viewModel.recentGenerations.count, 5)
+        XCTAssertEqual(viewModel.recentGenerations.first?.text, "Sample text 5")
+        XCTAssertEqual(viewModel.recentGenerations.last?.text, "Sample text 1")
+    }
+
+    @MainActor
+    func testRecentHistoryDeduplicatesByProviderVoiceAndText() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        let voice = Voice(
+            id: "voice-test",
+            name: "History Voice",
+            language: "en-US",
+            gender: .neutral,
+            provider: .openAI,
+            previewURL: nil
+        )
+
+        viewModel.recordGenerationHistory(
+            audioData: Data(repeating: 1, count: 10),
+            format: .mp3,
+            text: "Repeated",
+            voice: voice,
+            provider: .openAI,
+            duration: 2,
+            transcript: nil
+        )
+
+        viewModel.recordGenerationHistory(
+            audioData: Data(repeating: 2, count: 10),
+            format: .wav,
+            text: "Repeated",
+            voice: voice,
+            provider: .openAI,
+            duration: 3,
+            transcript: nil
+        )
+
+        XCTAssertEqual(viewModel.recentGenerations.count, 1)
+        XCTAssertEqual(viewModel.recentGenerations.first?.format, .wav)
+        XCTAssertEqual(viewModel.recentGenerations.first?.audioData, Data(repeating: 2, count: 10))
+    }
+
+    @MainActor
+    func testRemovingHistoryItems() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        let voice = Voice(
+            id: "voice-test",
+            name: "History Voice",
+            language: "en-US",
+            gender: .neutral,
+            provider: .openAI,
+            previewURL: nil
+        )
+
+        viewModel.recordGenerationHistory(
+            audioData: Data(repeating: 1, count: 10),
+            format: .mp3,
+            text: "First",
+            voice: voice,
+            provider: .openAI,
+            duration: 2,
+            transcript: nil
+        )
+
+        viewModel.recordGenerationHistory(
+            audioData: Data(repeating: 2, count: 10),
+            format: .mp3,
+            text: "Second",
+            voice: voice,
+            provider: .openAI,
+            duration: 2,
+            transcript: nil
+        )
+
+        XCTAssertEqual(viewModel.recentGenerations.count, 2)
+
+        if let firstItem = viewModel.recentGenerations.first {
+            viewModel.removeHistoryItem(firstItem)
+        }
+
+        XCTAssertEqual(viewModel.recentGenerations.count, 1)
+        viewModel.clearHistory()
+        XCTAssertTrue(viewModel.recentGenerations.isEmpty)
+    }
+
+    @MainActor
+    func testSavingSnippetReplacesExistingName() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "Hello World"
+        viewModel.saveCurrentTextAsSnippet(named: "Greeting")
+        XCTAssertEqual(viewModel.textSnippets.count, 1)
+
+        viewModel.inputText = "Updated Greeting"
+        viewModel.saveCurrentTextAsSnippet(named: "Greeting")
+        XCTAssertEqual(viewModel.textSnippets.count, 1)
+        XCTAssertEqual(viewModel.textSnippets.first?.content, "Updated Greeting")
+    }
+
+    @MainActor
+    func testInsertSnippetModes() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "Original"
+        let snippet = TextSnippet(name: "Sample", content: "Snippet Content")
+
+        viewModel.insertSnippet(snippet, mode: .append)
+        XCTAssertTrue(viewModel.inputText.contains("Snippet Content"))
+        XCTAssertTrue(viewModel.inputText.contains("Original"))
+
+        viewModel.insertSnippet(snippet, mode: .replace)
+        XCTAssertEqual(viewModel.inputText, "Snippet Content")
+    }
+
+    @MainActor
+    func testRemoveSnippet() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "Content"
+        viewModel.saveCurrentTextAsSnippet(named: "Keep")
+        XCTAssertEqual(viewModel.textSnippets.count, 1)
+
+        if let snippet = viewModel.textSnippets.first {
+            viewModel.removeSnippet(snippet)
+        }
+        XCTAssertTrue(viewModel.textSnippets.isEmpty)
+    }
+
+    @MainActor
+    func testBatchSegmentsSplitOnDelimiter() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "Intro\n---\nMiddle section\n---\nConclusion"
+
+        let segments = viewModel.batchSegments(from: viewModel.inputText)
+
+        XCTAssertEqual(segments.count, 3)
+        XCTAssertTrue(viewModel.hasBatchableSegments)
+        XCTAssertEqual(segments[1], "Middle section")
+    }
+
+    @MainActor
+    func testBatchSegmentsIgnoreEmptyEntries() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "---\nFirst\n---\n\n---\nSecond"
+
+        let segments = viewModel.batchSegments(from: viewModel.inputText)
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments.first, "First")
+        XCTAssertEqual(segments.last, "Second")
+        XCTAssertTrue(viewModel.hasBatchableSegments)
+    }
+
+    @MainActor
+    func testApplyPronunciationRulesRespectsScope() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.pronunciationRules = [
+            PronunciationRule(displayText: "GIF", replacementText: "jiff", scope: .global),
+            PronunciationRule(displayText: "data", replacementText: "day-ta", scope: .provider(.openAI))
+        ]
+
+        let openAIResult = viewModel.applyPronunciationRules(to: "GIF data", provider: .openAI)
+        let elevenLabsResult = viewModel.applyPronunciationRules(to: "GIF data", provider: .elevenLabs)
+
+        XCTAssertEqual(openAIResult, "jiff day-ta")
+        XCTAssertEqual(elevenLabsResult, "jiff data")
+    }
+
+    func testTranscriptBuilderProducesStructuredOutput() {
+        let text = "Hello world. This is a transcript test."
+        let duration: TimeInterval = 6
+
+        let transcript = TranscriptBuilder.makeTranscript(for: text, duration: duration)
+
+        XCTAssertNotNil(transcript)
+        XCTAssertTrue(transcript?.srt.contains("1") == true)
+        XCTAssertTrue(transcript?.vtt.contains("WEBVTT") == true)
+    }
+
+    @MainActor
+    func testCostEstimatesPerProvider() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+        viewModel.inputText = String(repeating: "a", count: 2000)
+        XCTAssertTrue(viewModel.costEstimateSummary.contains("$0.03"))
+
+        viewModel.selectedProvider = .google
+        viewModel.updateAvailableVoices()
+        viewModel.inputText = String(repeating: "a", count: 500_000)
+        XCTAssertTrue(viewModel.costEstimateSummary.contains("free tier") || viewModel.costEstimateSummary.contains("Free"))
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        viewModel.inputText = String(repeating: "a", count: 20_000)
+        XCTAssertTrue(viewModel.costEstimateSummary.contains("$0.50"))
     }
     
     // MARK: - Utility Tests

@@ -177,6 +177,17 @@ struct Voice {
 - Hash text content for cache keys
 - Background cleanup of old cache
 
+### Long-Form Generation
+- `TextChunker` splits inputs that exceed a provider’s character budget by paragraph, sentence, and word boundaries before synthesis.
+- `TTSViewModel` dispatches each chunk through the selected provider and collects the resulting `GenerationOutput` objects without loading them into the player.
+- `mergeAudioSegments` concatenates the per-chunk audio using `AVMutableComposition`; WAV is preserved losslessly, other formats export as AAC (`.m4a`) to ensure a single contiguous file.
+- The merged audio is handed to `AudioPlayerService`, combined into a single history entry, and a fresh transcript is generated for the full text.
+- Any failures during chunk fetch or merge surface a descriptive error so the UI can prompt the user to retry or shorten the input.
+
+### Web Article Sanitization
+- `TextSanitizer` removes boilerplate (menus, “skip to content”, cookie notices, etc.) before populating the editor.
+- Normalizes whitespace so imported prose flows naturally and chunking operates on clean paragraphs.
+
 ### Async Operations
 - All API calls on background queues
 - Progressive UI updates

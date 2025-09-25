@@ -27,7 +27,7 @@ struct TextEditorView: View {
                 TextEditor(text: $viewModel.inputText)
                     .font(.system(size: 14, weight: .regular, design: .default))
                     .focused($isFocused)
-                    .frame(minHeight: viewModel.isMinimalistMode ? 260 : 300)
+                    .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260)
                     .padding(viewModel.isMinimalistMode ? 6 : 8)
                     .background(Color.clear)
                     .scrollContentBackground(.hidden)
@@ -49,7 +49,7 @@ struct TextEditorView: View {
                     .allowsHitTesting(false)
             }
         }
-        .frame(minHeight: viewModel.isMinimalistMode ? 260 : 300, maxHeight: .infinity)
+        .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260, maxHeight: .infinity)
         .onHover { hovering in
             isHovering = hovering
         }

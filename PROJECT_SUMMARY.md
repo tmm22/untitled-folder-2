@@ -49,7 +49,17 @@ TextToSpeechApp/
 - ✅ Provider and voice selection dropdowns
 - ✅ Visual feedback for generation and playback states
 - ✅ Context menus with sample text options
-- ✅ Dark mode support
+- ✅ Appearance controls (system/light/dark)
+- ✅ Responsive layout that adapts to compact window sizes
+- ✅ URL importer that converts web articles to speech-ready text
+- ✅ Automatic long-text chunking with stitched audio output
+- ✅ Recent history panel for quick playback and export of generated clips
+- ✅ Saved snippet library with replace or append actions
+- ✅ Inline provider cost estimates with free-tier awareness
+- ✅ Batch queue panel with per-segment status and cancel controls
+- ✅ Transcript export in SRT/VTT for current and past generations
+- ✅ Pronunciation glossary with provider-scoped rules
+- ✅ Optional batch completion notifications with macOS alerts
 
 ### 3. **Playback Controls**
 - ✅ Play/Pause/Stop functionality

@@ -22,6 +22,12 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Speed Control**: Adjust playback speed from 0.5x to 2.0x
 - **Volume Control**: Fine-tune audio volume with visual feedback
 - **Audio Export**: Save generated speech as MP3 or WAV everywhere, with AAC and FLAC available when supported (OpenAI)
+- **Recent History**: Revisit the last few generations instantly with built-in play and export actions
+- **Batch Queueing**: Split scripts with `---` and generate every segment sequentially with status tracking
+- **Transcript Export**: Generate SRT or VTT captions alongside every synthesis
+- **Pronunciation Glossary**: Override tricky words globally or per provider
+- **Web Page Import**: Paste a URL and pull readable article text straight into the editor
+- **Auto-Chunks Long Scripts**: Seamlessly splits text that exceeds provider limits and stitches audio back together for you
 
 ### 🔒 Security & Privacy
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
@@ -30,10 +36,14 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 
 ### 🎨 User Experience
 - **Native macOS Design**: Built with SwiftUI for a seamless Mac experience
-- **Dark Mode Support**: Automatically adapts to system appearance
+- **Appearance Controls**: Follow the system theme or force Light/Dark from Settings → General
+- **Responsive Layout**: Panels reflow and scroll gracefully—no more fullscreening just to reach controls
 - **Keyboard Shortcuts**: Efficient workflow with built-in shortcuts (remap through macOS Keyboard settings if needed)
 - **Progress Indicators**: Visual feedback during speech generation
 - **Error Handling**: Clear error messages and recovery options
+- **Saved Snippets**: Keep frequently used scripts handy with replace/append actions
+- **Inline Cost Estimates**: See per-provider pricing hints for your current script
+- **Batch Notifications**: Optional macOS alerts when queue processing completes
 - **Minimalist Layout (Compact) Option**: Toggleable in Settings or via the header button; reduces chrome and moves advanced controls to a popover; preserves all functionality and persists between launches
 
 ## Minimalist Layout (Compact)
@@ -49,7 +59,7 @@ The app includes an optional Compact UI that preserves all features while reduci
   - Action bar switches to icon-only buttons (Generate, Export, Clear, Settings)
   - Playback controls use tighter spacing and smaller icons while keeping the full timeline and transport controls
 - What stays the same:
-  - All functionality is available (Generate, Export, Play/Pause, Stop, Skip, Seek, Loop, Speed, Volume, Provider, Voice)
+- All functionality is available (Generate, Export, Play/Pause, Stop, Skip, Seek, Loop, Speed, Volume, Provider, Voice)
   - All keyboard shortcuts continue to work:
     - Generate: Cmd+Return
     - Play/Pause: Space
@@ -59,7 +69,7 @@ The app includes an optional Compact UI that preserves all features while reduci
     - Increase Speed: Cmd+]
     - Decrease Speed: Cmd+[
   - Preference persists across launches
-  - Works in both Light/Dark modes
+  - Works with both the system theme and manual appearance overrides
 
 Tip: Use the slider.horizontal.3 button in the header to open the Advanced Controls popover in Minimalist mode.
 
@@ -165,6 +175,14 @@ swift run TextToSpeechApp
 4. **Generate**: Click "Generate" to create the audio
 5. **Playback**: Use controls to play, pause, or adjust speed
 6. **Export**: Save the audio file for later use
+   - Inputs longer than a provider allows (e.g., 4,096 characters for OpenAI) are automatically split and stitched into a single audio track
+
+### Import From the Web
+
+1. Paste an article URL into the new URL import field above the editor
+2. Click **Import** to pull the text, or **Import & Generate** to fetch and synthesize in one step
+3. Toggle **Auto-generate after import** if you want the return key to import and immediately generate next time
+4. The app trims at 5,000 characters so you stay within provider limits (you'll see a notice if truncation happens)
 
 ### Keyboard Shortcuts
 
@@ -197,6 +215,18 @@ swift run TextToSpeechApp
 
 ### Advanced Features
 
+#### Saved Snippets
+- Click **Save Current Text** in the Saved Snippets panel to capture the editor contents.
+- Give the snippet a memorable name; existing names overwrite so you can keep the list tidy.
+- Use **Replace** to swap the current editor text or **Append** to tack the snippet onto the end.
+- Snippets persist between launches and can be removed at any time with the trash button.
+
+#### Cost Estimates
+- The Character counter area now surfaces the estimated spend per provider for the current text.
+- OpenAI and Google calculations use their published $15/1M and $4/1M character rates, respectively.
+- ElevenLabs reflects the 10K character monthly allowance and approximates $5 per 100K thereafter.
+- Treat estimates as guidance—always confirm against your own plan and dashboard usage.
+
 #### Batch Processing
 Process multiple texts by separating them with `---` delimiter:
 ```
@@ -206,6 +236,25 @@ Second text to convert
 ---
 Third text to convert
 ```
+
+- Click **Generate Batch** once the app detects multiple segments; each entry is processed sequentially.
+- Follow progress in the Batch Queue card and cancel mid-run if you need to make edits.
+- Successful segments land in Recent Generations automatically for playback or export.
+
+#### Transcript Export
+- After every generation, export matching SRT or VTT captions directly from the toolbar menu.
+- History entries keep their own transcripts, so you can revisit and export past runs at any time.
+- Timing is inferred from the rendered audio duration and sentence lengths—review before publishing for production use.
+
+#### Pronunciation Glossary
+- Add rules in the Pronunciation Glossary card to swap words or phrases before synthesis and transcript creation.
+- Rules can apply to all providers or a specific service when phonetics differ.
+- Edit or remove entries at any time; replacements are case-insensitive.
+
+#### Batch Notifications
+- Enable "Notify when batch generation completes" in Settings → General.
+- The app requests permission the first time; macOS delivers alerts in Notification Center.
+- Notifications summarize how many segments succeeded or failed.
 
 #### SSML Support (Google TTS)
 Use SSML markup for advanced control:

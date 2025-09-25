@@ -20,7 +20,7 @@ extension AudioSettings.AudioFormat {
     var fileExtension: String {
         switch self {
         case .aac:
-            return "aac"
+            return "m4a"
         case .opus:
             return "ogg"
         default:

@@ -296,6 +296,20 @@ struct SettingsView: View {
             
             GroupBox("Appearance") {
                 VStack(alignment: .leading, spacing: 12) {
+                    Picker("Appearance", selection: $viewModel.appearancePreference) {
+                        ForEach(AppearancePreference.allCases) { preference in
+                            Text(preference.displayName).tag(preference)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Appearance")
+
+                    Text("Override the system setting when you need a consistent light or dark presentation.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Divider()
+
                     Toggle(isOn: $viewModel.isMinimalistMode) {
                         Text("Minimalist layout (Compact)")
                     }
@@ -311,18 +325,25 @@ struct SettingsView: View {
                     
                     Divider()
                     
-                    Text("The app follows your system appearance settings.")
+                    Text("Changes apply immediately and persist between launches.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 8)
             }
             
-            GroupBox("Behavior") {
+            GroupBox("Notifications") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Show generation progress", isOn: .constant(true))
-                    Toggle("Play audio automatically after generation", isOn: .constant(true))
-                    Toggle("Clear text after export", isOn: .constant(false))
+                    Toggle(isOn: Binding(
+                        get: { viewModel.notificationsEnabled },
+                        set: { viewModel.setNotificationsEnabled($0) }
+                    )) {
+                        Text("Notify when batch generation completes")
+                    }
+
+                    Text("Enables macOS alerts when batch queues finish processing. macOS will prompt for permission the first time you turn this on.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 8)
             }

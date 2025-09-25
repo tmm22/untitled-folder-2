@@ -9,6 +9,7 @@ struct TextToSpeechApp: App {
             ContentView()
                 .environmentObject(viewModel)
                 .frame(minWidth: 800, minHeight: 600)
+                .preferredColorScheme(viewModel.colorSchemeOverride)
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
@@ -16,6 +17,7 @@ struct TextToSpeechApp: App {
         Settings {
             SettingsView()
                 .environmentObject(viewModel)
+                .preferredColorScheme(viewModel.colorSchemeOverride)
         }
     }
 }
