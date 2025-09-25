@@ -102,6 +102,13 @@ TextToSpeechApp/
 - ✅ Performance tests
 - ✅ Model validation tests
 
+## Release Management
+
+- The marketing version lives in `Info.plist` (`CFBundleShortVersionString`).
+- Increment the build number (`CFBundleVersion`) alongside each release.
+- Document every change in [CHANGELOG.md](CHANGELOG.md) and attach updated screenshots under `Docs/screenshots/`.
+- Tag releases in git using the semantic version (e.g., `v1.1.0`).
+
 ## 🚀 How to Build and Run
 
 ### Prerequisites

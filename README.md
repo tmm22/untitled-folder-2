@@ -7,6 +7,8 @@ A powerful native macOS application that converts text to speech using multiple 
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-Framework-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+> **Latest Release:** 1.1.1 · September 26, 2025 · [Changelog](CHANGELOG.md)
+
 ## Contributor Guide
 
 Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and review expectations.
@@ -29,6 +31,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Web Page Import**: Paste a URL and pull readable article text straight into the editor
 - **Auto-Chunks Long Scripts**: Seamlessly splits text that exceeds provider limits and stitches audio back together for you
 
+### 🔒 Security & Privacy
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
 - **No Data Collection**: Your text and audio never leave your device (except for API calls)
 - **Local-Only Option**: Tight Ass Mode generates speech entirely on-device using the system voice set
@@ -95,6 +98,11 @@ Tip: Use the slider.horizontal.3 button in the header to open the Advanced Contr
 │ [Generate] [Export] [Clear] [Settings] │
 └─────────────────────────────────────────┘
 ```
+
+### Tight Ass Mode Provider
+![Tight Ass Mode Provider](Docs/screenshots/tight-ass-mode.png)
+
+> Placeholder image — capture a real screenshot after launching the app and overwrite `Docs/screenshots/tight-ass-mode.png`.
 
 ## Installation
 
@@ -282,6 +290,10 @@ Use SSML markup for advanced control:
 | **OpenAI** | No free tier | $15/1M chars | Very Good | 50+ |
 | **Google** | 1M chars/month | $4-16/1M chars | Good | 40+ |
 | **Tight Ass Mode** | Unlimited | Free (local synthesis) | Depends on installed macOS voices | Dozens (based on system voices) |
+
+## Release Notes
+
+- Track ongoing changes in [CHANGELOG.md](CHANGELOG.md).
 
 ### Rate Limits
 
