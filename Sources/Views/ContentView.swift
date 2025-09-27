@@ -362,9 +362,25 @@ private struct CommandStripView: View {
                 Divider()
                     .frame(height: 24)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Voice Style")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        Text("Voice Style")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        Button {
+                            viewModel.resetStyleControls()
+                        } label: {
+                            Label("Reset", systemImage: "arrow.counterclockwise")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .controlSize(.small)
+                        .buttonStyle(.bordered)
+                        .tint(.accentColor)
+                        .disabled(!viewModel.canResetStyleControls)
+                        .help("Restore the default voice style settings")
+                    }
 
                     ForEach(viewModel.activeStyleControls) { control in
                         VStack(alignment: .leading, spacing: 4) {
@@ -376,6 +392,17 @@ private struct CommandStripView: View {
                                 Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundColor(.secondary)
+                                Button {
+                                    viewModel.resetStyleControl(control)
+                                } label: {
+                                    Image(systemName: "arrow.uturn.backward.circle")
+                                        .imageScale(.small)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundColor(viewModel.canResetStyleControl(control) ? Color.accentColor : Color.secondary)
+                                .opacity(viewModel.canResetStyleControl(control) ? 1 : 0.35)
+                                .disabled(!viewModel.canResetStyleControl(control))
+                                .help("Reset \(control.label) to its default value")
                             }
 
                             if let step = control.step {

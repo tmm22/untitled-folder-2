@@ -277,6 +277,70 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(viewModel.styleValues, googleValues)
     }
 
+    @MainActor
+    func testResetStyleControlsRestoresDefaults() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+
+        XCTAssertTrue(viewModel.hasActiveStyleControls)
+        XCTAssertFalse(viewModel.canResetStyleControls)
+
+        guard let control = viewModel.activeStyleControls.first else {
+            XCTFail("Expected OpenAI to expose style controls")
+            return
+        }
+
+        viewModel.binding(for: control).wrappedValue = control.range.upperBound
+
+        XCTAssertTrue(viewModel.canResetStyleControls)
+        let adjustedValue = viewModel.currentStyleValue(for: control)
+        XCTAssertGreaterThan(abs(adjustedValue - control.defaultValue), 0.0001)
+
+        viewModel.resetStyleControls()
+
+        XCTAssertFalse(viewModel.canResetStyleControls)
+        XCTAssertEqual(viewModel.currentStyleValue(for: control), control.defaultValue, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testResetSingleStyleControlOnlyTouchesTarget() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+
+        guard viewModel.activeStyleControls.count >= 1 else {
+            XCTFail("Expected style controls for OpenAI")
+            return
+        }
+
+        let primaryControl = viewModel.activeStyleControls[0]
+        viewModel.binding(for: primaryControl).wrappedValue = primaryControl.range.upperBound
+
+        var secondaryControl: ProviderStyleControl?
+        if viewModel.activeStyleControls.count > 1 {
+            secondaryControl = viewModel.activeStyleControls[1]
+            if let secondaryControl {
+                viewModel.binding(for: secondaryControl).wrappedValue = secondaryControl.range.lowerBound
+            }
+        }
+
+        XCTAssertTrue(viewModel.canResetStyleControl(primaryControl))
+        viewModel.resetStyleControl(primaryControl)
+
+        XCTAssertEqual(viewModel.currentStyleValue(for: primaryControl), primaryControl.defaultValue, accuracy: 0.0001)
+
+        if let secondaryControl {
+            XCTAssertNotEqual(viewModel.currentStyleValue(for: secondaryControl), secondaryControl.defaultValue, accuracy: 0.0001)
+        }
+
+        XCTAssertEqual(viewModel.canResetStyleControls, secondaryControl != nil)
+    }
+
     func testGoogleVoiceTuningAdaptsPerVoiceFamily() {
         let service = GoogleTTSService()
 

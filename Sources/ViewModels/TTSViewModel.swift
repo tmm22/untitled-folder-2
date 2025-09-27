@@ -101,6 +101,7 @@ class TTSViewModel: ObservableObject {
     private let pronunciationKey = "pronunciationRules"
     private let notificationsKey = "notificationsEnabled"
     private let styleValuesKey = "providerStyleValues"
+    private let styleComparisonEpsilon = 0.0001
     private var batchTask: Task<Void, Never>?
     private let notificationCenter: UNUserNotificationCenter?
     private let urlContentLoader: URLContentLoading
@@ -116,6 +117,15 @@ class TTSViewModel: ObservableObject {
 
     var hasActiveStyleControls: Bool {
         !activeStyleControls.isEmpty
+    }
+
+    var canResetStyleControls: Bool {
+        guard hasActiveStyleControls else { return false }
+        return activeStyleControls.contains { canResetStyleControl($0) }
+    }
+
+    func canResetStyleControl(_ control: ProviderStyleControl) -> Bool {
+        abs(currentStyleValue(for: control) - control.defaultValue) > styleComparisonEpsilon
     }
 
     var exportFormatHelpText: String? {
@@ -164,7 +174,7 @@ class TTSViewModel: ObservableObject {
     func currentStyleValue(for control: ProviderStyleControl) -> Double {
         styleValues[control.id] ?? control.defaultValue
     }
-    
+
     // MARK: - Initialization
     init(notificationCenterProvider: @escaping () -> UNUserNotificationCenter? = { UNUserNotificationCenter.current() },
          urlContentLoader: URLContentLoading = URLContentService()) {
@@ -233,6 +243,20 @@ class TTSViewModel: ObservableObject {
     }
 
     // MARK: - Public Methods
+    func resetStyleControl(_ control: ProviderStyleControl) {
+        guard hasActiveStyleControls else { return }
+        guard canResetStyleControl(control) else { return }
+        styleValues[control.id] = control.defaultValue
+    }
+
+    func resetStyleControls() {
+        guard hasActiveStyleControls else { return }
+        let defaults = activeStyleControls.reduce(into: [String: Double]()) { partialResult, control in
+            partialResult[control.id] = control.defaultValue
+        }
+        styleValues = defaults
+    }
+
     func generateSpeech() async {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
 

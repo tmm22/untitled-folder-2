@@ -232,7 +232,8 @@ swift run TextToSpeechApp
 #### Voice Style Controls
 - Located beside the Provider/Voice pickers, the emotion/style stack only appears when a provider exposes additional expressive metadata.
 - **OpenAI** surfaces *Expressiveness* and *Warmth*; **ElevenLabs** keeps *Stability*, *Similarity Boost*, and *Style*; **Google** offers *Briskness* and *Intonation* tuned automatically for Neural2, WaveNet, and Standard voices.
-- Adjust a slider to immediately influence the next generation, export, or batch run. The sliders disable themselves for providers that do not support extra style parameters (including Tight Ass Mode).
+- Adjust a slider to immediately influence the next generation, export, or batch run. Each slider now includes its own reset button to snap the value back to the provider default.
+- A global reset button in the header restores every slider at once. Both reset options disable themselves when the controls already match their defaults.
 - Custom values persist per provider via UserDefaults + Keychain, so each service remembers its latest tone the next time you launch the app.
 
 #### Saved Snippets

@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+### Added
+- Per-slider reset controls and documentation updates for the Voice Style panel, plus a global reset affordance that surfaces whenever styles deviate from provider defaults.
+
 ## [1.1.1] - 2025-09-26
 ### Changed
 - Bumped the app version to `1.1.1` (build `3`) and kept the temporary Tight Ass Mode placeholder screenshot for now.
