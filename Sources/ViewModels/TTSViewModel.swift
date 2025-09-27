@@ -57,6 +57,13 @@ class TTSViewModel: ObservableObject {
     @Published var batchProgress: Double = 0
     @Published var pronunciationRules: [PronunciationRule] = []
     @Published private(set) var notificationsEnabled: Bool = false
+    @Published private(set) var activeStyleControls: [ProviderStyleControl] = []
+    @Published private(set) var styleValues: [String: Double] = [:] {
+        didSet {
+            cachedStyleValues[selectedProvider] = styleValues
+            persistStyleValues()
+        }
+    }
     @Published var isImportingFromURL: Bool = false
     @Published var appearancePreference: AppearancePreference = .system {
         didSet {
@@ -93,9 +100,11 @@ class TTSViewModel: ObservableObject {
     private let snippetsKey = "textSnippets"
     private let pronunciationKey = "pronunciationRules"
     private let notificationsKey = "notificationsEnabled"
+    private let styleValuesKey = "providerStyleValues"
     private var batchTask: Task<Void, Never>?
     private let notificationCenter: UNUserNotificationCenter?
     private let urlContentLoader: URLContentLoading
+    private var cachedStyleValues: [TTSProviderType: [String: Double]] = [:]
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -103,6 +112,10 @@ class TTSViewModel: ObservableObject {
 
     var colorSchemeOverride: ColorScheme? {
         appearancePreference.colorScheme
+    }
+
+    var hasActiveStyleControls: Bool {
+        !activeStyleControls.isEmpty
     }
 
     var exportFormatHelpText: String? {
@@ -135,17 +148,90 @@ class TTSViewModel: ObservableObject {
     var costEstimateSummary: String { costEstimate.summary }
 
     var costEstimateDetail: String? { costEstimate.detail }
+
+    func binding(for control: ProviderStyleControl) -> Binding<Double> {
+        Binding(
+            get: { self.currentStyleValue(for: control) },
+            set: { newValue in
+                let clamped = control.clamp(newValue)
+                if self.styleValues[control.id] != clamped {
+                    self.styleValues[control.id] = clamped
+                }
+            }
+        )
+    }
+
+    func currentStyleValue(for control: ProviderStyleControl) -> Double {
+        styleValues[control.id] ?? control.defaultValue
+    }
     
     // MARK: - Initialization
     init(notificationCenterProvider: @escaping () -> UNUserNotificationCenter? = { UNUserNotificationCenter.current() },
          urlContentLoader: URLContentLoading = URLContentService()) {
         self.notificationCenter = notificationCenterProvider()
-        self.urlContentLoader = urlContentLoader
-        setupAudioPlayer()
-        loadSavedSettings()
-        updateAvailableVoices()
+       self.urlContentLoader = urlContentLoader
+       setupAudioPlayer()
+       loadSavedSettings()
+       updateAvailableVoices()
     }
-    
+
+    private func refreshStyleControls(for providerType: TTSProviderType) {
+        let provider = getProvider(for: providerType)
+        let controls = provider.styleControls
+        activeStyleControls = controls
+
+        guard !controls.isEmpty else {
+            styleValues = [:]
+            cachedStyleValues[providerType] = [:]
+            return
+        }
+
+        let resolved = resolveStyleValues(for: controls, cached: cachedStyleValues[providerType])
+        styleValues = resolved
+    }
+
+    private func resolveStyleValues(for controls: [ProviderStyleControl], cached: [String: Double]?) -> [String: Double] {
+        controls.reduce(into: [:]) { partialResult, control in
+            let stored = cached?[control.id] ?? control.defaultValue
+            partialResult[control.id] = control.clamp(stored)
+        }
+    }
+
+    private func styleValues(for providerType: TTSProviderType) -> [String: Double] {
+        if providerType == selectedProvider {
+            return styleValues
+        }
+
+        let provider = getProvider(for: providerType)
+        let controls = provider.styleControls
+        guard !controls.isEmpty else {
+            cachedStyleValues[providerType] = [:]
+            persistStyleValues()
+            return [:]
+        }
+        let resolved = resolveStyleValues(for: controls, cached: cachedStyleValues[providerType])
+        cachedStyleValues[providerType] = resolved
+        persistStyleValues()
+        return resolved
+    }
+
+    private func persistStyleValues() {
+        let filtered = cachedStyleValues.reduce(into: [String: [String: Double]]()) { partialResult, element in
+            guard !element.value.isEmpty else { return }
+            partialResult[element.key.rawValue] = element.value
+        }
+
+        let defaults = UserDefaults.standard
+        if filtered.isEmpty {
+            defaults.removeObject(forKey: styleValuesKey)
+            return
+        }
+
+        if let data = try? JSONEncoder().encode(filtered) {
+            defaults.set(data, forKey: styleValuesKey)
+        }
+    }
+
     // MARK: - Public Methods
     func generateSpeech() async {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -639,7 +725,8 @@ class TTSViewModel: ObservableObject {
             speed: playbackSpeed,
             volume: volume,
             format: format,
-            sampleRate: sampleRate(for: format)
+            sampleRate: sampleRate(for: format),
+            styleValues: styleValues(for: selectedProvider)
         )
 
         let previousAudioData = audioData
@@ -709,6 +796,7 @@ class TTSViewModel: ObservableObject {
     func updateAvailableVoices() {
         let provider = getCurrentProvider()
         availableVoices = provider.availableVoices
+        refreshStyleControls(for: selectedProvider)
         ensureFormatSupportedForSelectedProvider()
 
         // Select default voice if none selected
@@ -790,6 +878,18 @@ class TTSViewModel: ObservableObject {
         if let appearanceRaw = UserDefaults.standard.string(forKey: "appearancePreference"),
            let storedPreference = AppearancePreference(rawValue: appearanceRaw) {
             appearancePreference = storedPreference
+        }
+
+        if let styleData = UserDefaults.standard.data(forKey: styleValuesKey) {
+            do {
+                let decoded = try JSONDecoder().decode([String: [String: Double]].self, from: styleData)
+                cachedStyleValues = decoded.reduce(into: [:]) { partialResult, element in
+                    guard let provider = TTSProviderType(rawValue: element.key) else { return }
+                    partialResult[provider] = element.value
+                }
+            } catch {
+                cachedStyleValues = [:]
+            }
         }
 
         if let snippetsData = UserDefaults.standard.data(forKey: snippetsKey) {
@@ -1293,7 +1393,8 @@ private extension TTSViewModel {
             speed: playbackSpeed,
             volume: volume,
             format: format,
-            sampleRate: sampleRate(for: format)
+            sampleRate: sampleRate(for: format),
+            styleValues: styleValues(for: providerType)
         )
 
         if loadIntoPlayer {

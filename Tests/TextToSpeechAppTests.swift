@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import TextToSpeechApp
 
 final class TextToSpeechAppTests: XCTestCase {
@@ -12,7 +13,8 @@ final class TextToSpeechAppTests: XCTestCase {
             "isMinimalistMode",
             "audioFormat",
             "appearancePreference",
-            "textSnippets"
+            "textSnippets",
+            "providerStyleValues"
         ].forEach { defaults.removeObject(forKey: $0) }
     }
 
@@ -76,6 +78,7 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(settings.volume, 1.0)
         XCTAssertEqual(settings.format, .mp3)
         XCTAssertEqual(settings.sampleRate, 22050)
+        XCTAssertTrue(settings.styleValues.isEmpty)
     }
     
     func testTTSErrorMessages() {
@@ -103,14 +106,16 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(service.name, "OpenAI")
         XCTAssertFalse(service.availableVoices.isEmpty)
         XCTAssertNotNil(service.defaultVoice)
+        XCTAssertFalse(service.styleControls.isEmpty)
     }
     
     func testElevenLabsServiceInitialization() {
         let service = ElevenLabsService()
-        
+
         XCTAssertEqual(service.name, "ElevenLabs")
         XCTAssertFalse(service.availableVoices.isEmpty)
         XCTAssertNotNil(service.defaultVoice)
+        XCTAssertFalse(service.styleControls.isEmpty)
     }
     
     func testGoogleTTSServiceInitialization() {
@@ -119,6 +124,7 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(service.name, "Google Cloud TTS")
         XCTAssertFalse(service.availableVoices.isEmpty)
         XCTAssertNotNil(service.defaultVoice)
+        XCTAssertFalse(service.styleControls.isEmpty)
     }
 
     func testLocalTTSServiceInitialization() {
@@ -220,6 +226,115 @@ final class TextToSpeechAppTests: XCTestCase {
         viewModel.updateAvailableVoices()
         XCTAssertFalse(viewModel.availableVoices.isEmpty)
         XCTAssertEqual(viewModel.supportedFormats, [.wav])
+    }
+
+    @MainActor
+    func testStyleControlsTrackProviderCapabilities() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+        XCTAssertTrue(viewModel.hasActiveStyleControls)
+        XCTAssertFalse(viewModel.activeStyleControls.isEmpty)
+        XCTAssertFalse(viewModel.styleValues.isEmpty)
+        let openAIValues = viewModel.styleValues
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+
+        XCTAssertTrue(viewModel.hasActiveStyleControls)
+        XCTAssertFalse(viewModel.activeStyleControls.isEmpty)
+        XCTAssertFalse(viewModel.styleValues.isEmpty)
+
+        let initialValues = viewModel.styleValues
+
+        viewModel.selectedProvider = .google
+        viewModel.updateAvailableVoices()
+
+        XCTAssertTrue(viewModel.hasActiveStyleControls)
+        XCTAssertFalse(viewModel.activeStyleControls.isEmpty)
+        XCTAssertFalse(viewModel.styleValues.isEmpty)
+        let googleValues = viewModel.styleValues
+
+        viewModel.selectedProvider = .tightAss
+        viewModel.updateAvailableVoices()
+
+        XCTAssertFalse(viewModel.hasActiveStyleControls)
+        XCTAssertTrue(viewModel.activeStyleControls.isEmpty)
+        XCTAssertTrue(viewModel.styleValues.isEmpty)
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        XCTAssertEqual(viewModel.styleValues, initialValues)
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+        XCTAssertEqual(viewModel.styleValues, openAIValues)
+
+        viewModel.selectedProvider = .google
+        viewModel.updateAvailableVoices()
+        XCTAssertEqual(viewModel.styleValues, googleValues)
+    }
+
+    func testGoogleVoiceTuningAdaptsPerVoiceFamily() {
+        let service = GoogleTTSService()
+
+        let neural = service.tuningParameters(for: "en-US-Neural2-F")
+        let wavenet = service.tuningParameters(for: "en-US-Wavenet-D")
+        let standard = service.tuningParameters(for: "en-US-Standard-A")
+
+        XCTAssertLessThan(neural.minRate, neural.maxRate)
+        XCTAssertLessThan(wavenet.minPitch, wavenet.maxPitch)
+        XCTAssertLessThan(standard.minRate, standard.maxRate)
+
+        XCTAssertLessThan(neural.rateSpread, standard.rateSpread)
+        XCTAssertGreaterThan(wavenet.rateSpread, neural.rateSpread)
+        XCTAssertGreaterThan(standard.pitchSpread, neural.pitchSpread)
+    }
+
+    @MainActor
+    func testStyleValuesPersistAcrossSessions() {
+        resetPersistedSettings()
+        var viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+
+        guard let openAIControl = viewModel.activeStyleControls.first else {
+            XCTFail("Expected OpenAI to expose style controls")
+            return
+        }
+
+        let openAIControlID = openAIControl.id
+        viewModel.binding(for: openAIControl).wrappedValue = 0.7
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+
+        guard let elevenControl = viewModel.activeStyleControls.first else {
+            XCTFail("Expected ElevenLabs to expose style controls")
+            return
+        }
+
+        let elevenControlID = elevenControl.id
+        viewModel.binding(for: elevenControl).wrappedValue = 0.55
+
+        viewModel = makeTestViewModel()
+
+        viewModel.selectedProvider = .openAI
+        viewModel.updateAvailableVoices()
+        let restoredOpenAI = viewModel.styleValues[openAIControlID]
+        XCTAssertNotNil(restoredOpenAI)
+        XCTAssertEqual(restoredOpenAI ?? 0, 0.7, accuracy: 0.0001)
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        let restoredEleven = viewModel.styleValues[elevenControlID]
+        XCTAssertNotNil(restoredEleven)
+        XCTAssertEqual(restoredEleven ?? 0, 0.55, accuracy: 0.0001)
+
+        resetPersistedSettings()
     }
 
     @MainActor

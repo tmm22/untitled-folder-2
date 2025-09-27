@@ -52,6 +52,29 @@ class GoogleTTSService: TTSProvider {
         ]
     }
     
+    var styleControls: [ProviderStyleControl] {
+        [
+            ProviderStyleControl(
+                id: "google.briskness",
+                label: "Briskness",
+                range: 0...1,
+                defaultValue: 0.5,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Increase for faster deliveries; decrease for a relaxed cadence."
+            ),
+            ProviderStyleControl(
+                id: "google.intonation",
+                label: "Intonation",
+                range: 0...1,
+                defaultValue: 0.5,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Blend in additional pitch variation to emphasize key phrases."
+            )
+        ]
+    }
+    
     // MARK: - Initialization
     init() {
         // Load API key from keychain if available
@@ -87,7 +110,7 @@ class GoogleTTSService: TTSProvider {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         // Parse voice ID to get language code and name
         let voiceComponents = voice.id.split(separator: "-")
         let languageCode = voiceComponents.prefix(2).joined(separator: "-")
@@ -104,6 +127,23 @@ class GoogleTTSService: TTSProvider {
         }
         
         // Prepare request body
+        let controlLookup = Dictionary(uniqueKeysWithValues: styleControls.map { ($0.id, $0) })
+        let briskness = controlLookup["google.briskness"].map { settings.styleValue(for: $0) } ?? 0.5
+        let intonation = controlLookup["google.intonation"].map { settings.styleValue(for: $0) } ?? 0.5
+
+        let tuning = tuningParameters(for: voice.id)
+
+        let sliderRateMultiplier = tuning.rateBaseline + briskness * tuning.rateSpread
+        let speakingRate = clamp(
+            value: settings.speed * sliderRateMultiplier,
+            lower: tuning.minRate,
+            upper: tuning.maxRate
+        )
+
+        let basePitchOffset = (settings.pitch - 1.0) * tuning.basePitchScale
+        let sliderPitchOffset = tuning.pitchBaseline + (intonation - 0.5) * tuning.pitchSpread
+        let pitch = clamp(value: basePitchOffset + sliderPitchOffset, lower: tuning.minPitch, upper: tuning.maxPitch)
+
         let requestBody = GoogleTTSRequest(
             input: InputText(text: text),
             voice: VoiceSelection(
@@ -113,8 +153,8 @@ class GoogleTTSService: TTSProvider {
             ),
             audioConfig: AudioConfig(
                 audioEncoding: settings.format.googleFormat,
-                speakingRate: settings.speed,
-                pitch: settings.pitch,
+                speakingRate: speakingRate,
+                pitch: pitch,
                 volumeGainDb: convertVolumeToDb(settings.volume),
                 sampleRateHertz: settings.sampleRate
             )
@@ -211,6 +251,67 @@ private struct AudioConfig: Codable {
 
 private struct GoogleTTSResponse: Codable {
     let audioContent: String
+}
+
+// MARK: - Helpers
+private func clamp(value: Double, lower: Double, upper: Double) -> Double {
+    min(max(value, lower), upper)
+}
+
+struct VoiceStyleTuning {
+    let rateBaseline: Double
+    let rateSpread: Double
+    let minRate: Double
+    let maxRate: Double
+    let basePitchScale: Double
+    let pitchBaseline: Double
+    let pitchSpread: Double
+    let minPitch: Double
+    let maxPitch: Double
+}
+
+extension GoogleTTSService {
+    func tuningParameters(for voiceID: String) -> VoiceStyleTuning {
+        if voiceID.lowercased().contains("neural") {
+            return VoiceStyleTuning(
+                rateBaseline: 0.95,
+                rateSpread: 0.35,
+                minRate: 0.5,
+                maxRate: 2.3,
+                basePitchScale: 5.0,
+                pitchBaseline: 0.0,
+                pitchSpread: 10.0,
+                minPitch: -10.0,
+                maxPitch: 12.0
+            )
+        }
+
+        if voiceID.lowercased().contains("wavenet") {
+            return VoiceStyleTuning(
+                rateBaseline: 0.9,
+                rateSpread: 0.45,
+                minRate: 0.4,
+                maxRate: 2.6,
+                basePitchScale: 6.0,
+                pitchBaseline: 0.0,
+                pitchSpread: 12.0,
+                minPitch: -12.0,
+                maxPitch: 12.0
+            )
+        }
+
+        return VoiceStyleTuning(
+            rateBaseline: 0.8,
+            rateSpread: 0.6,
+            minRate: 0.3,
+            maxRate: 3.0,
+            basePitchScale: 7.0,
+            pitchBaseline: -1.5,
+            pitchSpread: 14.0,
+            minPitch: -14.0,
+            maxPitch: 14.0
+        )
+    }
 }
 
 private struct GoogleError: Codable {

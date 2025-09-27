@@ -217,7 +217,15 @@ enum TTSProviderType: String, CaseIterable {
 }
 ```
 
-### 3. Main Content View
+### 3. Provider Style Controls
+
+1. **Describe sliders**: `ProviderStyleControl` lives in `Models/TTSProvider.swift` and captures the metadata needed to render a single slider (ID, label, range, default, optional step, formatter, and help text). Providers that do not override `styleControls` simply inherit the empty default.
+2. **Surface in the UI**: `TTSViewModel` publishes `activeStyleControls` and `styleValues`, persists them in `UserDefaults` (key `providerStyleValues`), and exposes a `binding(for:)` helper that ContentView uses to build the slider stack beside the Provider/Voice pickers.
+3. **Inject into services**: `AudioSettings` now carries `styleValues`. ElevenLabs maps stability/similarity/style straight into the request body. OpenAI wraps Expressiveness and Warmth under a `style` payload. Google derives per-voice tuning parameters before calculating speech rate and pitch.
+4. **Persistence rules**: Each provider caches its own tone profile. Switching to providers without sliders (e.g., Tight Ass Mode) automatically hides the UI and clears transient values while preserving cached entries for the next time you select the supporting provider.
+5. **Adding a new control**: Extend the provider’s `styleControls`, read the clamped value in `synthesizeSpeech`, and add or update tests in `TextToSpeechAppTests` to cover discovery and persistence.
+
+### 4. Main Content View
 **File: Views/ContentView.swift**
 ```swift
 import SwiftUI

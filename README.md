@@ -20,6 +20,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Multi-Provider Support**: Choose between ElevenLabs, OpenAI, Google Cloud TTS, or the new Tight Ass Mode for local synthesis
 - **Rich Text Editor**: Large text input area with character counting
 - **Voice Selection**: Multiple voice options per provider with different accents and styles
+- **Expressive Voice Tuning**: Emotion/style sliders appear automatically for OpenAI, ElevenLabs, and Google voices, with per-provider defaults that persist between sessions
 - **Playback Controls**: Play, pause, stop, seek, and loop functionality
 - **Speed Control**: Adjust playback speed from 0.5x to 2.0x
 - **Volume Control**: Fine-tune audio volume with visual feedback
@@ -227,6 +228,12 @@ swift run TextToSpeechApp
 - Prefer WAV or FLAC for lossless editing, and MP3/AAC for lightweight distribution.
 
 ### Advanced Features
+
+#### Voice Style Controls
+- Located beside the Provider/Voice pickers, the emotion/style stack only appears when a provider exposes additional expressive metadata.
+- **OpenAI** surfaces *Expressiveness* and *Warmth*; **ElevenLabs** keeps *Stability*, *Similarity Boost*, and *Style*; **Google** offers *Briskness* and *Intonation* tuned automatically for Neural2, WaveNet, and Standard voices.
+- Adjust a slider to immediately influence the next generation, export, or batch run. The sliders disable themselves for providers that do not support extra style parameters (including Tight Ass Mode).
+- Custom values persist per provider via UserDefaults + Keychain, so each service remembers its latest tone the next time you launch the app.
 
 #### Saved Snippets
 - Click **Save Current Text** in the Saved Snippets panel to capture the editor contents.

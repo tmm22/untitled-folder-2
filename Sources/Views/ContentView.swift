@@ -357,6 +357,43 @@ private struct CommandStripView: View {
             .frame(minWidth: 160)
             .pickerStyle(MenuPickerStyle())
             .help("Select the voice for this provider")
+
+            if viewModel.hasActiveStyleControls {
+                Divider()
+                    .frame(height: 24)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Voice Style")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    ForEach(viewModel.activeStyleControls) { control in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(control.label)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if let step = control.step {
+                                Slider(value: viewModel.binding(for: control), in: control.range, step: step)
+                            } else {
+                                Slider(value: viewModel.binding(for: control), in: control.range)
+                            }
+
+                            if let help = control.helpText {
+                                Text(help)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: 220)
+            }
         }
     }
 
@@ -1298,6 +1335,7 @@ private struct PlaybackBarView: View {
         let seconds = totalSeconds % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
+
 }
 
 private struct SegmentMarkersView: View {

@@ -5,8 +5,13 @@ protocol TTSProvider {
     var name: String { get }
     var availableVoices: [Voice] { get }
     var defaultVoice: Voice { get }
+    var styleControls: [ProviderStyleControl] { get }
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data
     func hasValidAPIKey() -> Bool
+}
+
+extension TTSProvider {
+    var styleControls: [ProviderStyleControl] { [] }
 }
 
 // MARK: - Voice Model
@@ -32,6 +37,53 @@ struct Voice: Identifiable, Hashable {
     }
 }
 
+// MARK: - Provider Style Control
+struct ProviderStyleControl: Identifiable, Hashable {
+    enum ValueFormat: Hashable {
+        case percentage
+        case decimal(places: Int)
+    }
+
+    let id: String
+    let label: String
+    let range: ClosedRange<Double>
+    let defaultValue: Double
+    let step: Double?
+    let valueFormat: ValueFormat
+    let helpText: String?
+
+    init(id: String,
+         label: String,
+         range: ClosedRange<Double>,
+         defaultValue: Double,
+         step: Double? = nil,
+         valueFormat: ValueFormat = .decimal(places: 2),
+         helpText: String? = nil) {
+        self.id = id
+        self.label = label
+        self.range = range
+        self.defaultValue = defaultValue
+        self.step = step
+        self.valueFormat = valueFormat
+        self.helpText = helpText
+    }
+
+    func clamp(_ value: Double) -> Double {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    func formattedValue(for value: Double) -> String {
+        let clampedValue = clamp(value)
+        switch valueFormat {
+        case .percentage:
+            return "\(Int(round(clampedValue * 100)))%"
+        case .decimal(let places):
+            let decimals = max(0, places)
+            return String(format: "%.*f", decimals, clampedValue)
+        }
+    }
+}
+
 // MARK: - Audio Settings
 struct AudioSettings {
     var speed: Double = 1.0      // 0.5 to 2.0
@@ -39,6 +91,7 @@ struct AudioSettings {
     var volume: Double = 1.0     // 0.0 to 1.0
     var format: AudioFormat = .mp3
     var sampleRate: Int = 22050
+    var styleValues: [String: Double] = [:]
     
     enum AudioFormat: String, CaseIterable {
         case mp3 = "mp3"
@@ -46,6 +99,20 @@ struct AudioSettings {
         case aac = "aac"
         case flac = "flac"
         case opus = "opus"
+    }
+}
+
+extension AudioSettings {
+    func styleValue(for control: ProviderStyleControl) -> Double {
+        let value = styleValues[control.id] ?? control.defaultValue
+        return control.clamp(value)
+    }
+
+    func styleValue(for controlID: String,
+                    default defaultValue: Double,
+                    clampedTo range: ClosedRange<Double>) -> Double {
+        let value = styleValues[controlID] ?? defaultValue
+        return min(max(value, range.lowerBound), range.upperBound)
     }
 }
 

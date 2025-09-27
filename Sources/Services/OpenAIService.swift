@@ -30,6 +30,29 @@ class OpenAIService: TTSProvider {
             Voice(id: "shimmer", name: "Shimmer", language: "en-US", gender: .female, provider: .openAI, previewURL: nil)
         ]
     }
+
+    var styleControls: [ProviderStyleControl] {
+        [
+            ProviderStyleControl(
+                id: "openAI.expressiveness",
+                label: "Expressiveness",
+                range: 0...1,
+                defaultValue: 0.6,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Higher values add more dynamic emphasis across phrases."
+            ),
+            ProviderStyleControl(
+                id: "openAI.warmth",
+                label: "Warmth",
+                range: 0...1,
+                defaultValue: 0.5,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Blend in softer articulation for a friendlier tone."
+            )
+        ]
+    }
     
     // MARK: - Initialization
     init() {
@@ -63,12 +86,17 @@ class OpenAIService: TTSProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Prepare request body
+        let controlsByID = Dictionary(uniqueKeysWithValues: styleControls.map { ($0.id, $0) })
+        let expressiveness = controlsByID["openAI.expressiveness"].map { settings.styleValue(for: $0) } ?? 0.6
+        let warmth = controlsByID["openAI.warmth"].map { settings.styleValue(for: $0) } ?? 0.5
+
         let requestBody = OpenAIRequest(
             model: "tts-1",  // Use "tts-1-hd" for higher quality
             input: text,
             voice: voice.id,
             response_format: settings.format.openAIFormat,
-            speed: settings.speed
+            speed: settings.speed,
+            style: .init(expressiveness: expressiveness, warmth: warmth)
         )
         
         request.httpBody = try JSONEncoder().encode(requestBody)
@@ -114,6 +142,12 @@ private struct OpenAIRequest: Codable {
     let voice: String
     let response_format: String
     let speed: Double
+    let style: StyleParameters
+
+    struct StyleParameters: Codable {
+        let expressiveness: Double
+        let warmth: Double
+    }
 }
 
 private struct OpenAIError: Codable {

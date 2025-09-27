@@ -55,7 +55,7 @@ TextToSpeechApp/
 - **Endpoint**: `https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`
 - **Features**:
   - Multiple curated voice presets selectable in-app
-  - Built-in stability, similarity boost, and speaker boost defaults
+  - Built-in stability, similarity boost, and speaker boost defaults exposed as adjustable sliders
   - High-quality neural voices tuned for English content
 - **Authentication**: API Key in header
 
@@ -64,7 +64,7 @@ TextToSpeechApp/
 - **Features**:
   - Multiple voice models (alloy, echo, fable, onyx, nova, shimmer)
   - Adjustable response formats (MP3, WAV, AAC, FLAC)
-  - Speed control forwarded from the view model
+  - Speed and tone control forwarded from the view model (Expressiveness & Warmth sliders)
 - **Authentication**: Bearer token
 
 #### Google Cloud TTS
@@ -73,7 +73,7 @@ TextToSpeechApp/
   - WaveNet voices
   - Multiple languages
   - SSML support
-  - Voice pitch and speaking rate control
+  - Voice pitch and speaking rate control, plus Briskness/Intonation sliders with per-voice tuning
 - **Authentication**: API Key or OAuth 2.0
 
 #### Tight Ass Mode (Local)
@@ -106,7 +106,10 @@ TextToSpeechApp/
 protocol TTSProvider {
     var name: String { get }
     var availableVoices: [Voice] { get }
+    var defaultVoice: Voice { get }
+    var styleControls: [ProviderStyleControl] { get }
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data
+    func hasValidAPIKey() -> Bool
 }
 ```
 
@@ -118,6 +121,7 @@ struct AudioSettings {
     var volume: Double = 1.0     // 0.0 to 1.0
     var format: AudioFormat = .mp3
     var sampleRate: Int = 22050
+    var styleValues: [String: Double] = [:] // Provider style slider values keyed by control ID
 }
 ```
 
@@ -132,6 +136,26 @@ struct Voice {
     let previewURL: String?
 }
 ```
+
+### ProviderStyleControl
+```swift
+struct ProviderStyleControl: Identifiable, Hashable {
+    enum ValueFormat: Hashable {
+        case percentage
+        case decimal(places: Int)
+    }
+
+    let id: String              // Stable key persisted in UserDefaults
+    let label: String           // User-facing title (e.g. "Expressiveness")
+    let range: ClosedRange<Double>
+    let defaultValue: Double
+    let step: Double?
+    let valueFormat: ValueFormat
+    let helpText: String?
+}
+```
+
+Providers return `styleControls` to advertise emotion/style sliders. The view model caches values per provider, persists them to UserDefaults, and injects them into `AudioSettings.styleValues` so service integrations can map the inputs to API-specific payloads.
 
 ## User Interface Design
 
@@ -202,6 +226,13 @@ struct Voice {
 - Progressive UI updates
 - Cancellable operations
 - Error recovery mechanisms
+
+## State Persistence
+
+- Provider selection, audio format, minimalist mode, cost settings, and appearance preference remain in `UserDefaults`.
+- Style slider values are saved per `TTSProviderType` using a `[String: [String: Double]]` blob. Each provider retrieves only the control IDs it advertises, so new sliders can be added without migrating existing data.
+- When switching to providers without style metadata (e.g., Tight Ass Mode), the view model clears transient slider values but keeps cached entries for other providers so the UI can restore them on selection.
+- API credentials stay secured in macOS Keychain; synthesis short-circuits with `TTSError.invalidAPIKey` before any style mapping occurs if a provider lacks a valid key.
 
 ## Error Handling
 

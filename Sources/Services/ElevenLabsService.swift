@@ -35,6 +35,38 @@ class ElevenLabsService: TTSProvider {
             Voice(id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil)
         ]
     }
+
+    var styleControls: [ProviderStyleControl] {
+        [
+            ProviderStyleControl(
+                id: "elevenLabs.stability",
+                label: "Stability",
+                range: 0...1,
+                defaultValue: 0.5,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Higher values keep the delivery consistent; lower values allow more variation."
+            ),
+            ProviderStyleControl(
+                id: "elevenLabs.similarityBoost",
+                label: "Similarity Boost",
+                range: 0...1,
+                defaultValue: 0.75,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Increase to match the reference voice closely, decrease for a looser interpretation."
+            ),
+            ProviderStyleControl(
+                id: "elevenLabs.style",
+                label: "Style",
+                range: 0...1,
+                defaultValue: 0.0,
+                step: 0.05,
+                valueFormat: .percentage,
+                helpText: "Dial up for more expressive, emotive speech."
+            )
+        ]
+    }
     
     // MARK: - Initialization
     init() {
@@ -72,13 +104,18 @@ class ElevenLabsService: TTSProvider {
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
         
         // Prepare request body
+        let controlsByID = Dictionary(uniqueKeysWithValues: styleControls.map { ($0.id, $0) })
+        let stability = controlsByID["elevenLabs.stability"].map { settings.styleValue(for: $0) } ?? 0.5
+        let similarityBoost = controlsByID["elevenLabs.similarityBoost"].map { settings.styleValue(for: $0) } ?? 0.75
+        let style = controlsByID["elevenLabs.style"].map { settings.styleValue(for: $0) } ?? 0.0
+
         let requestBody = ElevenLabsRequest(
             text: text,
             model_id: "eleven_monolingual_v1",
             voice_settings: VoiceSettings(
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0.0,
+                stability: stability,
+                similarity_boost: similarityBoost,
+                style: style,
                 use_speaker_boost: true
             )
         )
