@@ -1,87 +1,231 @@
 import SwiftUI
 import AppKit
 
+private enum ContextPanelDestination: String, CaseIterable, Identifiable {
+    case queue
+    case history
+    case snippets
+    case glossary
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .queue:
+            return "Queue"
+        case .history:
+            return "History"
+        case .snippets:
+            return "Library"
+        case .glossary:
+            return "Glossary"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .queue:
+            return "list.bullet.rectangle"
+        case .history:
+            return "clock.arrow.circlepath"
+        case .snippets:
+            return "text.badge.star"
+        case .glossary:
+            return "character.bubble"
+        }
+    }
+}
+
+private enum InspectorSection: String, CaseIterable, Identifiable {
+    case cost
+    case transcript
+    case notifications
+    case provider
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cost:
+            return "Cost"
+        case .transcript:
+            return "Transcript"
+        case .notifications:
+            return "Alerts"
+        case .provider:
+            return "Provider"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .cost:
+            return "dollarsign.circle"
+        case .transcript:
+            return "doc.text"
+        case .notifications:
+            return "bell"
+        case .provider:
+            return "info.circle"
+        }
+    }
+}
+
+private enum ComposerUtility: String, CaseIterable, Identifiable {
+    case urlImport
+    case sampleText
+    case chunking
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .urlImport:
+            return "URL Import"
+        case .sampleText:
+            return "Sample Text"
+        case .chunking:
+            return "Chunk Helper"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .urlImport:
+            return "link.badge.plus"
+        case .sampleText:
+            return "text.quote"
+        case .chunking:
+            return "square.split.2x2"
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .urlImport:
+            return "Pull readable text from a web article"
+        case .sampleText:
+            return "Fill the editor with ready-made copy"
+        case .chunking:
+            return "Preview how your batch segments will split"
+        }
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     @State private var showingSettings = false
     @State private var showingAbout = false
-    
+    @State private var selectedContextPanel: ContextPanelDestination? = .queue
+    @State private var isInspectorVisible = false
+    @State private var inspectorSection: InspectorSection = .cost
+    @State private var activeUtility: ComposerUtility?
+    @State private var showingInspectorPopover = false
+
     var body: some View {
         GeometryReader { proxy in
+            let isCompact = proxy.size.width < 960
+            let horizontalPadding = LayoutGuidance.horizontalPadding(for: proxy.size.width,
+                                                                     isMinimalist: viewModel.isMinimalistMode)
+            let commandVerticalPadding: CGFloat = viewModel.isMinimalistMode ? 10 : 12
+            let composerVerticalPadding: CGFloat = viewModel.isMinimalistMode ? 16 : 20
+
             VStack(spacing: 0) {
-                // Header with provider and voice selection
-                HeaderView()
-                    .padding(.horizontal, LayoutGuidance.horizontalPadding(for: proxy.size.width, isMinimalist: viewModel.isMinimalistMode))
-                    .padding(.vertical, viewModel.isMinimalistMode ? 8 : 12)
-                    .background(Color(NSColor.controlBackgroundColor))
-
-                Divider()
-
-                // Main content area
-                ScrollView {
-                    VStack(spacing: viewModel.isMinimalistMode ? 12 : 16) {
-                        URLImportView()
-                            .padding(viewModel.isMinimalistMode ? 10 : 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color(NSColor.controlBackgroundColor))
-                            )
-
-                        // Text Editor
-                        TextEditorView()
-                            .layoutPriority(1)
-
-                        // Character Count
-                        HStack {
-                            Text("Characters: \(viewModel.inputText.count)/5000")
-                                .font(.caption)
-                                .foregroundColor(viewModel.inputText.count > 5000 ? .red : .secondary)
-
-                            if viewModel.isGenerating {
-                                Spacer()
-                                ProgressView(value: viewModel.generationProgress)
-                                    .frame(width: 100)
-                                Text("Generating...")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                CommandStripView(
+                    isCompact: isCompact,
+                    isInspectorVisible: isInspectorVisible,
+                    showingSettings: $showingSettings,
+                    showingAbout: $showingAbout,
+                    toggleInspector: {
+                        if isCompact {
+                            showingInspectorPopover = true
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isInspectorVisible.toggle()
                             }
-
-                            Spacer()
                         }
-
-                        CostEstimateView()
-
-                        BatchQueueView()
-
-                        RecentGenerationsView()
-
-                        TextSnippetsView()
-
-                        PronunciationGlossaryView()
+                    },
+                    focusInspector: { section in
+                        inspectorSection = section
+                        if isCompact {
+                            showingInspectorPopover = true
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isInspectorVisible = true
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, LayoutGuidance.horizontalPadding(for: proxy.size.width, isMinimalist: viewModel.isMinimalistMode))
-                    .padding(.vertical, viewModel.isMinimalistMode ? 12 : 16)
+                )
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, commandVerticalPadding)
+                .background(Color(NSColor.windowBackgroundColor))
+                .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
+                    InspectorPanelView(selection: $inspectorSection) {
+                        showingInspectorPopover = false
+                    }
+                    .frame(minWidth: 280, idealWidth: 320)
+                    .environmentObject(viewModel)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 Divider()
 
-                // Playback Controls
-                PlaybackControlsView()
-                    .padding(.horizontal, LayoutGuidance.horizontalPadding(for: proxy.size.width, isMinimalist: viewModel.isMinimalistMode))
-                    .padding(.vertical, viewModel.isMinimalistMode ? 8 : 12)
-                    .background(Color(NSColor.controlBackgroundColor))
+                HStack(spacing: 0) {
+                    if !isCompact {
+                        ContextRailView(selection: $selectedContextPanel)
+                            .frame(width: 64)
+                            .background(Color(NSColor.windowBackgroundColor))
+
+                        if let selection = selectedContextPanel {
+                            Divider()
+                            ContextPanelContainer(selection: selection) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedContextPanel = nil
+                                }
+                            }
+                            .frame(minWidth: 260, idealWidth: 300)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                        }
+                    }
+
+                    Divider()
+
+                    MainComposerColumn(
+                        isCompact: isCompact,
+                        horizontalPadding: horizontalPadding,
+                        verticalPadding: composerVerticalPadding,
+                        selectedContextPanel: $selectedContextPanel,
+                        activeUtility: $activeUtility,
+                        focusInspector: { section in
+                            inspectorSection = section
+                            if isCompact {
+                                showingInspectorPopover = true
+                            } else {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isInspectorVisible = true
+                                }
+                            }
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                    if !isCompact && isInspectorVisible {
+                        Divider()
+                        InspectorPanelView(selection: $inspectorSection) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isInspectorVisible = false
+                            }
+                        }
+                        .frame(minWidth: 260, idealWidth: 300)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
 
                 Divider()
 
-                ActionButtonsView(showingSettings: $showingSettings)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, LayoutGuidance.horizontalPadding(for: proxy.size.width, isMinimalist: viewModel.isMinimalistMode))
-                    .padding(.vertical, viewModel.isMinimalistMode ? 8 : 12)
+                PlaybackBarView(horizontalPadding: horizontalPadding)
                     .background(Color(NSColor.windowBackgroundColor))
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
         }
         .frame(minWidth: 800, minHeight: 600)
         .preferredColorScheme(viewModel.colorSchemeOverride)
@@ -100,17 +244,14 @@ struct ContentView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
-        // Keep global keyboard shortcuts active even in Minimalist mode
         .overlay(
             HStack(spacing: 0) {
-                // Decrease speed (⌘[)
                 Button(action: {
                     viewModel.playbackSpeed = max(0.5, viewModel.playbackSpeed - 0.25)
                     viewModel.saveSettings()
                 }) { EmptyView() }
                 .keyboardShortcut("[", modifiers: .command)
 
-                // Increase speed (⌘])
                 Button(action: {
                     viewModel.playbackSpeed = min(2.0, viewModel.playbackSpeed + 0.25)
                     viewModel.saveSettings()
@@ -128,293 +269,155 @@ struct ContentView: View {
     }
 }
 
-struct HeaderView: View {
+// MARK: - Command Strip
+
+private struct CommandStripView: View {
     @EnvironmentObject var viewModel: TTSViewModel
-    @State private var showAdvancedPopover = false
-    
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            mainRow
-            compactColumn
-        }
-    }
-}
-
-private extension HeaderView {
-    var pickerSpacing: CGFloat {
-        viewModel.isMinimalistMode ? 12 : 16
-    }
-
-    var mainRow: some View {
-        HStack(spacing: viewModel.isMinimalistMode ? 12 : 20) {
-            providerPicker
-            voicePicker
-
-            Spacer(minLength: viewModel.isMinimalistMode ? 8 : 16)
-
-            controlButtons
-
-            statusIndicator
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    var compactColumn: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 12 : 16) {
-            HStack(spacing: pickerSpacing) {
-                providerPicker
-                voicePicker
-                Spacer(minLength: 0)
-            }
-
-            HStack(spacing: pickerSpacing) {
-                controlButtons
-                Spacer(minLength: 0)
-                statusIndicator
-            }
-        }
-    }
-
-    var providerPicker: some View {
-        HStack(spacing: pickerSpacing / 2) {
-            Image(systemName: viewModel.selectedProvider.icon)
-                .foregroundColor(.accentColor)
-            if !viewModel.isMinimalistMode {
-                Text("Provider:")
-                    .fontWeight(.medium)
-            }
-            Picker("", selection: $viewModel.selectedProvider) {
-                ForEach(TTSProviderType.allCases, id: \.self) { provider in
-                    HStack {
-                        Image(systemName: provider.icon)
-                        Text(provider.displayName)
-                    }
-                    .tag(provider)
-                }
-            }
-            .pickerStyle(MenuPickerStyle())
-            .accessibilityLabel("Provider")
-            .frame(minWidth: 140, maxWidth: viewModel.isMinimalistMode ? 160 : 200)
-            .onChange(of: viewModel.selectedProvider) { _ in
-                viewModel.updateAvailableVoices()
-            }
-        }
-    }
-
-    var voicePicker: some View {
-        HStack(spacing: pickerSpacing / 2) {
-            Image(systemName: "person.wave.2")
-                .foregroundColor(.accentColor)
-            if !viewModel.isMinimalistMode {
-                Text("Voice:")
-                    .fontWeight(.medium)
-            }
-            Picker("", selection: $viewModel.selectedVoice) {
-                Text("Default").tag(nil as Voice?)
-                
-                ForEach(viewModel.availableVoices) { voice in
-                    HStack {
-                        Image(systemName: voice.gender == .male ? "person.fill" :
-                                       voice.gender == .female ? "person.fill" : "person")
-                        Text(voice.name)
-                    }
-                    .tag(voice as Voice?)
-                }
-            }
-            .pickerStyle(MenuPickerStyle())
-            .accessibilityLabel("Voice")
-            .frame(minWidth: 160, maxWidth: viewModel.isMinimalistMode ? 200 : 240)
-        }
-    }
-
-    var controlButtons: some View {
-        HStack(spacing: pickerSpacing) {
-            Button(action: {
-                viewModel.isMinimalistMode.toggle()
-                viewModel.saveSettings()
-            }) {
-                Image(systemName: "rectangle.compress.vertical")
-                    .imageScale(.large)
-            }
-            .buttonStyle(.plain)
-            .help("Toggle Minimalist layout")
-            .accessibilityLabel("Toggle Minimalist layout")
-
-            Button(action: { showAdvancedPopover.toggle() }) {
-                Image(systemName: "slider.horizontal.3")
-                    .imageScale(.large)
-            }
-            .buttonStyle(.plain)
-            .help("Show advanced controls")
-            .accessibilityLabel("Show advanced controls")
-            .popover(isPresented: $showAdvancedPopover, arrowEdge: .top) {
-                AdvancedControlsPanelView()
-                    .environmentObject(viewModel)
-            }
-        }
-    }
-
-    @ViewBuilder
-    var statusIndicator: some View {
-        if viewModel.isGenerating {
-            HStack {
-                ProgressView()
-                    .scaleEffect(0.7)
-                Text("Generating...")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        } else if viewModel.isPlaying {
-            HStack {
-                Image(systemName: "speaker.wave.2.fill")
-                    .foregroundColor(.green)
-                    .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: viewModel.isPlaying)
-                Text("Playing")
-                    .font(.caption)
-                    .foregroundColor(.green)
-            }
-        }
-    }
-}
-
-struct ActionButtonsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    let isCompact: Bool
+    let isInspectorVisible: Bool
     @Binding var showingSettings: Bool
-    @State private var isHoveringGenerate = false
-    @State private var isHoveringExport = false
-    @State private var isHoveringDonate = false
-    
+    @Binding var showingAbout: Bool
+    let toggleInspector: () -> Void
+    let focusInspector: (InspectorSection) -> Void
+    @State private var showAdvancedPanel = false
+
     var body: some View {
         ViewThatFits(in: .horizontal) {
             horizontalLayout
-            verticalLayout
+            wrappedLayout
+        }
+        .popover(isPresented: $showAdvancedPanel, arrowEdge: .top) {
+            AdvancedControlsPanelView()
+                .environmentObject(viewModel)
+                .frame(width: 300)
         }
     }
-}
 
-private extension ActionButtonsView {
-    var buttonSpacing: CGFloat {
-        viewModel.isMinimalistMode ? 8 : 12
-    }
-
-    var primaryButtonWidth: CGFloat {
-        viewModel.isMinimalistMode ? 0 : 96
-    }
-
-    var horizontalLayout: some View {
-        HStack(spacing: buttonSpacing) {
-            generateButton
+    private var horizontalLayout: some View {
+        HStack(spacing: 12) {
+            providerAndVoice
+            Divider()
+                .frame(height: 24)
+            characterCount
+            Spacer(minLength: 12)
+            statusIndicator
             batchButton
+            generateButton
             exportButton
             transcriptMenu
             clearButton
-
-            Spacer(minLength: buttonSpacing)
-
-            if !viewModel.isMinimalistMode {
-                loopToggle
-            }
-
-            donateButton
-            settingsButton
+            advancedButton
+            overflowMenu
         }
     }
 
-    var verticalLayout: some View {
-        VStack(alignment: .leading, spacing: buttonSpacing) {
-            HStack(spacing: buttonSpacing) {
-                generateButton
-                batchButton
-                exportButton
+    private var wrappedLayout: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                providerAndVoice
+                Spacer()
+                statusIndicator
             }
 
-            HStack(spacing: buttonSpacing) {
+            HStack(spacing: 12) {
+                characterCount
+                Spacer()
+                batchButton
+                generateButton
+                exportButton
                 transcriptMenu
                 clearButton
-                if !viewModel.isMinimalistMode {
-                    loopToggle
+                advancedButton
+                overflowMenu
+            }
+        }
+    }
+
+    private var providerAndVoice: some View {
+        HStack(spacing: 12) {
+            Picker("Provider", selection: $viewModel.selectedProvider) {
+                ForEach(TTSProviderType.allCases, id: \.self) { provider in
+                    Label(provider.displayName, systemImage: provider.icon)
+                        .tag(provider)
                 }
             }
-
-            HStack(spacing: buttonSpacing) {
-                donateButton
-                settingsButton
+            .onChange(of: viewModel.selectedProvider) { _ in
+                viewModel.updateAvailableVoices()
             }
+            .frame(minWidth: 160)
+            .pickerStyle(MenuPickerStyle())
+            .help("Choose the speech provider")
+
+            Picker("Voice", selection: $viewModel.selectedVoice) {
+                Text("Default").tag(nil as Voice?)
+                ForEach(viewModel.availableVoices) { voice in
+                    Text(voice.name).tag(voice as Voice?)
+                }
+            }
+            .frame(minWidth: 160)
+            .pickerStyle(MenuPickerStyle())
+            .help("Select the voice for this provider")
         }
     }
 
-    var generateButton: some View {
-        Button(action: {
-            Task {
-                await viewModel.generateSpeech()
+    private var characterCount: some View {
+        let count = viewModel.inputText.count
+        return Label("\(count)/5000", systemImage: "character.cursor.ibeam")
+            .font(.footnote)
+            .foregroundColor(count > 5000 ? .red : .secondary)
+            .accessibilityLabel("Character count")
+    }
+
+    @ViewBuilder
+    private var statusIndicator: some View {
+        if viewModel.isGenerating {
+            HStack(spacing: 6) {
+                ProgressView(value: viewModel.generationProgress)
+                    .frame(width: 80)
+                Text("Generating")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
             }
-        }) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "waveform")
-                    .imageScale(.large)
-                    .accessibilityLabel("Generate")
-                    .help("Generate speech from text (⌘↵)")
-            } else {
-                Label("Generate", systemImage: "waveform")
-                    .frame(minWidth: primaryButtonWidth)
-            }
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
-        .disabled(viewModel.inputText.isEmpty || viewModel.isGenerating || viewModel.isBatchRunning)
-        .keyboardShortcut(.return, modifiers: .command)
-        .help("Generate speech from text (⌘↵)")
-        .scaleEffect(isHoveringGenerate ? 1.05 : 1.0)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isHoveringGenerate = hovering
-            }
+        } else if viewModel.isPlaying {
+            Label("Playing", systemImage: "speaker.wave.2.fill")
+                .font(.footnote)
+                .foregroundColor(.green)
         }
     }
 
-    var batchButton: some View {
+    private var batchButton: some View {
         Button(action: viewModel.startBatchGeneration) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "text.badge.plus")
-                    .imageScale(.large)
-                    .accessibilityLabel("Generate Batch")
-                    .help("Generate all segments separated by ---")
-            } else {
-                Label("Generate Batch", systemImage: "text.badge.plus")
-                    .frame(minWidth: primaryButtonWidth + 32)
-            }
+            Label("Batch", systemImage: "text.badge.plus")
         }
         .buttonStyle(.bordered)
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
         .disabled(!viewModel.hasBatchableSegments || viewModel.isGenerating || viewModel.isBatchRunning)
-        .help("Generate all segments separated by ---")
+        .help("Generate every segment separated by ---")
     }
 
-    var exportButton: some View {
+    private var generateButton: some View {
+        Button {
+            Task { await viewModel.generateSpeech() }
+        } label: {
+            Label("Generate", systemImage: "waveform")
+                .fontWeight(.semibold)
+        }
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.return, modifiers: .command)
+        .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isGenerating)
+        .help("Generate speech from the editor text (⌘↵)")
+    }
+
+    private var exportButton: some View {
         Button(action: viewModel.exportAudio) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "square.and.arrow.down")
-                    .imageScale(.large)
-                    .accessibilityLabel("Export")
-                    .help("Export audio file (⌘E)")
-            } else {
-                Label("Export", systemImage: "square.and.arrow.down")
-                    .frame(minWidth: primaryButtonWidth)
-            }
+            Label("Export", systemImage: "square.and.arrow.down")
         }
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
-        .disabled(viewModel.audioData == nil)
+        .buttonStyle(.bordered)
         .keyboardShortcut("e", modifiers: .command)
-        .help("Export audio file (⌘E)")
-        .scaleEffect(isHoveringExport ? 1.05 : 1.0)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isHoveringExport = hovering
-            }
-        }
+        .disabled(viewModel.audioData == nil)
+        .help("Export the most recent audio file (⌘E)")
     }
 
-    var transcriptMenu: some View {
+    private var transcriptMenu: some View {
         Menu {
             Button("Export SRT") {
                 viewModel.exportTranscript(format: .srt)
@@ -423,89 +426,944 @@ private extension ActionButtonsView {
                 viewModel.exportTranscript(format: .vtt)
             }
         } label: {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "doc.text")
-                    .imageScale(.large)
-                    .accessibilityLabel("Export Transcript")
-                    .help("Export transcript as SRT or VTT")
-            } else {
-                Label("Transcript", systemImage: "doc.text")
-                    .frame(minWidth: primaryButtonWidth + 8)
-            }
+            Label("Transcript", systemImage: "doc.text")
         }
         .disabled(viewModel.currentTranscript == nil)
-        .menuStyle(.borderlessButton)
+        .help("Export the transcript for the current audio")
     }
 
-    var clearButton: some View {
+    private var clearButton: some View {
         Button(action: viewModel.clearText) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "trash")
-                    .imageScale(.large)
-                    .accessibilityLabel("Clear")
-                    .help("Clear text and audio (⌘K)")
-            } else {
-                Label("Clear", systemImage: "trash")
-                    .frame(minWidth: primaryButtonWidth)
-            }
+            Label("Clear", systemImage: "trash")
         }
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
+        .buttonStyle(.bordered)
         .keyboardShortcut("k", modifiers: .command)
-        .help("Clear text and audio (⌘K)")
+        .help("Clear the editor and audio (⌘K)")
     }
 
-    var loopToggle: some View {
-        Toggle(isOn: $viewModel.isLoopEnabled) {
-            Label("Loop", systemImage: "repeat")
+    private var advancedButton: some View {
+        Button {
+            showAdvancedPanel = true
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .imageScale(.large)
+                .frame(width: 28, height: 28)
         }
-        .toggleStyle(.button)
-        .controlSize(.large)
-        .help("Enable loop playback")
+        .buttonStyle(.plain)
+        .help("Show advanced playback and export controls")
     }
 
-    var donateButton: some View {
-        Button(action: openDonationPage) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "heart.fill")
-                    .imageScale(.large)
-                    .accessibilityLabel("Donate")
-                    .help("Support development on GitHub Sponsors")
+    private var overflowMenu: some View {
+        Menu {
+            Button(isInspectorVisible ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right") {
+                toggleInspector()
+            }
+
+            Button("View Cost Detail", systemImage: "dollarsign.circle") {
+                focusInspector(.cost)
+            }
+
+            Menu("Appearance", systemImage: "paintbrush") {
+                Picker("Appearance", selection: $viewModel.appearancePreference) {
+                    ForEach(AppearancePreference.allCases) { preference in
+                        Text(preference.displayName).tag(preference)
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+
+            Button(viewModel.isMinimalistMode ? "Disable Compact Layout" : "Enable Compact Layout", systemImage: "rectangle.compress.vertical") {
+                viewModel.isMinimalistMode.toggle()
+                viewModel.saveSettings()
+            }
+
+            Divider()
+
+            Button("Settings", systemImage: "gear") {
+                showingSettings = true
+            }
+
+            Button("About", systemImage: "info.circle") {
+                showingAbout = true
+            }
+
+            Button("Donate", systemImage: "heart.fill") {
+                if let url = AppConfiguration.donationURL {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .frame(width: 28, height: 28)
+        }
+        .menuStyle(.borderlessButton)
+        .help("More options")
+    }
+}
+
+// MARK: - Main Composer
+
+private struct MainComposerColumn: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let isCompact: Bool
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    @Binding var selectedContextPanel: ContextPanelDestination?
+    @Binding var activeUtility: ComposerUtility?
+    let focusInspector: (InspectorSection) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if isCompact {
+                ContextSwitcher(selectedContext: $selectedContextPanel)
+
+                if let selection = selectedContextPanel {
+                    ContextPanelCard(selection: selection)
+                }
+            }
+
+            ComposerUtilityBar(activeUtility: $activeUtility)
+
+            if let utility = activeUtility {
+                UtilityDetailView(utility: utility, dismiss: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        activeUtility = nil
+                    }
+                })
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            TextEditorView()
+                .frame(maxHeight: .infinity)
+
+            GenerationStatusFooter(focusInspector: focusInspector)
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+private struct ContextSwitcher: View {
+    @Binding var selectedContext: ContextPanelDestination?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ContextPanelDestination.allCases) { destination in
+                    let isSelected = selectedContext == destination
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedContext = isSelected ? nil : destination
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: destination.icon)
+                            Text(destination.title)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .help(destination.title)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+private struct ContextPanelCard: View {
+    let selection: ContextPanelDestination
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(selection.title, systemImage: selection.icon)
+                .font(.headline)
+
+            Divider()
+
+            ContextPanelContent(selection: selection)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+    }
+}
+
+private struct ComposerUtilityBar: View {
+    @Binding var activeUtility: ComposerUtility?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(ComposerUtility.allCases) { utility in
+                let isActive = activeUtility == utility
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        activeUtility = isActive ? nil : utility
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: utility.icon)
+                        Text(utility.title)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .background(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isActive ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .help(utility.helpText)
+            }
+
+            Spacer()
+        }
+    }
+}
+
+private struct UtilityDetailView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let utility: ComposerUtility
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label(utility.title, systemImage: utility.icon)
+                    .font(.headline)
+                Spacer()
+                Button("Close") {
+                    dismiss()
+                }
+                .buttonStyle(.borderless)
+            }
+
+            switch utility {
+            case .urlImport:
+                URLImportView()
+                    .environmentObject(viewModel)
+            case .sampleText:
+                SampleTextUtilityView(onClose: dismiss)
+            case .chunking:
+                ChunkingHelperView()
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+    }
+}
+
+private struct SampleTextUtilityView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Replace the editor contents with a ready-made sample to test providers quickly.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Button("Short intro paragraph") {
+                    viewModel.inputText = "Hello! This is a sample text to demonstrate the text-to-speech functionality. The app supports multiple providers and voices so you can create natural-sounding speech from any text."
+                    onClose()
+                }
+                Button("Demo feature tour") {
+                    viewModel.inputText = """
+Welcome to the Text-to-Speech Converter! This application transforms written text into natural-sounding speech using advanced AI voices.
+
+Choose from OpenAI, ElevenLabs, Google Cloud, or Tight Ass Mode for offline playback. Fine-tune the voice, speed, and export format to match your workflow.
+
+The playback bar gives you precise control to inspect every generation before exporting to your preferred format.
+"""
+                    onClose()
+                }
+                Button("Long narrative excerpt") {
+                    viewModel.inputText = """
+The art of text-to-speech synthesis has evolved dramatically over the past decade. What once sounded robotic now feels natural, expressive, and tailored.
+
+Modern providers use deep learning models trained on vast speech corpora. These networks capture intonation, rhythm, pacing, and emotion to produce rich voices on demand.
+
+From accessibility tools to audiobooks, synthetic narration is reshaping how we consume information. This app brings those capabilities to the desktop so you can experiment, prototype, and deliver high-quality speech quickly.
+"""
+                    onClose()
+                }
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+}
+
+private struct ChunkingHelperView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var segments: [String] {
+        viewModel.batchSegments(from: viewModel.inputText)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Use a line containing only --- to mark breaks between segments. Each segment becomes its own generation in the batch queue.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 8) {
+                Image(systemName: "list.number")
+                    .foregroundColor(.accentColor)
+                Text("Detected segments: \(segments.count)")
+                    .font(.subheadline)
+            }
+
+            if segments.count <= 1 {
+                Text("Add --- on its own line to split the script into multiple parts.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } else {
-                Label("Donate", systemImage: "heart.fill")
-                    .frame(minWidth: primaryButtonWidth)
-            }
-        }
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
-        .help("Support development on GitHub Sponsors")
-        .scaleEffect(isHoveringDonate ? 1.05 : 1.0)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isHoveringDonate = hovering
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Preview")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Segment \(index + 1)")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text("\(segment.count) chars")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(segment)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(3)
+                        }
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.windowBackgroundColor))
+                        )
+                    }
+                }
             }
         }
     }
+}
 
-    var settingsButton: some View {
-        Button(action: {
-            showingSettings = true
-        }) {
-            if viewModel.isMinimalistMode {
-                Image(systemName: "gear")
-                    .imageScale(.large)
-                    .accessibilityLabel("Settings")
-                    .help("Open settings (⌘,)")
+private struct GenerationStatusFooter: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let focusInspector: (InspectorSection) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Characters: \(viewModel.inputText.count)/5000", systemImage: "textformat.alt")
+                    .font(.caption)
+                    .foregroundColor(viewModel.inputText.count > 5000 ? .red : .secondary)
+
+                Spacer()
+
+                if viewModel.isGenerating {
+                    HStack(spacing: 6) {
+                        ProgressView(value: viewModel.generationProgress)
+                            .frame(width: 100)
+                        Text("Generating…")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Button {
+                focusInspector(.cost)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "dollarsign.circle")
+                        .foregroundColor(.accentColor)
+                    Text(viewModel.costEstimate.summary)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View detailed cost estimate")
+        }
+    }
+}
+
+// MARK: - Context Panels
+
+private struct ContextRailView: View {
+    @Binding var selection: ContextPanelDestination?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ForEach(ContextPanelDestination.allCases) { destination in
+                let isSelected = selection == destination
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selection = isSelected ? nil : destination
+                    }
+                } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: destination.icon)
+                            .imageScale(.large)
+                        Text(destination.title)
+                            .font(.caption2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                )
+                .help(destination.title)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 8)
+    }
+}
+
+private struct ContextPanelContainer: View {
+    let selection: ContextPanelDestination
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(selection.title, systemImage: selection.icon)
+                    .font(.headline)
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .imageScale(.medium)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+
+            ScrollView {
+                ContextPanelContent(selection: selection)
+                    .padding(.bottom, 12)
+            }
+        }
+        .padding(20)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+private struct ContextPanelContent: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let selection: ContextPanelDestination
+
+    var body: some View {
+        switch selection {
+        case .queue:
+            BatchQueueView()
+                .environmentObject(viewModel)
+        case .history:
+            RecentGenerationsView()
+                .environmentObject(viewModel)
+        case .snippets:
+            TextSnippetsView()
+                .environmentObject(viewModel)
+        case .glossary:
+            PronunciationGlossaryView()
+                .environmentObject(viewModel)
+        }
+    }
+}
+
+// MARK: - Inspector Panel
+
+private struct InspectorPanelView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var selection: InspectorSection
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Inspector", systemImage: "sidebar.right")
+                    .font(.headline)
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .imageScale(.medium)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Picker("Inspector Section", selection: $selection) {
+                ForEach(InspectorSection.allCases) { section in
+                    Label(section.title, systemImage: section.icon)
+                        .tag(section)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    switch selection {
+                    case .cost:
+                        CostInspectorContent()
+                    case .transcript:
+                        TranscriptInspectorContent()
+                    case .notifications:
+                        NotificationsInspectorContent()
+                    case .provider:
+                        ProviderInspectorContent()
+                    }
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+            }
+        }
+        .padding(20)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+private struct CostInspectorContent: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var body: some View {
+        let estimate = viewModel.costEstimate
+
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Estimated cost", systemImage: "dollarsign.circle")
+                .font(.headline)
+
+            Text(estimate.summary)
+                .font(.body)
+
+            if let detail = estimate.detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Button("Refresh estimate") {
+                viewModel.objectWillChange.send()
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.inputText.isEmpty)
+        }
+    }
+}
+
+private struct TranscriptInspectorContent: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Transcript export", systemImage: "doc.text")
+                .font(.headline)
+
+            if viewModel.currentTranscript == nil {
+                Text("Generate speech to create a transcript you can export as SRT or VTT.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } else {
-                Label("Settings", systemImage: "gear")
-                    .frame(minWidth: primaryButtonWidth)
+                Text("Choose a caption format for the active generation.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 12) {
+                    Button("Export SRT") {
+                        viewModel.exportTranscript(format: .srt)
+                    }
+                    Button("Export VTT") {
+                        viewModel.exportTranscript(format: .vtt)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
-        .controlSize(viewModel.isMinimalistMode ? .regular : .large)
-        .keyboardShortcut(",", modifiers: .command)
-        .help("Open settings (⌘,)")
+    }
+}
+
+private struct NotificationsInspectorContent: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Batch alerts", systemImage: "bell")
+                .font(.headline)
+
+            Toggle(isOn: Binding(
+                get: { viewModel.notificationsEnabled },
+                set: { viewModel.setNotificationsEnabled($0) }
+            )) {
+                Text("Notify me when batch generation completes")
+            }
+
+            Text("Notifications use the macOS alert center. You will only be notified for batches with at least one generated segment.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+private struct ProviderInspectorContent: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var body: some View {
+        let provider = viewModel.selectedProvider
+        let profile = ProviderCostProfile.profile(for: provider)
+        let supportedFormats = viewModel.supportedFormats.map(\.displayName).joined(separator: ", ")
+
+        VStack(alignment: .leading, spacing: 12) {
+            Label(provider.displayName, systemImage: provider.icon)
+                .font(.headline)
+
+            Text(profile.detail)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Text("Supported export formats: \(supportedFormats)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if viewModel.selectedVoice == nil {
+                Text("Using the provider default voice. Choose a voice from the Command strip to override.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Playback Bar
+
+private struct PlaybackBarView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @State private var isScrubbing = false
+    @State private var temporaryTime: TimeInterval = 0
+    @State private var showSegmentMarkers = false
+    let horizontalPadding: CGFloat
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 16) {
+                transportControls
+
+                Divider()
+                    .frame(height: 24)
+
+                timeline
+
+                Divider()
+                    .frame(height: 24)
+
+                loopToggle
+                speedPicker
+                volumeSlider
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSegmentMarkers.toggle()
+                    }
+                } label: {
+                    Image(systemName: showSegmentMarkers ? "chevron.down.circle" : "chevron.up.circle")
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+                .help("Toggle segment markers")
+            }
+
+            if showSegmentMarkers {
+                SegmentMarkersView(items: viewModel.batchItems)
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, 12)
     }
 
-    func openDonationPage() {
-        guard let url = AppConfiguration.donationURL else { return }
-        NSWorkspace.shared.open(url)
+    private var transportControls: some View {
+        HStack(spacing: 12) {
+            Button(action: {
+                viewModel.skipBackward()
+            }) {
+                Image(systemName: "gobackward.10")
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.audioData == nil)
+            .keyboardShortcut(.leftArrow, modifiers: .command)
+            .help("Skip backward 10 seconds (⌘←)")
+
+            Button(action: {
+                viewModel.togglePlayPause()
+            }) {
+                Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.accentColor)
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.audioData == nil)
+            .keyboardShortcut(.space, modifiers: [])
+            .help("Play or pause (Space)")
+
+            Button(action: {
+                viewModel.skipForward()
+            }) {
+                Image(systemName: "goforward.10")
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.audioData == nil)
+            .keyboardShortcut(.rightArrow, modifiers: .command)
+            .help("Skip forward 10 seconds (⌘→)")
+
+            Button(action: viewModel.stop) {
+                Image(systemName: "stop.circle")
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.audioData == nil || !viewModel.isPlaying)
+            .keyboardShortcut(".", modifiers: .command)
+            .help("Stop playback (⌘.)")
+        }
+    }
+
+    private var timeline: some View {
+        HStack(spacing: 10) {
+            Text(formatTime(isScrubbing ? temporaryTime : viewModel.currentTime))
+                .font(.system(size: 12, design: .monospaced))
+                .frame(width: 60, alignment: .trailing)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 6)
+
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(
+                            width: viewModel.duration > 0 ? geometry.size.width * CGFloat(progressValue) : 0,
+                            height: 6
+                        )
+
+                    if viewModel.duration > 0 {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 14, height: 14)
+                            .offset(x: geometry.size.width * CGFloat(progressValue) - 7)
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { value in
+                                        isScrubbing = true
+                                        let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
+                                        temporaryTime = TimeInterval(ratio) * viewModel.duration
+                                    }
+                                    .onEnded { value in
+                                        let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
+                                        let newTime = TimeInterval(ratio) * viewModel.duration
+                                        viewModel.seek(to: newTime)
+                                        isScrubbing = false
+                                    }
+                            )
+                    }
+                }
+            }
+            .frame(height: 18)
+
+            Text(formatTime(viewModel.duration))
+                .font(.system(size: 12, design: .monospaced))
+                .frame(width: 60, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var loopToggle: some View {
+        Button {
+            viewModel.isLoopEnabled.toggle()
+            viewModel.saveSettings()
+        } label: {
+            Image(systemName: viewModel.isLoopEnabled ? "repeat.circle.fill" : "repeat")
+                .imageScale(.large)
+                .foregroundColor(viewModel.isLoopEnabled ? .accentColor : .secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Toggle loop playback")
+    }
+
+    private var speedPicker: some View {
+        Menu {
+            ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], id: \.self) { speed in
+                Button("\(speed, specifier: "%.2g")×") {
+                    viewModel.playbackSpeed = speed
+                    viewModel.saveSettings()
+                }
+            }
+        } label: {
+            Label("\(viewModel.playbackSpeed, specifier: "%.2g")×", systemImage: "speedometer")
+                .labelStyle(.titleAndIcon)
+        }
+        .help("Playback speed")
+    }
+
+    private var volumeSlider: some View {
+        HStack(spacing: 8) {
+            Button {
+                if viewModel.volume > 0 {
+                    viewModel.volume = 0
+                } else {
+                    viewModel.volume = 0.75
+                }
+                viewModel.saveSettings()
+            } label: {
+                Image(systemName: volumeIcon)
+                    .imageScale(.large)
+            }
+            .buttonStyle(.plain)
+            .help("Toggle mute")
+
+            Slider(value: Binding(
+                get: { viewModel.volume },
+                set: { newValue in
+                    viewModel.volume = newValue
+                }
+            ), in: 0...1) { editing in
+                if !editing {
+                    viewModel.saveSettings()
+                }
+            }
+            .frame(width: 120)
+        }
+    }
+
+    private var progressValue: Double {
+        if isScrubbing {
+            guard viewModel.duration > 0 else { return 0 }
+            return temporaryTime / viewModel.duration
+        }
+        guard viewModel.duration > 0 else { return 0 }
+        return viewModel.currentTime / viewModel.duration
+    }
+
+    private var volumeIcon: String {
+        if viewModel.volume == 0 {
+            return "speaker.slash.fill"
+        } else if viewModel.volume < 0.33 {
+            return "speaker.wave.1.fill"
+        } else if viewModel.volume < 0.66 {
+            return "speaker.wave.2.fill"
+        }
+        return "speaker.wave.3.fill"
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        guard !time.isNaN && !time.isInfinite else { return "0:00" }
+        let totalSeconds = Int(time)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+private struct SegmentMarkersView: View {
+    let items: [BatchGenerationItem]
+
+    var body: some View {
+        if items.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform")
+                    .foregroundColor(.secondary)
+                Text("No queued segments. Add --- between paragraphs to prepare a batch.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(items) { item in
+                        VStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(color(for: item.status))
+                                .frame(width: 40, height: 8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                )
+                            Text("\(item.index)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.windowBackgroundColor))
+                        )
+                        .help(statusText(for: item))
+                    }
+                }
+            }
+        }
+    }
+
+    private func color(for status: BatchGenerationItem.Status) -> Color {
+        switch status {
+        case .pending:
+            return .secondary
+        case .inProgress:
+            return .accentColor
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        }
+    }
+
+    private func statusText(for item: BatchGenerationItem) -> String {
+        switch item.status {
+        case .pending:
+            return "Segment \(item.index) pending"
+        case .inProgress:
+            return "Segment \(item.index) in progress"
+        case .completed:
+            return "Segment \(item.index) completed"
+        case .failed(let message):
+            return "Segment \(item.index) failed: \(message)"
+        }
     }
 }
