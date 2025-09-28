@@ -73,8 +73,8 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     private func makeTestViewModel(urlContentResult: Result<String, Error> = .success(""),
                                    translationService: TextTranslationService = StubTranslationService(),
-                                   audioPlayer: AudioPlayerService = AudioPlayerService(),
-                                   previewPlayer: AudioPlayerService = AudioPlayerService(),
+                                   audioPlayer: AudioPlayerService? = nil,
+                                   previewPlayer: AudioPlayerService? = nil,
                                    previewLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
         return TTSViewModel(notificationCenterProvider: { nil },

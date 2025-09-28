@@ -370,10 +370,10 @@ private struct CommandStripView: View {
                         HStack {
                             Text(voice.name)
                             Spacer()
-                            if viewModel.isPreviewLoading(voice) {
+                            if viewModel.isPreviewLoadingVoice(voice) {
                                 Image(systemName: "hourglass")
                                     .foregroundColor(.secondary)
-                            } else if viewModel.isPreviewing(voice) {
+                            } else if viewModel.isPreviewingVoice(voice) {
                                 Image(systemName: "speaker.wave.2.fill")
                                     .foregroundColor(.accentColor)
                             } else if !viewModel.canPreview(voice) {

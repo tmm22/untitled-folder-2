@@ -9,6 +9,81 @@ enum SnippetInsertMode {
     case append
 }
 
+// MARK: - Voice Preview Controls
+extension TTSViewModel {
+    func previewVoice(_ voice: Voice) {
+        if previewingVoiceID == voice.id && (isPreviewing || isPreviewLoading) {
+            stopPreview()
+            return
+        }
+
+        stopPreview()
+
+        guard let previewURLString = voice.previewURL, let url = URL(string: previewURLString) else {
+            errorMessage = "Preview not available for \(voice.name)."
+            return
+        }
+
+        audioPlayer.pause()
+        isPlaying = false
+        previewingVoiceID = voice.id
+        previewVoiceName = voice.name
+        isPreviewLoading = true
+
+        previewTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            do {
+                let data = try await self.previewDataLoader(url)
+                try Task.checkCancellation()
+                try await self.previewPlayer.loadAudio(from: data)
+                try Task.checkCancellation()
+                self.previewPlayer.setVolume(Float(self.volume))
+                self.previewPlayer.play()
+                self.isPreviewLoading = false
+                self.isPreviewing = true
+            } catch is CancellationError {
+                self.resetPreviewState()
+            } catch {
+                self.handlePreviewError(error, voiceName: voice.name)
+            }
+
+            self.previewTask = nil
+        }
+    }
+
+    func stopPreview() {
+        previewTask?.cancel()
+        previewTask = nil
+        previewPlayer.stop()
+        resetPreviewState()
+    }
+
+    func isPreviewingVoice(_ voice: Voice) -> Bool {
+        previewingVoiceID == voice.id && isPreviewing
+    }
+
+    func isPreviewLoadingVoice(_ voice: Voice) -> Bool {
+        previewingVoiceID == voice.id && isPreviewLoading
+    }
+
+    func canPreview(_ voice: Voice) -> Bool {
+        voice.previewURL != nil
+    }
+
+    var isPreviewActive: Bool {
+        previewingVoiceID != nil
+    }
+
+    var isPreviewPlaying: Bool {
+        previewingVoiceID != nil && isPreviewing
+    }
+
+    var isPreviewLoadingActive: Bool {
+        previewingVoiceID != nil && isPreviewLoading
+    }
+}
+
 enum TranscriptFormat {
     case srt
     case vtt
@@ -234,14 +309,14 @@ class TTSViewModel: ObservableObject {
     init(notificationCenterProvider: @escaping () -> UNUserNotificationCenter? = { UNUserNotificationCenter.current() },
          urlContentLoader: URLContentLoading = URLContentService(),
          translationService: TextTranslationService = OpenAITranslationService(),
-         audioPlayer: AudioPlayerService = AudioPlayerService(),
-         previewAudioPlayer: AudioPlayerService = AudioPlayerService(),
+         audioPlayer: AudioPlayerService? = nil,
+         previewAudioPlayer: AudioPlayerService? = nil,
          previewDataLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) {
         self.notificationCenter = notificationCenterProvider()
         self.urlContentLoader = urlContentLoader
         self.translationService = translationService
-        self.audioPlayer = audioPlayer
-        self.previewPlayer = previewAudioPlayer
+        self.audioPlayer = audioPlayer ?? AudioPlayerService()
+        self.previewPlayer = previewAudioPlayer ?? AudioPlayerService()
         self.previewDataLoader = previewDataLoader
         setupAudioPlayer()
         setupPreviewPlayer()
@@ -1715,73 +1790,4 @@ private extension TTSViewModel {
         stop()
     }
 
-    func previewVoice(_ voice: Voice) {
-        if previewingVoiceID == voice.id && (isPreviewing || isPreviewLoading) {
-            stopPreview()
-            return
-        }
-
-        stopPreview()
-
-        guard let previewURLString = voice.previewURL, let url = URL(string: previewURLString) else {
-            errorMessage = "Preview not available for \(voice.name)."
-            return
-        }
-
-        audioPlayer.pause()
-        isPlaying = false
-        previewingVoiceID = voice.id
-        previewVoiceName = voice.name
-        isPreviewLoading = true
-
-        previewTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            do {
-                let data = try await self.previewDataLoader(url)
-                try Task.checkCancellation()
-                try await self.previewPlayer.loadAudio(from: data)
-                try Task.checkCancellation()
-                self.previewPlayer.setVolume(Float(self.volume))
-                self.previewPlayer.play()
-            } catch is CancellationError {
-                self.resetPreviewState()
-            } catch {
-                self.handlePreviewError(error, voiceName: voice.name)
-            }
-
-            self.previewTask = nil
-        }
-    }
-
-    func stopPreview() {
-        previewTask?.cancel()
-        previewTask = nil
-        previewPlayer.stop()
-        resetPreviewState()
-    }
-
-    func isPreviewing(_ voice: Voice) -> Bool {
-        previewingVoiceID == voice.id && isPreviewing
-    }
-
-    func isPreviewLoading(_ voice: Voice) -> Bool {
-        previewingVoiceID == voice.id && isPreviewLoading
-    }
-
-    func canPreview(_ voice: Voice) -> Bool {
-        voice.previewURL != nil
-    }
-
-    var isPreviewActive: Bool {
-        previewingVoiceID != nil
-    }
-
-    var isPreviewPlaying: Bool {
-        previewingVoiceID != nil && isPreviewing
-    }
-
-    var isPreviewLoadingActive: Bool {
-        previewingVoiceID != nil && isPreviewLoading
-    }
 }
