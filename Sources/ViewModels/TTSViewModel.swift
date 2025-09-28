@@ -56,6 +56,10 @@ class TTSViewModel: ObservableObject {
     @Published var volume: Double = 0.75
     @Published var errorMessage: String?
     @Published var availableVoices: [Voice] = []
+    @Published private(set) var previewingVoiceID: Voice.ID?
+    @Published private(set) var previewVoiceName: String?
+    @Published private(set) var isPreviewing: Bool = false
+    @Published private(set) var isPreviewLoading: Bool = false
     @Published var isLoopEnabled: Bool = false
     @Published var generationProgress: Double = 0
     @Published var isMinimalistMode: Bool = false
@@ -108,7 +112,8 @@ class TTSViewModel: ObservableObject {
     }
     
     // MARK: - Services
-    private let audioPlayer = AudioPlayerService()
+    private let audioPlayer: AudioPlayerService
+    private let previewPlayer: AudioPlayerService
     private let elevenLabs = ElevenLabsService()
     private let openAI = OpenAIService()
     private let googleTTS = GoogleTTSService()
@@ -133,6 +138,8 @@ class TTSViewModel: ObservableObject {
     private var cachedStyleValues: [TTSProviderType: [String: Double]] = [:]
     private let translationService: TextTranslationService
     private var isUpdatingInputFromTranslation = false
+    private let previewDataLoader: (URL) async throws -> Data
+    private var previewTask: Task<Void, Never>?
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -192,6 +199,11 @@ class TTSViewModel: ObservableObject {
         translationService.hasCredentials()
     }
 
+    static func defaultPreviewLoader(url: URL) async throws -> Data {
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return data
+    }
+
     var costEstimate: CostEstimate {
         let profile = ProviderCostProfile.profile(for: selectedProvider)
         let characterCount = inputText.trimmingCharacters(in: .whitespacesAndNewlines).count
@@ -221,11 +233,18 @@ class TTSViewModel: ObservableObject {
     // MARK: - Initialization
     init(notificationCenterProvider: @escaping () -> UNUserNotificationCenter? = { UNUserNotificationCenter.current() },
          urlContentLoader: URLContentLoading = URLContentService(),
-         translationService: TextTranslationService = OpenAITranslationService()) {
+         translationService: TextTranslationService = OpenAITranslationService(),
+         audioPlayer: AudioPlayerService = AudioPlayerService(),
+         previewAudioPlayer: AudioPlayerService = AudioPlayerService(),
+         previewDataLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) {
         self.notificationCenter = notificationCenterProvider()
         self.urlContentLoader = urlContentLoader
         self.translationService = translationService
+        self.audioPlayer = audioPlayer
+        self.previewPlayer = previewAudioPlayer
+        self.previewDataLoader = previewDataLoader
         setupAudioPlayer()
+        setupPreviewPlayer()
         loadSavedSettings()
         updateAvailableVoices()
     }
@@ -354,6 +373,8 @@ class TTSViewModel: ObservableObject {
             errorMessage = "Please enter some text"
             return
         }
+
+        stopPreview()
 
         let providerType = selectedProvider
         let provider = getProvider(for: providerType)
@@ -507,6 +528,8 @@ class TTSViewModel: ObservableObject {
             return
         }
 
+        stopPreview()
+
         let providerType = selectedProvider
         let provider = getProvider(for: providerType)
         let voice = selectedVoice ?? provider.defaultVoice
@@ -563,16 +586,18 @@ class TTSViewModel: ObservableObject {
     }
     
     func play() async {
+        stopPreview()
         audioPlayer.play()
         isPlaying = true
     }
-    
+
     func pause() {
         audioPlayer.pause()
         isPlaying = false
     }
-    
+
     func stop() {
+        stopPreview()
         audioPlayer.stop()
         isPlaying = false
         currentTime = 0
@@ -911,6 +936,10 @@ class TTSViewModel: ObservableObject {
     func updateAvailableVoices() {
         let provider = getCurrentProvider()
         availableVoices = provider.availableVoices
+        if let previewID = previewingVoiceID,
+           !availableVoices.contains(where: { $0.id == previewID }) {
+            stopPreview()
+        }
         refreshStyleControls(for: selectedProvider)
         ensureFormatSupportedForSelectedProvider()
 
@@ -951,15 +980,15 @@ class TTSViewModel: ObservableObject {
         audioPlayer.$currentTime
             .receive(on: DispatchQueue.main)
             .assign(to: &$currentTime)
-        
+
         audioPlayer.$duration
             .receive(on: DispatchQueue.main)
             .assign(to: &$duration)
-        
+
         audioPlayer.$isPlaying
             .receive(on: DispatchQueue.main)
             .assign(to: &$isPlaying)
-        
+
         // Handle loop mode
         audioPlayer.didFinishPlaying = { [weak self] in
             guard let self = self else { return }
@@ -968,6 +997,41 @@ class TTSViewModel: ObservableObject {
                     await self.play()
                 }
             }
+        }
+    }
+
+    private func setupPreviewPlayer() {
+        previewPlayer.$isPlaying
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] playing in
+                guard let self else { return }
+                self.isPreviewing = playing && self.previewingVoiceID != nil
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.$isBuffering
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] buffering in
+                guard let self else { return }
+                if self.previewingVoiceID == nil {
+                    self.isPreviewLoading = false
+                } else {
+                    self.isPreviewLoading = buffering
+                }
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.$error
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.handlePreviewError(error, voiceName: nil)
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.didFinishPlaying = { [weak self] in
+            guard let self else { return }
+            self.resetPreviewState()
         }
     }
     
@@ -1068,6 +1132,7 @@ class TTSViewModel: ObservableObject {
 
     deinit {
         batchTask?.cancel()
+        previewTask?.cancel()
     }
 }
 
@@ -1199,6 +1264,20 @@ extension TTSViewModel {
 }
 
 private extension TTSViewModel {
+    func resetPreviewState() {
+        previewTask = nil
+        previewingVoiceID = nil
+        previewVoiceName = nil
+        isPreviewLoading = false
+        isPreviewing = false
+    }
+
+    func handlePreviewError(_ error: Error, voiceName: String?) {
+        let resolvedName = voiceName ?? previewVoiceName ?? "this voice"
+        errorMessage = "Unable to preview \(resolvedName): \(error.localizedDescription)"
+        resetPreviewState()
+    }
+
     func normalizeImportedText(_ text: String) -> String {
         TextSanitizer.cleanImportedText(text)
     }
@@ -1550,6 +1629,8 @@ private extension TTSViewModel {
     }
 
     func loadHistoryItem(_ item: GenerationHistoryItem, shouldAutoplay: Bool) async throws {
+        stopPreview()
+
         let previousProvider = selectedProvider
         let previousVoice = selectedVoice
         let previousFormat = selectedFormat
@@ -1632,5 +1713,75 @@ private extension TTSViewModel {
         currentAudioFormat = selectedFormat
         currentTranscript = nil
         stop()
+    }
+
+    func previewVoice(_ voice: Voice) {
+        if previewingVoiceID == voice.id && (isPreviewing || isPreviewLoading) {
+            stopPreview()
+            return
+        }
+
+        stopPreview()
+
+        guard let previewURLString = voice.previewURL, let url = URL(string: previewURLString) else {
+            errorMessage = "Preview not available for \(voice.name)."
+            return
+        }
+
+        audioPlayer.pause()
+        isPlaying = false
+        previewingVoiceID = voice.id
+        previewVoiceName = voice.name
+        isPreviewLoading = true
+
+        previewTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            do {
+                let data = try await self.previewDataLoader(url)
+                try Task.checkCancellation()
+                try await self.previewPlayer.loadAudio(from: data)
+                try Task.checkCancellation()
+                self.previewPlayer.setVolume(Float(self.volume))
+                self.previewPlayer.play()
+            } catch is CancellationError {
+                self.resetPreviewState()
+            } catch {
+                self.handlePreviewError(error, voiceName: voice.name)
+            }
+
+            self.previewTask = nil
+        }
+    }
+
+    func stopPreview() {
+        previewTask?.cancel()
+        previewTask = nil
+        previewPlayer.stop()
+        resetPreviewState()
+    }
+
+    func isPreviewing(_ voice: Voice) -> Bool {
+        previewingVoiceID == voice.id && isPreviewing
+    }
+
+    func isPreviewLoading(_ voice: Voice) -> Bool {
+        previewingVoiceID == voice.id && isPreviewLoading
+    }
+
+    func canPreview(_ voice: Voice) -> Bool {
+        voice.previewURL != nil
+    }
+
+    var isPreviewActive: Bool {
+        previewingVoiceID != nil
+    }
+
+    var isPreviewPlaying: Bool {
+        previewingVoiceID != nil && isPreviewing
+    }
+
+    var isPreviewLoadingActive: Bool {
+        previewingVoiceID != nil && isPreviewLoading
     }
 }
