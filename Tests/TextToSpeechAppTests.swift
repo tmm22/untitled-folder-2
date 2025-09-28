@@ -799,6 +799,22 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    func testClearTextRemovesArticleSummary() async {
+        let summarizer = StubSummarizationService(condensed: "Condensed body", summary: "Summary line.")
+        let viewModel = makeTestViewModel(urlContentResult: .success("Original article body."),
+                                          summarizationService: summarizer)
+
+        await viewModel.importText(from: "https://example.com/article", autoGenerate: false)
+        await waitUntil { viewModel.articleSummary != nil }
+
+        viewModel.clearText()
+
+        XCTAssertNil(viewModel.articleSummary)
+        XCTAssertNil(viewModel.articleSummaryPreview)
+        XCTAssertFalse(viewModel.isSummarizingArticle)
+    }
+
+    @MainActor
     func testImportTextRejectsInvalidURL() async {
         let viewModel = makeTestViewModel()
 

@@ -1213,6 +1213,11 @@ class TTSViewModel: ObservableObject {
         batchItems.removeAll()
         batchProgress = 0
         translationResult = nil
+        articleSummaryTask?.cancel()
+        articleSummaryTask = nil
+        articleSummary = nil
+        articleSummaryError = nil
+        isSummarizingArticle = false
     }
     
     func updateAvailableVoices() {
