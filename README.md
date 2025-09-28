@@ -30,6 +30,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Transcript Export**: Generate SRT or VTT captions alongside every synthesis
 - **Pronunciation Glossary**: Override tricky words globally or per provider
 - **Web Page Import**: Paste a URL and pull readable article text straight into the editor
+- **Inline Translation**: Detect the source language, translate on demand, and review original plus translated text side by side before generating speech
 - **Auto-Chunks Long Scripts**: Seamlessly splits text that exceeds provider limits and stitches audio back together for you
 
 ### 🔒 Security & Privacy
@@ -230,11 +231,17 @@ swift run TextToSpeechApp
 ### Advanced Features
 
 #### Voice Style Controls
-- Located beside the Provider/Voice pickers, the emotion/style stack only appears when a provider exposes additional expressive metadata.
+- Access the style sliders from the **Voice Style** popover next to the Provider/Voice menus; the panel only appears when the provider exposes expressive metadata.
 - **OpenAI** surfaces *Expressiveness* and *Warmth*; **ElevenLabs** keeps *Stability*, *Similarity Boost*, and *Style*; **Google** offers *Briskness* and *Intonation* tuned automatically for Neural2, WaveNet, and Standard voices.
-- Adjust a slider to immediately influence the next generation, export, or batch run. Each slider now includes its own reset button to snap the value back to the provider default.
-- A global reset button in the header restores every slider at once. Both reset options disable themselves when the controls already match their defaults.
+- Adjust a slider to immediately influence the next generation, export, or batch run. Each slider in the popover includes its own reset button to snap back to defaults.
+- The popover header offers a global reset button that restores every slider at once; both reset options disable themselves when the controls already match their defaults.
 - Custom values persist per provider via UserDefaults + Keychain, so each service remembers its latest tone the next time you launch the app.
+
+#### Inline Translation
+- Trigger translation manually with the new **Translate** button; the app auto-detects the source language and uses your OpenAI credentials to produce the target output.
+- Pick the destination language from the globe menu—your last choice is remembered for the current session.
+- Keep the original text beside the translation (default) or toggle it off to replace the editor content instantly.
+- Side-by-side cards provide copy buttons and a **Use Translation** shortcut for quick adoption before generating audio.
 
 #### Saved Snippets
 - Click **Save Current Text** in the Saved Snippets panel to capture the editor contents.

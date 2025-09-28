@@ -280,6 +280,8 @@ private struct CommandStripView: View {
     let toggleInspector: () -> Void
     let focusInspector: (InspectorSection) -> Void
     @State private var showAdvancedPanel = false
+    @State private var showingTranslationPopover = false
+    @State private var showingStylePopover = false
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -301,6 +303,8 @@ private struct CommandStripView: View {
             characterCount
             Spacer(minLength: 12)
             statusIndicator
+            voiceStyleButton
+            translationControl
             batchButton
             generateButton
             exportButton
@@ -320,12 +324,14 @@ private struct CommandStripView: View {
             }
 
             HStack(spacing: 12) {
-                characterCount
-                Spacer()
-                batchButton
-                generateButton
-                exportButton
-                transcriptMenu
+            characterCount
+            Spacer()
+            voiceStyleButton
+            translationControl
+            batchButton
+            generateButton
+            exportButton
+            transcriptMenu
                 clearButton
                 advancedButton
                 overflowMenu
@@ -358,70 +364,23 @@ private struct CommandStripView: View {
             .pickerStyle(MenuPickerStyle())
             .help("Select the voice for this provider")
 
-            if viewModel.hasActiveStyleControls {
-                Divider()
-                    .frame(height: 24)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text("Voice Style")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Spacer()
-
-                        Button {
-                            viewModel.resetStyleControls()
-                        } label: {
-                            Label("Reset", systemImage: "arrow.counterclockwise")
-                                .labelStyle(.titleAndIcon)
-                        }
-                        .controlSize(.small)
-                        .buttonStyle(.bordered)
-                        .tint(.accentColor)
-                        .disabled(!viewModel.canResetStyleControls)
-                        .help("Restore the default voice style settings")
-                    }
-
-                    ForEach(viewModel.activeStyleControls) { control in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(control.label)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                                Button {
-                                    viewModel.resetStyleControl(control)
-                                } label: {
-                                    Image(systemName: "arrow.uturn.backward.circle")
-                                        .imageScale(.small)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundColor(viewModel.canResetStyleControl(control) ? Color.accentColor : Color.secondary)
-                                .opacity(viewModel.canResetStyleControl(control) ? 1 : 0.35)
-                                .disabled(!viewModel.canResetStyleControl(control))
-                                .help("Reset \(control.label) to its default value")
-                            }
-
-                            if let step = control.step {
-                                Slider(value: viewModel.binding(for: control), in: control.range, step: step)
-                            } else {
-                                Slider(value: viewModel.binding(for: control), in: control.range)
-                            }
-
-                            if let help = control.helpText {
-                                Text(help)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: 220)
-            }
+            voiceStyleButton
         }
+    }
+
+    private var voiceStyleButton: some View {
+        Button {
+            showingStylePopover = true
+        } label: {
+            Label("Voice Style", systemImage: "slider.horizontal.2.rectangle")
+        }
+        .buttonStyle(.bordered)
+        .disabled(!viewModel.hasActiveStyleControls)
+        .popover(isPresented: $showingStylePopover, arrowEdge: .top) {
+            VoiceStylePopover(isPresented: $showingStylePopover)
+                .environmentObject(viewModel)
+        }
+        .help("Adjust emotion and tone controls for the selected provider")
     }
 
     private var characterCount: some View {
@@ -430,6 +389,28 @@ private struct CommandStripView: View {
             .font(.footnote)
             .foregroundColor(count > 5000 ? .red : .secondary)
             .accessibilityLabel("Character count")
+    }
+
+    private var translationControl: some View {
+        Button {
+            showingTranslationPopover = true
+        } label: {
+            if viewModel.isTranslating {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Translating…")
+                }
+            } else {
+                Label("Translate", systemImage: "arrow.triangle.2.circlepath")
+            }
+        }
+        .buttonStyle(.bordered)
+        .popover(isPresented: $showingTranslationPopover, arrowEdge: .top) {
+            TranslationSettingsPopover(isPresented: $showingTranslationPopover)
+                .environmentObject(viewModel)
+        }
+        .help("Configure translation options and translate the current text")
     }
 
     @ViewBuilder
@@ -601,6 +582,10 @@ private struct MainComposerColumn: View {
             TextEditorView()
                 .frame(maxHeight: .infinity)
 
+            if viewModel.shouldShowTranslationComparison, let translation = viewModel.translationResult {
+                TranslationComparisonView(translation: translation)
+            }
+
             GenerationStatusFooter(focusInspector: focusInspector)
         }
         .padding(.horizontal, horizontalPadding)
@@ -697,6 +682,252 @@ private struct ComposerUtilityBar: View {
 
             Spacer()
         }
+    }
+}
+
+private struct TranslationComparisonView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let translation: TranslationResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Label("Translation Preview", systemImage: "globe")
+                    .font(.headline)
+
+                Spacer()
+
+                if let detected = viewModel.translationDetectedLanguageDisplayName {
+                    Text("Detected: \(detected)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Text("→ \(translation.targetLanguageDisplayName)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Button("Use Translation") {
+                    viewModel.adoptTranslationAsInput()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help("Replace the editor text with the translated version")
+            }
+
+            Divider()
+
+            HStack(alignment: .top, spacing: 12) {
+                translationColumn(
+                    title: "Original",
+                    languageLabel: viewModel.translationDetectedLanguageDisplayName ?? "",
+                    text: translation.originalText
+                )
+
+                translationColumn(
+                    title: "Translated",
+                    languageLabel: translation.targetLanguageDisplayName,
+                    text: translation.translatedText
+                )
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+    }
+
+    private func translationColumn(title: String, languageLabel: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    if !languageLabel.isEmpty {
+                        Text(languageLabel)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .help("Copy this text to the clipboard")
+            }
+
+            ScrollView {
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.windowBackgroundColor))
+                    )
+            }
+            .frame(minHeight: 140, maxHeight: 200)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TranslationSettingsPopover: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Translation")
+                    .font(.headline)
+                Text("Choose a target language and optionally keep the original text alongside the translated copy.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Picker("Target language", selection: $viewModel.translationTargetLanguage) {
+                ForEach(viewModel.availableTranslationLanguages) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Toggle("Keep original text", isOn: $viewModel.translationKeepOriginal)
+
+            if !viewModel.canTranslate {
+                Label("Add an OpenAI API key in Settings to enable translation.", systemImage: "key.fill")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+
+                if viewModel.isTranslating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(.trailing, 8)
+                }
+
+                Button {
+                    Task {
+                        await viewModel.translateCurrentText()
+                        isPresented = false
+                    }
+                } label: {
+                    Label("Translate Now", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.isTranslating || !viewModel.canTranslate || viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 260)
+    }
+}
+
+private struct VoiceStylePopover: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Voice Style")
+                    .font(.headline)
+                Text("Fine-tune expressive controls for the current provider. Settings persist per provider and reset automatically when unsupported.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            if viewModel.hasActiveStyleControls {
+                HStack {
+                    Text("Presets")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Button {
+                        viewModel.resetStyleControls()
+                    } label: {
+                        Label("Reset All", systemImage: "arrow.counterclockwise")
+                    }
+                    .controlSize(.small)
+                    .buttonStyle(.bordered)
+                    .disabled(!viewModel.canResetStyleControls)
+                }
+
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(viewModel.activeStyleControls) { control in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(control.label)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Button {
+                                    viewModel.resetStyleControl(control)
+                                } label: {
+                                    Label("Reset", systemImage: "arrow.uturn.backward")
+                                        .labelStyle(.titleAndIcon)
+                                }
+                                .controlSize(.small)
+                                .buttonStyle(.bordered)
+                                .disabled(!viewModel.canResetStyleControl(control))
+                            }
+
+                            if let step = control.step {
+                                Slider(value: viewModel.binding(for: control), in: control.range, step: step)
+                            } else {
+                                Slider(value: viewModel.binding(for: control), in: control.range)
+                            }
+
+                            if let help = control.helpText {
+                                Text(help)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Label("The selected provider does not expose style controls.", systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Close") {
+                    isPresented = false
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 280)
     }
 }
 

@@ -31,10 +31,36 @@ final class TextToSpeechAppTests: XCTestCase {
         }
     }
 
+    private struct StubTranslationService: TextTranslationService {
+        var translatedText: String = ""
+        var detectedLanguage: String = "en"
+        var credentialAvailable: Bool = true
+        var error: Error?
+
+        func translate(text: String, targetLanguageCode: String) async throws -> TranslationResult {
+            if let error {
+                throw error
+            }
+            return TranslationResult(
+                originalText: text,
+                translatedText: translatedText.isEmpty ? "translated-\(text)" : translatedText,
+                detectedLanguageCode: detectedLanguage,
+                targetLanguageCode: targetLanguageCode
+            )
+        }
+
+        func hasCredentials() -> Bool {
+            credentialAvailable
+        }
+    }
+
     @MainActor
-    private func makeTestViewModel(urlContentResult: Result<String, Error> = .success("")) -> TTSViewModel {
+    private func makeTestViewModel(urlContentResult: Result<String, Error> = .success(""),
+                                   translationService: TextTranslationService = StubTranslationService()) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
-        return TTSViewModel(notificationCenterProvider: { nil }, urlContentLoader: loader)
+        return TTSViewModel(notificationCenterProvider: { nil },
+                            urlContentLoader: loader,
+                            translationService: translationService)
     }
     
     // MARK: - Model Tests
@@ -339,6 +365,67 @@ final class TextToSpeechAppTests: XCTestCase {
         }
 
         XCTAssertEqual(viewModel.canResetStyleControls, secondaryControl != nil)
+    }
+
+    @MainActor
+    func testTranslateKeepsOriginalWhenToggleOn() async {
+        resetPersistedSettings()
+        var translationService = StubTranslationService()
+        translationService.translatedText = "Hola mundo"
+        translationService.detectedLanguage = "en"
+
+        let viewModel = makeTestViewModel(translationService: translationService)
+        viewModel.inputText = "Hello world"
+        viewModel.translationTargetLanguage = .supported.first(where: { $0.code == "es" }) ?? .english
+        viewModel.translationKeepOriginal = true
+
+        await viewModel.translateCurrentText()
+
+        XCTAssertEqual(viewModel.translationResult?.translatedText, "Hola mundo")
+        XCTAssertEqual(viewModel.inputText, "Hello world")
+        XCTAssertTrue(viewModel.shouldShowTranslationComparison)
+        XCTAssertFalse(viewModel.isTranslating)
+    }
+
+    @MainActor
+    func testTranslateReplacesEditorWhenKeepOriginalDisabled() async {
+        resetPersistedSettings()
+        var translationService = StubTranslationService()
+        translationService.translatedText = "Bonjour le monde"
+        translationService.detectedLanguage = "en"
+
+        let viewModel = makeTestViewModel(translationService: translationService)
+        viewModel.inputText = "Hello world"
+        viewModel.translationTargetLanguage = .supported.first(where: { $0.code == "fr" }) ?? .english
+        viewModel.translationKeepOriginal = false
+
+        await viewModel.translateCurrentText()
+
+        XCTAssertEqual(viewModel.inputText, "Bonjour le monde")
+        XCTAssertNil(viewModel.translationResult)
+        XCTAssertFalse(viewModel.shouldShowTranslationComparison)
+    }
+
+    @MainActor
+    func testAdoptTranslationClearsComparison() async {
+        resetPersistedSettings()
+        var translationService = StubTranslationService()
+        translationService.translatedText = "Hallo Welt"
+        translationService.detectedLanguage = "en"
+
+        let viewModel = makeTestViewModel(translationService: translationService)
+        viewModel.inputText = "Hello world"
+        viewModel.translationTargetLanguage = .supported.first(where: { $0.code == "de" }) ?? .english
+        viewModel.translationKeepOriginal = true
+
+        await viewModel.translateCurrentText()
+        XCTAssertNotNil(viewModel.translationResult)
+
+        viewModel.adoptTranslationAsInput()
+
+        XCTAssertEqual(viewModel.inputText, "Hallo Welt")
+        XCTAssertNil(viewModel.translationResult)
+        XCTAssertFalse(viewModel.translationKeepOriginal)
     }
 
     func testGoogleVoiceTuningAdaptsPerVoiceFamily() {

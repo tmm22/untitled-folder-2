@@ -36,7 +36,16 @@ struct GenerationOutput {
 @MainActor
 class TTSViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published var inputText: String = ""
+    @Published var inputText: String = "" {
+        didSet {
+            guard !isUpdatingInputFromTranslation else { return }
+            if inputText.isEmpty {
+                translationResult = nil
+            } else if let existing = translationResult, existing.originalText != inputText {
+                translationResult = nil
+            }
+        }
+    }
     @Published var selectedProvider: TTSProviderType = .openAI
     @Published var selectedVoice: Voice?
     @Published var isGenerating: Bool = false
@@ -56,6 +65,22 @@ class TTSViewModel: ObservableObject {
     @Published var isBatchRunning: Bool = false
     @Published var batchProgress: Double = 0
     @Published var pronunciationRules: [PronunciationRule] = []
+    @Published var translationTargetLanguage: TranslationLanguage = .english {
+        didSet {
+            if translationTargetLanguage != oldValue {
+                translationResult = nil
+            }
+        }
+    }
+    @Published var translationKeepOriginal: Bool = true {
+        didSet {
+            if translationKeepOriginal == false {
+                translationResult = nil
+            }
+        }
+    }
+    @Published private(set) var translationResult: TranslationResult?
+    @Published private(set) var isTranslating: Bool = false
     @Published private(set) var notificationsEnabled: Bool = false
     @Published private(set) var activeStyleControls: [ProviderStyleControl] = []
     @Published private(set) var styleValues: [String: Double] = [:] {
@@ -106,6 +131,8 @@ class TTSViewModel: ObservableObject {
     private let notificationCenter: UNUserNotificationCenter?
     private let urlContentLoader: URLContentLoading
     private var cachedStyleValues: [TTSProviderType: [String: Double]] = [:]
+    private let translationService: TextTranslationService
+    private var isUpdatingInputFromTranslation = false
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -149,6 +176,22 @@ class TTSViewModel: ObservableObject {
         batchSegments(from: inputText).count
     }
 
+    var availableTranslationLanguages: [TranslationLanguage] { TranslationLanguage.supported }
+
+    var translationTargetLanguageDisplayName: String { translationTargetLanguage.displayName }
+
+    var translationDetectedLanguageDisplayName: String? {
+        translationResult?.detectedLanguageDisplayName
+    }
+
+    var shouldShowTranslationComparison: Bool {
+        translationKeepOriginal && translationResult != nil
+    }
+
+    var canTranslate: Bool {
+        translationService.hasCredentials()
+    }
+
     var costEstimate: CostEstimate {
         let profile = ProviderCostProfile.profile(for: selectedProvider)
         let characterCount = inputText.trimmingCharacters(in: .whitespacesAndNewlines).count
@@ -177,12 +220,14 @@ class TTSViewModel: ObservableObject {
 
     // MARK: - Initialization
     init(notificationCenterProvider: @escaping () -> UNUserNotificationCenter? = { UNUserNotificationCenter.current() },
-         urlContentLoader: URLContentLoading = URLContentService()) {
+         urlContentLoader: URLContentLoading = URLContentService(),
+         translationService: TextTranslationService = OpenAITranslationService()) {
         self.notificationCenter = notificationCenterProvider()
-       self.urlContentLoader = urlContentLoader
-       setupAudioPlayer()
-       loadSavedSettings()
-       updateAvailableVoices()
+        self.urlContentLoader = urlContentLoader
+        self.translationService = translationService
+        setupAudioPlayer()
+        loadSavedSettings()
+        updateAvailableVoices()
     }
 
     private func refreshStyleControls(for providerType: TTSProviderType) {
@@ -255,6 +300,51 @@ class TTSViewModel: ObservableObject {
             partialResult[control.id] = control.defaultValue
         }
         styleValues = defaults
+    }
+
+    func translateCurrentText() async {
+        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else {
+            errorMessage = "Please enter text to translate"
+            return
+        }
+
+        guard canTranslate else {
+            errorMessage = "Add an OpenAI key in Settings to translate text."
+            return
+        }
+
+        isTranslating = true
+        errorMessage = nil
+
+        do {
+            let result = try await translationService.translate(text: trimmed, targetLanguageCode: translationTargetLanguage.code)
+
+            if translationKeepOriginal {
+                translationResult = result
+            } else {
+                isUpdatingInputFromTranslation = true
+                inputText = result.translatedText
+                isUpdatingInputFromTranslation = false
+                translationResult = nil
+            }
+        } catch let error as TTSError {
+            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isTranslating = false
+    }
+
+    func adoptTranslationAsInput() {
+        guard let translationResult else { return }
+        translationKeepOriginal = false
+        isUpdatingInputFromTranslation = true
+        inputText = translationResult.translatedText
+        isUpdatingInputFromTranslation = false
+        self.translationResult = nil
     }
 
     func generateSpeech() async {
@@ -815,6 +905,7 @@ class TTSViewModel: ObservableObject {
         clearGeneratedAudio()
         batchItems.removeAll()
         batchProgress = 0
+        translationResult = nil
     }
     
     func updateAvailableVoices() {
