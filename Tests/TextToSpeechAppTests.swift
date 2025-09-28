@@ -55,12 +55,34 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    private final class StubPreviewAudioPlayer: AudioPlayerService {
+        override func loadAudio(from data: Data) async throws {
+            isBuffering = true
+            isBuffering = false
+        }
+
+        override func play() {
+            isPlaying = true
+        }
+
+        override func stop() {
+            isPlaying = false
+        }
+    }
+
+    @MainActor
     private func makeTestViewModel(urlContentResult: Result<String, Error> = .success(""),
-                                   translationService: TextTranslationService = StubTranslationService()) -> TTSViewModel {
+                                   translationService: TextTranslationService = StubTranslationService(),
+                                   audioPlayer: AudioPlayerService = AudioPlayerService(),
+                                   previewPlayer: AudioPlayerService = AudioPlayerService(),
+                                   previewLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
         return TTSViewModel(notificationCenterProvider: { nil },
                             urlContentLoader: loader,
-                            translationService: translationService)
+                            translationService: translationService,
+                            audioPlayer: audioPlayer,
+                            previewAudioPlayer: previewPlayer,
+                            previewDataLoader: previewLoader)
     }
     
     // MARK: - Model Tests
@@ -200,6 +222,82 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertTrue(formats.contains("aac"))
         XCTAssertTrue(AudioPlayerService.isFormatSupported("mp3"))
         XCTAssertTrue(AudioPlayerService.isFormatSupported("MP3"))
+    }
+
+    @MainActor
+    func testVoicePreviewUnavailableSetsErrorMessage() {
+        let viewModel = makeTestViewModel()
+        let voice = Voice(id: "no-preview",
+                          name: "No Preview",
+                          language: "en-US",
+                          gender: .female,
+                          provider: .openAI,
+                          previewURL: nil)
+
+        viewModel.previewVoice(voice)
+
+        XCTAssertEqual(viewModel.errorMessage, "Preview not available for No Preview.")
+        XCTAssertNil(viewModel.previewingVoiceID)
+        XCTAssertFalse(viewModel.isPreviewActive)
+        XCTAssertFalse(viewModel.isPreviewLoadingActive)
+    }
+
+    @MainActor
+    func testVoicePreviewFailureResetsState() async {
+        struct PreviewFailure: LocalizedError {
+            var errorDescription: String? { "Preview failed" }
+        }
+
+        let previewPlayer = StubPreviewAudioPlayer()
+        let loader: (URL) async throws -> Data = { _ in throw PreviewFailure() }
+        let viewModel = makeTestViewModel(previewPlayer: previewPlayer, previewLoader: loader)
+        let voice = Voice(id: "failing-preview",
+                          name: "Error Voice",
+                          language: "en-US",
+                          gender: .female,
+                          provider: .openAI,
+                          previewURL: "https://example.com/preview.mp3")
+
+        viewModel.previewVoice(voice)
+
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.errorMessage, "Unable to preview Error Voice: Preview failed")
+        XCTAssertNil(viewModel.previewingVoiceID)
+        XCTAssertFalse(viewModel.isPreviewActive)
+        XCTAssertFalse(viewModel.isPreviewLoadingActive)
+    }
+
+    @MainActor
+    func testStopPreviewResetsState() async {
+        let previewPlayer = StubPreviewAudioPlayer()
+        let loader: (URL) async throws -> Data = { _ in Data() }
+        let viewModel = makeTestViewModel(previewPlayer: previewPlayer, previewLoader: loader)
+        let voice = Voice(id: "preview-voice",
+                          name: "Preview Voice",
+                          language: "en-US",
+                          gender: .female,
+                          provider: .openAI,
+                          previewURL: "https://example.com/sample.mp3")
+
+        viewModel.previewVoice(voice)
+
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.previewingVoiceID, voice.id)
+        XCTAssertTrue(viewModel.isPreviewActive)
+        XCTAssertTrue(viewModel.isPreviewPlaying || viewModel.isPreviewLoadingActive)
+
+        viewModel.stopPreview()
+
+        await Task.yield()
+
+        XCTAssertNil(viewModel.previewingVoiceID)
+        XCTAssertFalse(viewModel.isPreviewActive)
+        XCTAssertFalse(viewModel.isPreviewLoadingActive)
+        XCTAssertFalse(viewModel.isPreviewing)
     }
 
     func testAudioFormatInitializationFromFileExtension() {

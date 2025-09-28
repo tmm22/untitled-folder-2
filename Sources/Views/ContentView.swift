@@ -353,7 +353,70 @@ private struct CommandStripView: View {
             .pickerStyle(MenuPickerStyle())
             .help("Select the voice for this provider")
 
+            voicePreviewMenu
             voiceStyleButton
+        }
+    }
+
+    private var voicePreviewMenu: some View {
+        Menu {
+            if viewModel.availableVoices.isEmpty {
+                Text("No voices available")
+            } else {
+                ForEach(viewModel.availableVoices) { voice in
+                    Button {
+                        viewModel.previewVoice(voice)
+                    } label: {
+                        HStack {
+                            Text(voice.name)
+                            Spacer()
+                            if viewModel.isPreviewLoading(voice) {
+                                Image(systemName: "hourglass")
+                                    .foregroundColor(.secondary)
+                            } else if viewModel.isPreviewing(voice) {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .foregroundColor(.accentColor)
+                            } else if !viewModel.canPreview(voice) {
+                                Image(systemName: "slash.circle")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                if viewModel.isPreviewActive {
+                    Divider()
+                    Button {
+                        viewModel.stopPreview()
+                    } label: {
+                        Label("Stop Preview", systemImage: "stop.fill")
+                    }
+                }
+            }
+        } label: {
+            Label(voicePreviewLabelText, systemImage: voicePreviewLabelIcon)
+        }
+        .disabled(viewModel.availableVoices.isEmpty)
+        .help("Listen to sample audio for available voices")
+    }
+
+    private var voicePreviewLabelText: String {
+        if viewModel.isPreviewPlaying, let name = viewModel.previewVoiceName {
+            return "Previewing \(name)"
+        } else if let name = viewModel.previewVoiceName {
+            return "Preview: \(name)"
+        } else {
+            return "Preview Voice"
+        }
+    }
+
+    private var voicePreviewLabelIcon: String {
+        if viewModel.isPreviewLoadingActive {
+            return "hourglass"
+        } else if viewModel.isPreviewPlaying {
+            return "speaker.wave.2.fill"
+        } else {
+            return "play.circle"
         }
     }
 
