@@ -160,64 +160,43 @@ struct ContentView: View {
                 .padding(.vertical, commandVerticalPadding)
                 .background(Color(NSColor.windowBackgroundColor))
                 .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
-                    InspectorPanelView(selection: $inspectorSection) {
+                    InspectorPanelView(selection: $inspectorSection, onClose: {
                         showingInspectorPopover = false
-                    }
+                    })
                     .frame(minWidth: 280, idealWidth: 320)
                     .environmentObject(viewModel)
                 }
 
                 Divider()
 
-                HStack(spacing: 0) {
-                    if !isCompact {
-                        ContextRailView(selection: $selectedContextPanel)
-                            .frame(width: 64)
-                            .background(Color(NSColor.windowBackgroundColor))
-
-                        if let selection = selectedContextPanel {
-                            Divider()
-                            ContextPanelContainer(selection: selection) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedContextPanel = nil
-                                }
-                            }
-                            .frame(minWidth: 260, idealWidth: 300)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                        }
-                    }
-
-                    Divider()
-
-                    MainComposerColumn(
-                        isCompact: isCompact,
+                if isCompact {
+                    CompactWorkspace(
                         horizontalPadding: horizontalPadding,
                         verticalPadding: composerVerticalPadding,
                         selectedContextPanel: $selectedContextPanel,
                         activeUtility: $activeUtility,
                         focusInspector: { section in
                             inspectorSection = section
-                            if isCompact {
-                                showingInspectorPopover = true
-                            } else {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isInspectorVisible = true
-                                }
+                            showingInspectorPopover = true
+                        }
+                    )
+                    .environmentObject(viewModel)
+                } else {
+                    WideWorkspace(
+                        selectedContextPanel: $selectedContextPanel,
+                        activeUtility: $activeUtility,
+                        inspectorSection: $inspectorSection,
+                        isInspectorVisible: $isInspectorVisible,
+                        horizontalPadding: horizontalPadding,
+                        verticalPadding: composerVerticalPadding,
+                        focusInspector: { section in
+                            inspectorSection = section
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isInspectorVisible = true
                             }
                         }
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-                    if !isCompact && isInspectorVisible {
-                        Divider()
-                        InspectorPanelView(selection: $inspectorSection) {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isInspectorVisible = false
-                            }
-                        }
-                        .frame(minWidth: 260, idealWidth: 300)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
+                    .environmentObject(viewModel)
                 }
 
                 Divider()
@@ -226,6 +205,16 @@ struct ContentView: View {
                     .background(Color(NSColor.windowBackgroundColor))
             }
             .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
+            .onChange(of: isCompact) { compact in
+                if !compact {
+                    isInspectorVisible = true
+                }
+            }
+            .onAppear {
+                if !isCompact {
+                    isInspectorVisible = true
+                }
+            }
         }
         .frame(minWidth: 800, minHeight: 600)
         .preferredColorScheme(viewModel.colorSchemeOverride)
@@ -547,6 +536,93 @@ private struct CommandStripView: View {
     }
 }
 
+private struct CompactWorkspace: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    @Binding var selectedContextPanel: ContextPanelDestination?
+    @Binding var activeUtility: ComposerUtility?
+    let focusInspector: (InspectorSection) -> Void
+
+    var body: some View {
+        MainComposerColumn(
+            isCompact: true,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            selectedContextPanel: $selectedContextPanel,
+            activeUtility: $activeUtility,
+            focusInspector: focusInspector
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct WideWorkspace: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var selectedContextPanel: ContextPanelDestination?
+    @Binding var activeUtility: ComposerUtility?
+    @Binding var inspectorSection: InspectorSection
+    @Binding var isInspectorVisible: Bool
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let focusInspector: (InspectorSection) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ContextRailView(selection: $selectedContextPanel)
+                .frame(width: 68)
+                .background(Color(NSColor.windowBackgroundColor))
+
+            if let selection = selectedContextPanel {
+                Divider()
+                ContextPanelContainer(selection: selection) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedContextPanel = nil
+                    }
+                }
+                .frame(minWidth: 260, idealWidth: 300, maxHeight: .infinity)
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+
+            Divider()
+
+            MainComposerColumn(
+                isCompact: false,
+                horizontalPadding: horizontalPadding,
+                verticalPadding: verticalPadding,
+                selectedContextPanel: $selectedContextPanel,
+                activeUtility: $activeUtility,
+                focusInspector: focusInspector
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+            if isInspectorVisible {
+                Divider()
+                SmartInspectorColumn(selection: $inspectorSection,
+                                     collapse: {
+                                         withAnimation(.easeInOut(duration: 0.2)) {
+                                             isInspectorVisible = false
+                                         }
+                                     })
+                    .frame(width: 300)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+private struct SmartInspectorColumn: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var selection: InspectorSection
+    let collapse: () -> Void
+
+    var body: some View {
+        InspectorPanelView(selection: $selection, onClose: collapse)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
 // MARK: - Main Composer
 
 private struct MainComposerColumn: View {
@@ -557,6 +633,7 @@ private struct MainComposerColumn: View {
     @Binding var selectedContextPanel: ContextPanelDestination?
     @Binding var activeUtility: ComposerUtility?
     let focusInspector: (InspectorSection) -> Void
+    @State private var showingTranslationDetail = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -582,9 +659,8 @@ private struct MainComposerColumn: View {
             TextEditorView()
                 .frame(maxHeight: .infinity)
 
-            if viewModel.shouldShowTranslationComparison, let translation = viewModel.translationResult {
-                TranslationComparisonView(translation: translation)
-            }
+            ContextShelfView(showingTranslationDetail: $showingTranslationDetail,
+                             focusInspector: focusInspector)
 
             GenerationStatusFooter(focusInspector: focusInspector)
         }
@@ -592,6 +668,103 @@ private struct MainComposerColumn: View {
         .padding(.vertical, verticalPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(NSColor.windowBackgroundColor))
+        .sheet(isPresented: $showingTranslationDetail) {
+            if let translation = viewModel.translationResult {
+                TranslationComparisonView(translation: translation)
+                    .environmentObject(viewModel)
+                    .frame(minWidth: 600, minHeight: 420)
+                    .padding()
+            }
+        }
+    }
+}
+
+private struct ContextShelfView: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var showingTranslationDetail: Bool
+    let focusInspector: (InspectorSection) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let translation = viewModel.translationResult, viewModel.translationKeepOriginal {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("Translation", systemImage: "globe")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(translation.targetLanguageDisplayName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(translation.translatedText)
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .lineLimit(3)
+
+                    HStack {
+                        Button("Use Translation") {
+                            viewModel.adoptTranslationAsInput()
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button("View Details") {
+                            showingTranslationDetail = true
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("Cost Estimate", systemImage: "dollarsign.circle")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(viewModel.costEstimateSummary)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                if let detail = viewModel.costEstimateDetail {
+                    Text(detail)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .lineLimit(3)
+                } else {
+                    Text("Estimate reflects your current provider and text length.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .lineLimit(3)
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Open Inspector") {
+                        focusInspector(.cost)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.controlBackgroundColor))
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.translationResult)
     }
 }
 
@@ -1212,7 +1385,7 @@ private struct ContextPanelContent: View {
 private struct InspectorPanelView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     @Binding var selection: InspectorSection
-    let onClose: () -> Void
+    let onClose: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1220,12 +1393,14 @@ private struct InspectorPanelView: View {
                 Label("Inspector", systemImage: "sidebar.right")
                     .font(.headline)
                 Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark.circle.fill")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark.circle.fill")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             Picker("Inspector Section", selection: $selection) {

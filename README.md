@@ -43,6 +43,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Native macOS Design**: Built with SwiftUI for a seamless Mac experience
 - **Appearance Controls**: Follow the system theme or force Light/Dark from Settings → General
 - **Responsive Layout**: Panels reflow and scroll gracefully—no more fullscreening just to reach controls
+- **Adaptive Workspace**: Full-width windows shift into a three-column layout with a dedicated context rail, spacious composer, and smart inspector so large displays stay efficient
 - **Keyboard Shortcuts**: Efficient workflow with built-in shortcuts (remap through macOS Keyboard settings if needed)
 - **Progress Indicators**: Visual feedback during speech generation
 - **Error Handling**: Clear error messages and recovery options

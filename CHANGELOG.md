@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is i
 - Per-slider reset controls and documentation updates for the Voice Style panel, plus a global reset affordance that surfaces whenever styles deviate from provider defaults.
 - Relocated voice style controls into a dedicated popover alongside provider selection, keeping the main toolbar uncluttered while preserving per-control and global resets.
 - Inline translation workflow that auto-detects the source language, translates via existing provider APIs, and surfaces a side-by-side comparison before speech generation.
+- Introduced a space-efficient three-column desktop layout featuring a context rail, expanded composer column with context shelf cards, and a persistent inspector panel.
 
 ## [1.1.1] - 2025-09-26
 ### Changed
