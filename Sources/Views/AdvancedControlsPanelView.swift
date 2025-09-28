@@ -39,7 +39,7 @@ struct AdvancedControlsPanelView: View {
                     .pickerStyle(MenuPickerStyle())
                     .frame(width: 80)
                     .onChange(of: viewModel.playbackSpeed) { _ in
-                        viewModel.saveSettings()
+                        viewModel.applyPlaybackSpeed(save: true)
                     }
                     
                     Button(action: {
@@ -64,8 +64,11 @@ struct AdvancedControlsPanelView: View {
                 HStack(spacing: 8) {
                     Slider(value: $viewModel.volume, in: 0...1) { editing in
                         if !editing {
-                            viewModel.saveSettings()
+                            viewModel.applyPlaybackVolume(save: true)
                         }
+                    }
+                    .onChange(of: viewModel.volume) { _ in
+                        viewModel.applyPlaybackVolume()
                     }
                     .frame(width: 150)
                     
@@ -80,6 +83,7 @@ struct AdvancedControlsPanelView: View {
                         } else {
                             viewModel.volume = 0.75
                         }
+                        viewModel.applyPlaybackVolume(save: true)
                     }) {
                         Image(systemName: viewModel.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                             .font(.system(size: 14))

@@ -249,12 +249,18 @@ struct SettingsView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .frame(width: 100)
+                        .onChange(of: viewModel.playbackSpeed) { _ in
+                            viewModel.applyPlaybackSpeed(save: true)
+                        }
                         Spacer()
                     }
                     
                     HStack {
                         Text("Default Volume:")
                         Slider(value: $viewModel.volume, in: 0...1)
+                            .onChange(of: viewModel.volume) { _ in
+                                viewModel.applyPlaybackVolume(save: true)
+                            }
                             .frame(width: 200)
                         Text("\(Int(viewModel.volume * 100))%")
                             .frame(width: 50)

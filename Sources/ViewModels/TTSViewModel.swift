@@ -686,6 +686,7 @@ class TTSViewModel: ObservableObject {
     
     func play() async {
         stopPreview()
+        applyPlaybackSettings()
         audioPlayer.play()
         isPlaying = true
     }
@@ -711,7 +712,40 @@ class TTSViewModel: ObservableObject {
             }
         }
     }
-    
+
+    func applyPlaybackSpeed(save: Bool = false) {
+        let clamped = min(max(playbackSpeed, 0.5), 2.0)
+        if abs(playbackSpeed - clamped) > styleComparisonEpsilon {
+            playbackSpeed = clamped
+        }
+        audioPlayer.setPlaybackRate(Float(clamped))
+
+        if save {
+            saveSettings()
+        }
+    }
+
+    func applyPlaybackVolume(save: Bool = false) {
+        let clamped = min(max(volume, 0.0), 1.0)
+        if abs(volume - clamped) > styleComparisonEpsilon {
+            volume = clamped
+        }
+        audioPlayer.setVolume(Float(clamped))
+
+        if save {
+            saveSettings()
+        }
+    }
+
+    func applyPlaybackSettings(save: Bool = false) {
+        applyPlaybackSpeed()
+        applyPlaybackVolume()
+
+        if save {
+            saveSettings()
+        }
+    }
+
     func seek(to time: TimeInterval) {
         audioPlayer.seek(to: time)
         currentTime = time
@@ -1204,6 +1238,8 @@ class TTSViewModel: ObservableObject {
                 }
             }
         }
+
+        applyPlaybackSettings()
 
         ensureFormatSupportedForSelectedProvider()
 
@@ -1756,6 +1792,7 @@ private extension TTSViewModel {
         if loadIntoPlayer {
             generationProgress = 0.7
             try await audioPlayer.loadAudio(from: data)
+            applyPlaybackSettings()
             audioData = data
             currentAudioFormat = format
             duration = audioPlayer.duration
@@ -1800,6 +1837,7 @@ private extension TTSViewModel {
 
         do {
             try await audioPlayer.loadAudio(from: item.audioData)
+            applyPlaybackSettings()
             audioData = item.audioData
             currentAudioFormat = item.format
             currentTranscript = item.transcript

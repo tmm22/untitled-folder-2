@@ -71,6 +71,30 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    private final class SpyAudioPlayerService: AudioPlayerService {
+        var recordedRate: Float?
+        var recordedVolume: Float?
+        var loadCallCount = 0
+
+        override func loadAudio(from data: Data) async throws {
+            loadCallCount += 1
+            duration = 1.0
+        }
+
+        override func setPlaybackRate(_ rate: Float) {
+            recordedRate = rate
+        }
+
+        override func setVolume(_ volume: Float) {
+            recordedVolume = volume
+        }
+
+        override func play() {
+            isPlaying = true
+        }
+    }
+
+    @MainActor
     private func makeTestViewModel(urlContentResult: Result<String, Error> = .success(""),
                                    translationService: TextTranslationService = StubTranslationService(),
                                    audioPlayer: AudioPlayerService? = nil,
@@ -340,6 +364,23 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(viewModel.previewingVoiceID, voice.id)
         XCTAssertTrue(viewModel.isPreviewActive)
         XCTAssertTrue(viewModel.isPreviewPlaying || viewModel.isPreviewLoadingActive)
+    }
+
+    @MainActor
+    func testApplyPlaybackSettingsUpdatesAudioPlayer() throws {
+        let audioSpy = SpyAudioPlayerService()
+        let viewModel = makeTestViewModel(audioPlayer: audioSpy)
+
+        viewModel.playbackSpeed = 1.5
+        viewModel.volume = 0.4
+
+        viewModel.applyPlaybackSettings()
+
+        let rate = try XCTUnwrap(audioSpy.recordedRate)
+        XCTAssertEqual(rate, 1.5, accuracy: 0.0001)
+
+        let volume = try XCTUnwrap(audioSpy.recordedVolume)
+        XCTAssertEqual(volume, 0.4, accuracy: 0.0001)
     }
 
     func testAudioFormatInitializationFromFileExtension() {

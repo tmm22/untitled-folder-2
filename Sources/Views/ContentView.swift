@@ -237,13 +237,13 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 Button(action: {
                     viewModel.playbackSpeed = max(0.5, viewModel.playbackSpeed - 0.25)
-                    viewModel.saveSettings()
+                    viewModel.applyPlaybackSpeed(save: true)
                 }) { EmptyView() }
                 .keyboardShortcut("[", modifiers: .command)
 
                 Button(action: {
                     viewModel.playbackSpeed = min(2.0, viewModel.playbackSpeed + 0.25)
-                    viewModel.saveSettings()
+                    viewModel.applyPlaybackSpeed(save: true)
                 }) { EmptyView() }
                 .keyboardShortcut("]", modifiers: .command)
             }
@@ -271,6 +271,7 @@ private struct CommandStripView: View {
     @State private var showAdvancedPanel = false
     @State private var showingTranslationPopover = false
     @State private var showingStylePopover = false
+    @State private var showingPreviewPopover = false
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -292,6 +293,7 @@ private struct CommandStripView: View {
             characterCount
             Spacer(minLength: 12)
             statusIndicator
+            voicePreviewButton
             voiceStyleButton
             translationControl
             batchButton
@@ -313,14 +315,15 @@ private struct CommandStripView: View {
             }
 
             HStack(spacing: 12) {
-            characterCount
-            Spacer()
-            voiceStyleButton
-            translationControl
-            batchButton
-            generateButton
-            exportButton
-            transcriptMenu
+                characterCount
+                Spacer()
+                voicePreviewButton
+                voiceStyleButton
+                translationControl
+                batchButton
+                generateButton
+                exportButton
+                transcriptMenu
                 clearButton
                 advancedButton
                 overflowMenu
@@ -352,55 +355,25 @@ private struct CommandStripView: View {
             .frame(minWidth: 160)
             .pickerStyle(MenuPickerStyle())
             .help("Select the voice for this provider")
-
-            voicePreviewMenu
-            voiceStyleButton
         }
     }
 
-    private var voicePreviewMenu: some View {
-        Menu {
-            if viewModel.availableVoices.isEmpty {
-                Text("No voices available")
-            } else {
-                ForEach(viewModel.availableVoices) { voice in
-                    Button {
-                        viewModel.previewVoice(voice)
-                    } label: {
-                        HStack {
-                            Text(voice.name)
-                            Spacer()
-                            if viewModel.isPreviewLoadingVoice(voice) {
-                                Image(systemName: "hourglass")
-                                    .foregroundColor(.secondary)
-                            } else if viewModel.isPreviewingVoice(voice) {
-                                Image(systemName: "speaker.wave.2.fill")
-                                    .foregroundColor(.accentColor)
-                            } else if !viewModel.canPreview(voice) {
-                                Image(systemName: "slash.circle")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                if viewModel.isPreviewActive {
-                    Divider()
-                    Button {
-                        viewModel.stopPreview()
-                    } label: {
-                        Label("Stop Preview", systemImage: "stop.fill")
-                    }
-                }
-            }
+    private var voicePreviewButton: some View {
+        Button {
+            showingPreviewPopover = true
         } label: {
-            Label(voicePreviewLabelText, systemImage: voicePreviewLabelIcon)
+            Label(voicePreviewButtonText, systemImage: voicePreviewButtonIcon)
         }
+        .buttonStyle(.bordered)
         .disabled(viewModel.availableVoices.isEmpty)
+        .popover(isPresented: $showingPreviewPopover, arrowEdge: .top) {
+            VoicePreviewPopover(isPresented: $showingPreviewPopover)
+                .environmentObject(viewModel)
+        }
         .help("Listen to sample audio for available voices")
     }
 
-    private var voicePreviewLabelText: String {
+    private var voicePreviewButtonText: String {
         if viewModel.isPreviewPlaying, let name = viewModel.previewVoiceName {
             return "Previewing \(name)"
         } else if let name = viewModel.previewVoiceName {
@@ -410,7 +383,7 @@ private struct CommandStripView: View {
         }
     }
 
-    private var voicePreviewLabelIcon: String {
+    private var voicePreviewButtonIcon: String {
         if viewModel.isPreviewLoadingActive {
             return "hourglass"
         } else if viewModel.isPreviewPlaying {
@@ -1073,6 +1046,117 @@ private struct TranslationSettingsPopover: View {
         }
         .padding(20)
         .frame(minWidth: 260)
+    }
+}
+
+private struct VoicePreviewPopover: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Voice Preview")
+                    .font(.headline)
+                Text("Play a short sample for any available voice. Fallback previews synthesize a brief line when no hosted clip is provided.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            if viewModel.availableVoices.isEmpty {
+                Text("No voices are available for the selected provider.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(viewModel.availableVoices) { voice in
+                            Button {
+                                viewModel.previewVoice(voice)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(alignment: .center, spacing: 8) {
+                                        Text(voice.name)
+                                            .fontWeight(viewModel.isPreviewingVoice(voice) ? .semibold : .regular)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        previewStatusIcon(for: voice)
+                                    }
+
+                                    Text(voice.language)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+
+                                    if !viewModel.canPreview(voice) {
+                                        Text("Add an API key in Settings to preview this voice.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(rowBackground(for: voice))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .strokeBorder(rowBorderColor(for: voice), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!viewModel.canPreview(voice))
+                            .opacity(viewModel.canPreview(voice) ? 1 : 0.55)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                }
+                .frame(maxHeight: 260)
+            }
+
+            if viewModel.isPreviewActive {
+                Divider()
+                Button {
+                    viewModel.stopPreview()
+                } label: {
+                    Label("Stop Preview", systemImage: "stop.fill")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 280)
+    }
+
+    private func rowBackground(for voice: Voice) -> some ShapeStyle {
+        if viewModel.isPreviewingVoice(voice) || viewModel.isPreviewLoadingVoice(voice) {
+            return Color.accentColor.opacity(0.15)
+        }
+        return Color.clear
+    }
+
+    private func rowBorderColor(for voice: Voice) -> Color {
+        if viewModel.isPreviewingVoice(voice) || viewModel.isPreviewLoadingVoice(voice) {
+            return Color.accentColor.opacity(0.4)
+        }
+        return Color.secondary.opacity(0.3)
+    }
+
+    @ViewBuilder
+    private func previewStatusIcon(for voice: Voice) -> some View {
+        if viewModel.isPreviewLoadingVoice(voice) {
+            ProgressView()
+                .controlSize(.small)
+        } else if viewModel.isPreviewingVoice(voice) {
+            Image(systemName: "speaker.wave.2.fill")
+                .foregroundColor(.accentColor)
+        } else if viewModel.canPreview(voice) {
+            Image(systemName: "play.circle")
+                .foregroundColor(.secondary)
+        } else {
+            Image(systemName: "key.slash")
+                .foregroundColor(.secondary)
+        }
     }
 }
 
@@ -1764,7 +1848,7 @@ private struct PlaybackBarView: View {
             ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], id: \.self) { speed in
                 Button("\(speed, specifier: "%.2g")×") {
                     viewModel.playbackSpeed = speed
-                    viewModel.saveSettings()
+                    viewModel.applyPlaybackSpeed(save: true)
                 }
             }
         } label: {
@@ -1782,7 +1866,7 @@ private struct PlaybackBarView: View {
                 } else {
                     viewModel.volume = 0.75
                 }
-                viewModel.saveSettings()
+                viewModel.applyPlaybackVolume(save: true)
             } label: {
                 Image(systemName: volumeIcon)
                     .imageScale(.large)
@@ -1794,10 +1878,11 @@ private struct PlaybackBarView: View {
                 get: { viewModel.volume },
                 set: { newValue in
                     viewModel.volume = newValue
+                    viewModel.applyPlaybackVolume()
                 }
             ), in: 0...1) { editing in
                 if !editing {
-                    viewModel.saveSettings()
+                    viewModel.applyPlaybackVolume(save: true)
                 }
             }
             .frame(width: 120)

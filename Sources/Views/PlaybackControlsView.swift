@@ -152,9 +152,8 @@ struct PlaybackControlsView: View {
                                     }
                                     .pickerStyle(MenuPickerStyle())
                                     .frame(width: 80)
-                                    .onChange(of: viewModel.playbackSpeed) { newSpeed in
-                                        // Speed will be applied when audio is played
-                                        viewModel.saveSettings()
+                                    .onChange(of: viewModel.playbackSpeed) { _ in
+                                        viewModel.applyPlaybackSpeed(save: true)
                                     }
                                     
                                     // Quick speed buttons
@@ -196,9 +195,11 @@ struct PlaybackControlsView: View {
                                     
                                     Slider(value: $viewModel.volume, in: 0...1) { editing in
                                         if !editing {
-                                            // Volume will be applied when audio is played
-                                            viewModel.saveSettings()
+                                            viewModel.applyPlaybackVolume(save: true)
                                         }
+                                    }
+                                    .onChange(of: viewModel.volume) { _ in
+                                        viewModel.applyPlaybackVolume()
                                     }
                                     .frame(width: 150)
                                     
@@ -214,6 +215,7 @@ struct PlaybackControlsView: View {
                                         } else {
                                             viewModel.volume = 0.75
                                         }
+                                        viewModel.applyPlaybackVolume(save: true)
                                     }) {
                                         Image(systemName: viewModel.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                             .font(.system(size: 14))
