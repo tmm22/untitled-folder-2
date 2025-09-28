@@ -75,14 +75,24 @@ final class TextToSpeechAppTests: XCTestCase {
                                    translationService: TextTranslationService = StubTranslationService(),
                                    audioPlayer: AudioPlayerService? = nil,
                                    previewPlayer: AudioPlayerService? = nil,
-                                   previewLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) -> TTSViewModel {
+                                   previewLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader,
+                                   previewGenerator: ((Voice, TTSProviderType, AudioSettings, [String: Double]) async throws -> Data)? = nil,
+                                   elevenLabsService: ElevenLabsService = ElevenLabsService(),
+                                   openAIService: OpenAIService = OpenAIService(),
+                                   googleService: GoogleTTSService = GoogleTTSService(),
+                                   localService: LocalTTSService = LocalTTSService()) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
         return TTSViewModel(notificationCenterProvider: { nil },
                             urlContentLoader: loader,
                             translationService: translationService,
                             audioPlayer: audioPlayer,
                             previewAudioPlayer: previewPlayer,
-                            previewDataLoader: previewLoader)
+                            previewDataLoader: previewLoader,
+                            previewAudioGenerator: previewGenerator,
+                            elevenLabsService: elevenLabsService,
+                            openAIService: openAIService,
+                            googleService: googleService,
+                            localService: localService)
     }
     
     // MARK: - Model Tests
@@ -225,7 +235,7 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
-    func testVoicePreviewUnavailableSetsErrorMessage() {
+    func testVoicePreviewRequiresAPIKeyShowsMessage() async {
         let viewModel = makeTestViewModel()
         let voice = Voice(id: "no-preview",
                           name: "No Preview",
@@ -236,7 +246,10 @@ final class TextToSpeechAppTests: XCTestCase {
 
         viewModel.previewVoice(voice)
 
-        XCTAssertEqual(viewModel.errorMessage, "Preview not available for No Preview.")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.errorMessage, "Unable to preview No Preview: OpenAI API key is required to preview this voice.")
         XCTAssertNil(viewModel.previewingVoiceID)
         XCTAssertFalse(viewModel.isPreviewActive)
         XCTAssertFalse(viewModel.isPreviewLoadingActive)
@@ -298,6 +311,35 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertFalse(viewModel.isPreviewActive)
         XCTAssertFalse(viewModel.isPreviewLoadingActive)
         XCTAssertFalse(viewModel.isPreviewing)
+    }
+
+    @MainActor
+    func testVoicePreviewFallsBackToSynthesisWhenURLMissing() async {
+        resetPersistedSettings()
+        let previewPlayer = StubPreviewAudioPlayer()
+        let sampleData = Data([0x00, 0x01])
+
+        let viewModel = makeTestViewModel(previewPlayer: previewPlayer,
+                                          previewGenerator: { _, providerType, settings, styleValues in
+                                              XCTAssertEqual(providerType, .openAI)
+                                              XCTAssertEqual(settings.styleValues, styleValues)
+                                              return sampleData
+                                          })
+
+        guard let voice = viewModel.availableVoices.first(where: { $0.provider.rawValue == TTSProviderType.openAI.rawValue }) else {
+            XCTFail("Expected an OpenAI voice")
+            return
+        }
+
+        viewModel.previewVoice(voice)
+
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(viewModel.previewingVoiceID, voice.id)
+        XCTAssertTrue(viewModel.isPreviewActive)
+        XCTAssertTrue(viewModel.isPreviewPlaying || viewModel.isPreviewLoadingActive)
     }
 
     func testAudioFormatInitializationFromFileExtension() {

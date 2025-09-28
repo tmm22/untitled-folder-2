@@ -737,7 +737,7 @@ xcodebuild -exportArchive -archivePath ./build/TextToSpeechApp.xcarchive -export
 ## Next Steps
 
 1. Implement remaining TTS providers (ElevenLabs, Google)
-2. Add voice preview functionality
+2. Enhance voice preview caching to reduce duplicate synthesis requests
 3. Implement text history/favorites
 4. Add SSML support for advanced formatting
 5. Create comprehensive test suite

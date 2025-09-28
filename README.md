@@ -20,6 +20,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Multi-Provider Support**: Choose between ElevenLabs, OpenAI, Google Cloud TTS, or the new Tight Ass Mode for local synthesis
 - **Rich Text Editor**: Large text input area with character counting
 - **Voice Selection**: Multiple voice options per provider with different accents and styles
+- **Instant Voice Previews**: Audition voices immediately with built-in samples or auto-generated snippets when providers lack hosted previews
 - **Expressive Voice Tuning**: Emotion/style sliders appear automatically for OpenAI, ElevenLabs, and Google voices, with per-provider defaults that persist between sessions
 - **Playback Controls**: Play, pause, stop, seek, and loop functionality
 - **Speed Control**: Adjust playback speed from 0.5x to 2.0x

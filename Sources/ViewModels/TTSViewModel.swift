@@ -19,7 +19,7 @@ extension TTSViewModel {
 
         stopPreview()
 
-        guard let previewURLString = voice.previewURL, let url = URL(string: previewURLString) else {
+        guard let providerType = TTSProviderType(rawValue: voice.provider.rawValue) else {
             errorMessage = "Preview not available for \(voice.name)."
             return
         }
@@ -34,7 +34,7 @@ extension TTSViewModel {
             guard let self else { return }
 
             do {
-                let data = try await self.previewDataLoader(url)
+                let data = try await self.loadPreviewAudio(for: voice, providerType: providerType)
                 try Task.checkCancellation()
                 try await self.previewPlayer.loadAudio(from: data)
                 try Task.checkCancellation()
@@ -68,7 +68,20 @@ extension TTSViewModel {
     }
 
     func canPreview(_ voice: Voice) -> Bool {
-        voice.previewURL != nil
+        if voice.previewURL != nil {
+            return true
+        }
+
+        guard let providerType = TTSProviderType(rawValue: voice.provider.rawValue) else {
+            return false
+        }
+
+        if providerType == .tightAss {
+            return true
+        }
+
+        let provider = getProvider(for: providerType)
+        return provider.hasValidAPIKey()
     }
 
     var isPreviewActive: Bool {
@@ -189,10 +202,10 @@ class TTSViewModel: ObservableObject {
     // MARK: - Services
     private let audioPlayer: AudioPlayerService
     private let previewPlayer: AudioPlayerService
-    private let elevenLabs = ElevenLabsService()
-    private let openAI = OpenAIService()
-    private let googleTTS = GoogleTTSService()
-    private let localTTS = LocalTTSService()
+    private let elevenLabs: ElevenLabsService
+    private let openAI: OpenAIService
+    private let googleTTS: GoogleTTSService
+    private let localTTS: LocalTTSService
     private let keychainManager = KeychainManager()
 
     // MARK: - Private Properties
@@ -214,6 +227,7 @@ class TTSViewModel: ObservableObject {
     private let translationService: TextTranslationService
     private var isUpdatingInputFromTranslation = false
     private let previewDataLoader: (URL) async throws -> Data
+    private let previewAudioGenerator: ((Voice, TTSProviderType, AudioSettings, [String: Double]) async throws -> Data)?
     private var previewTask: Task<Void, Never>?
 
     var supportedFormats: [AudioSettings.AudioFormat] {
@@ -311,13 +325,23 @@ class TTSViewModel: ObservableObject {
          translationService: TextTranslationService = OpenAITranslationService(),
          audioPlayer: AudioPlayerService? = nil,
          previewAudioPlayer: AudioPlayerService? = nil,
-         previewDataLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader) {
+         previewDataLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader,
+         previewAudioGenerator: ((Voice, TTSProviderType, AudioSettings, [String: Double]) async throws -> Data)? = nil,
+         elevenLabsService: ElevenLabsService = ElevenLabsService(),
+         openAIService: OpenAIService = OpenAIService(),
+         googleService: GoogleTTSService = GoogleTTSService(),
+         localService: LocalTTSService = LocalTTSService()) {
         self.notificationCenter = notificationCenterProvider()
         self.urlContentLoader = urlContentLoader
         self.translationService = translationService
         self.audioPlayer = audioPlayer ?? AudioPlayerService()
         self.previewPlayer = previewAudioPlayer ?? AudioPlayerService()
         self.previewDataLoader = previewDataLoader
+        self.previewAudioGenerator = previewAudioGenerator
+        self.elevenLabs = elevenLabsService
+        self.openAI = openAIService
+        self.googleTTS = googleService
+        self.localTTS = localService
         setupAudioPlayer()
         setupPreviewPlayer()
         loadSavedSettings()
@@ -1339,6 +1363,33 @@ extension TTSViewModel {
 }
 
 private extension TTSViewModel {
+    func loadPreviewAudio(for voice: Voice, providerType: TTSProviderType) async throws -> Data {
+        if let previewURLString = voice.previewURL,
+           let url = URL(string: previewURLString) {
+            return try await previewDataLoader(url)
+        }
+
+        var settings = previewAudioSettings(for: providerType)
+        let resolvedStyleValues = styleValues(for: providerType)
+        settings.styleValues = resolvedStyleValues
+
+        if let generator = previewAudioGenerator {
+            return try await generator(voice, providerType, settings, resolvedStyleValues)
+        }
+
+        let provider = getProvider(for: providerType)
+
+        if providerType != .tightAss && !provider.hasValidAPIKey() {
+            throw VoicePreviewError.missingAPIKey(providerName: providerType.displayName)
+        }
+
+        return try await provider.synthesizeSpeech(
+            text: previewSampleText(for: voice, providerType: providerType),
+            voice: voice,
+            settings: settings
+        )
+    }
+
     func resetPreviewState() {
         previewTask = nil
         previewingVoiceID = nil
@@ -1351,6 +1402,20 @@ private extension TTSViewModel {
         let resolvedName = voiceName ?? previewVoiceName ?? "this voice"
         errorMessage = "Unable to preview \(resolvedName): \(error.localizedDescription)"
         resetPreviewState()
+    }
+
+    func previewAudioSettings(for providerType: TTSProviderType) -> AudioSettings {
+        var settings = AudioSettings()
+        settings.speed = min(max(playbackSpeed, 0.5), 2.0)
+        settings.pitch = 1.0
+        settings.volume = min(max(volume, 0.0), 1.0)
+        settings.sampleRate = providerType == .google ? 24_000 : 22_050
+        settings.format = providerType == .tightAss ? .wav : .mp3
+        return settings
+    }
+
+    func previewSampleText(for voice: Voice, providerType: TTSProviderType) -> String {
+        "Hello, this is \(voice.name) with \(providerType.displayName). Here's a quick preview."
     }
 
     func normalizeImportedText(_ text: String) -> String {
@@ -1445,6 +1510,17 @@ private extension TTSViewModel {
 
         let data = try Data(contentsOf: outputURL)
         return (data, finalFormat)
+    }
+}
+
+private enum VoicePreviewError: LocalizedError {
+    case missingAPIKey(providerName: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingAPIKey(let providerName):
+            return "\(providerName) API key is required to preview this voice."
+        }
     }
 }
 
