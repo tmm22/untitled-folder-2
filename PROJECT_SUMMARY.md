@@ -54,6 +54,7 @@ TextToSpeechApp/
 - ✅ Appearance controls (system/light/dark)
 - ✅ Responsive layout that adapts to compact window sizes
 - ✅ URL importer that converts web articles to speech-ready text
+- ✅ Smart Import card that strips navigation noise, surfaces an AI summary, and offers one-click “speak the gist” playback
 - ✅ Automatic long-text chunking with stitched audio output
 - ✅ Recent history panel for quick playback and export of generated clips
 - ✅ Saved snippet library with replace or append actions

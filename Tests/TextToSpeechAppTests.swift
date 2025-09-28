@@ -54,6 +54,26 @@ final class TextToSpeechAppTests: XCTestCase {
         }
     }
 
+    private struct StubSummarizationService: TextSummarizationService {
+        var condensed: String = ""
+        var summary: String = ""
+        var credentialAvailable: Bool = true
+        var error: Error?
+
+        func hasCredentials() -> Bool {
+            credentialAvailable
+        }
+
+        func summarize(text: String, sourceURL: URL?) async throws -> SummarizationResult {
+            if let error {
+                throw error
+            }
+            let condensedText = condensed.isEmpty ? text : condensed
+            let summaryText = summary.isEmpty ? "summary: \(text.prefix(80))" : summary
+            return SummarizationResult(condensedArticle: condensedText, summary: summaryText)
+        }
+    }
+
     @MainActor
     private final class StubPreviewAudioPlayer: AudioPlayerService {
         override func loadAudio(from data: Data) async throws {
@@ -95,8 +115,18 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    private func waitUntil(_ predicate: @escaping () -> Bool, timeout: TimeInterval = 1.0) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !predicate() && Date() < deadline {
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    @MainActor
     private func makeTestViewModel(urlContentResult: Result<String, Error> = .success(""),
                                    translationService: TextTranslationService = StubTranslationService(),
+                                   summarizationService: TextSummarizationService = StubSummarizationService(),
                                    audioPlayer: AudioPlayerService? = nil,
                                    previewPlayer: AudioPlayerService? = nil,
                                    previewLoader: @escaping (URL) async throws -> Data = TTSViewModel.defaultPreviewLoader,
@@ -109,6 +139,7 @@ final class TextToSpeechAppTests: XCTestCase {
         return TTSViewModel(notificationCenterProvider: { nil },
                             urlContentLoader: loader,
                             translationService: translationService,
+                            summarizationService: summarizationService,
                             audioPlayer: audioPlayer,
                             previewAudioPlayer: previewPlayer,
                             previewDataLoader: previewLoader,
@@ -723,6 +754,48 @@ final class TextToSpeechAppTests: XCTestCase {
 
         XCTAssertEqual(viewModel.inputText.count, 5000)
         XCTAssertEqual(viewModel.errorMessage, "Imported text exceeded 5,000 characters. The content was truncated.")
+    }
+
+    @MainActor
+    func testImportTextProducesArticleSummary() async {
+        let summarizer = StubSummarizationService(condensed: "Condensed body", summary: "Concise takeaway.")
+        let viewModel = makeTestViewModel(urlContentResult: .success("Headline\nBody paragraph."),
+                                          summarizationService: summarizer)
+
+        await viewModel.importText(from: "https://example.com/article", autoGenerate: false)
+        await waitUntil { viewModel.articleSummaryPreview != nil }
+
+        XCTAssertEqual(viewModel.articleSummaryPreview, "Concise takeaway.")
+        XCTAssertEqual(viewModel.condensedImportPreview, "Condensed body")
+    }
+
+    @MainActor
+    func testReplaceEditorUsesCondensedArticle() async {
+        let summarizer = StubSummarizationService(condensed: "Condensed body", summary: "Summary line.")
+        let viewModel = makeTestViewModel(urlContentResult: .success("Original article body."),
+                                          summarizationService: summarizer)
+
+        await viewModel.importText(from: "https://example.com/article", autoGenerate: false)
+        await waitUntil { viewModel.canAdoptCondensedImport }
+
+        viewModel.replaceEditorWithCondensedImport()
+
+        XCTAssertEqual(viewModel.inputText, "Condensed body")
+    }
+
+    @MainActor
+    func testInsertSummaryAppendsToEditor() async {
+        let summarizer = StubSummarizationService(condensed: "Condensed body", summary: "Summary line.")
+        let viewModel = makeTestViewModel(urlContentResult: .success("Original article body."),
+                                          summarizationService: summarizer)
+
+        await viewModel.importText(from: "https://example.com/article", autoGenerate: false)
+        await waitUntil { viewModel.canInsertSummaryIntoEditor }
+
+        viewModel.insertSummaryIntoEditor()
+
+        XCTAssertTrue(viewModel.inputText.contains("Original article body."))
+        XCTAssertTrue(viewModel.inputText.contains("Summary line."))
     }
 
     @MainActor

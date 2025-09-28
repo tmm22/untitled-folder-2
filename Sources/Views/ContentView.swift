@@ -722,6 +722,10 @@ private struct ContextShelfView: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            if viewModel.articleSummary != nil || viewModel.isSummarizingArticle || viewModel.articleSummaryError != nil {
+                ArticleSummaryCard()
+            }
+
             if let translation = viewModel.translationResult, viewModel.translationKeepOriginal {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -801,6 +805,87 @@ private struct ContextShelfView: View {
         }
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.2), value: viewModel.translationResult)
+    }
+}
+
+private struct ArticleSummaryCard: View {
+    @EnvironmentObject var viewModel: TTSViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Smart Import", systemImage: "sparkles")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                if let host = viewModel.articleSummary?.sourceURL.host {
+                    Text(host)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if viewModel.isSummarizingArticle {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                    Text("Cleaning the article with AI…")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else if let summary = viewModel.articleSummaryPreview {
+                Text(summary)
+                    .font(.system(size: 13))
+                    .foregroundColor(.primary)
+                    .lineLimit(4)
+            } else if let error = viewModel.articleSummaryError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            } else {
+                Text("Use Import to pull a web article and see an AI summary here.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            if let reduction = viewModel.articleSummaryReductionDescription {
+                Text(reduction)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Button("Use Concise Article") {
+                    viewModel.replaceEditorWithCondensedImport()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!viewModel.canAdoptCondensedImport)
+
+                Button("Insert Summary") {
+                    viewModel.insertSummaryIntoEditor()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!viewModel.canInsertSummaryIntoEditor)
+
+                Spacer()
+
+                Button("Speak Summary") {
+                    Task {
+                        await viewModel.speakSummaryOfImportedArticle()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!viewModel.canSpeakSummary || viewModel.isGenerating)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+        .animation(.easeInOut(duration: 0.2), value: viewModel.isSummarizingArticle)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.articleSummary)
     }
 }
 

@@ -61,7 +61,7 @@ struct URLImportView: View {
             .font(.caption)
             .foregroundColor(.secondary)
 
-            Text("Paste a web article URL to pull the readable text into the editor.")
+            Text("Paste a web article URL to pull the readable text into the editor and let Smart Import trim the noise.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

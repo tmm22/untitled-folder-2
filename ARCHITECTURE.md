@@ -22,6 +22,7 @@ TextToSpeechApp/
 ├── Services/
 │   ├── ElevenLabsService.swift    # ElevenLabs API integration
 │   ├── OpenAIService.swift        # OpenAI TTS integration
+│   ├── OpenAISummarizationService.swift # AI cleanup + summary generation for imports
 │   ├── GoogleTTSService.swift     # Google Cloud TTS integration
 │   ├── LocalTTSService.swift      # On-device AVSpeechSynthesizer integration
 │   └── AudioPlayerService.swift   # Audio playback management
