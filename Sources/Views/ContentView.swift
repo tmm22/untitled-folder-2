@@ -664,6 +664,28 @@ private struct MainComposerColumn: View {
     @State private var showingTranslationDetail = false
 
     var body: some View {
+        ViewThatFits(in: .vertical) {
+            composerStack()
+
+            ScrollView {
+                composerStack()
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(NSColor.windowBackgroundColor))
+        .sheet(isPresented: $showingTranslationDetail) {
+            if let translation = viewModel.translationResult {
+                TranslationComparisonView(translation: translation)
+                    .environmentObject(viewModel)
+                    .frame(minWidth: 600, minHeight: 420)
+                    .padding()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func composerStack() -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if isCompact {
                 ContextSwitcher(selectedContext: $selectedContextPanel)
@@ -694,16 +716,7 @@ private struct MainComposerColumn: View {
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, verticalPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(NSColor.windowBackgroundColor))
-        .sheet(isPresented: $showingTranslationDetail) {
-            if let translation = viewModel.translationResult {
-                TranslationComparisonView(translation: translation)
-                    .environmentObject(viewModel)
-                    .frame(minWidth: 600, minHeight: 420)
-                    .padding()
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
