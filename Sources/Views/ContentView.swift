@@ -205,16 +205,6 @@ struct ContentView: View {
                     .background(Color(NSColor.windowBackgroundColor))
             }
             .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
-            .onChange(of: isCompact) { compact in
-                if !compact {
-                    isInspectorVisible = true
-                }
-            }
-            .onAppear {
-                if !isCompact {
-                    isInspectorVisible = true
-                }
-            }
         }
         .frame(minWidth: 800, minHeight: 600)
         .preferredColorScheme(viewModel.colorSchemeOverride)
@@ -590,6 +580,7 @@ private struct CompactWorkspace: View {
             focusInspector: focusInspector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .layoutPriority(1)
     }
 }
 
@@ -631,6 +622,7 @@ private struct WideWorkspace: View {
                 focusInspector: focusInspector
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .layoutPriority(1)
 
             if isInspectorVisible {
                 Divider()
@@ -693,7 +685,7 @@ private struct MainComposerColumn: View {
             }
 
             TextEditorView()
-                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             ContextShelfView(showingTranslationDetail: $showingTranslationDetail,
                              focusInspector: focusInspector)

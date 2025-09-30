@@ -49,7 +49,11 @@ struct TextEditorView: View {
                     .allowsHitTesting(false)
             }
         }
-        .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260, maxHeight: .infinity)
+        .frame(minWidth: 0,
+               maxWidth: .infinity,
+               minHeight: viewModel.isMinimalistMode ? 220 : 260,
+               maxHeight: .infinity,
+               alignment: .topLeading)
         .onHover { hovering in
             isHovering = hovering
         }
