@@ -32,9 +32,10 @@ struct TextEditorView: View {
                     .background(Color.clear)
                     .scrollContentBackground(.hidden)
                     .onChange(of: viewModel.inputText) { newValue in
-                        // Limit text length
-                        if newValue.count > 5000 {
-                            viewModel.inputText = String(newValue.prefix(5000))
+                        // Limit text length based on the active provider
+                        let limit = viewModel.currentCharacterLimit
+                        if newValue.count > limit {
+                            viewModel.inputText = String(newValue.prefix(limit))
                         }
                     }
             }

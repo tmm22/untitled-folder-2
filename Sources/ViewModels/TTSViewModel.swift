@@ -217,7 +217,21 @@ class TTSViewModel: ObservableObject {
     private(set) var audioData: Data?  // Make it readable but not writable from outside
     private(set) var currentAudioFormat: AudioSettings.AudioFormat = .mp3
     private(set) var currentTranscript: TranscriptBundle?
-    private let maxTextLength = 5000
+    // Hard-coded provider limits aligned with published per-request maximums. The local cap
+    // keeps chunking behaviour predictable while staying generous for offline synthesis.
+    private let providerCharacterLimits: [TTSProviderType: Int] = [
+        .openAI: 4_096,
+        .elevenLabs: 5_000,
+        .google: 5_000,
+        .tightAss: 20_000
+    ]
+    private static let characterCountFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.groupingSeparator = ","
+        formatter.maximumFractionDigits = 0
+        return formatter
+    }()
     private let maxHistoryItems = 5
     private let snippetsKey = "textSnippets"
     private let pronunciationKey = "pronunciationRules"
@@ -237,6 +251,10 @@ class TTSViewModel: ObservableObject {
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
+    }
+
+    var currentCharacterLimit: Int {
+        characterLimit(for: selectedProvider)
     }
 
     var colorSchemeOverride: ColorScheme? {
@@ -538,8 +556,8 @@ class TTSViewModel: ObservableObject {
             return
         }
 
-        guard trimmed.count <= maxTextLength else {
-            errorMessage = "Text exceeds maximum length of \(maxTextLength) characters"
+        guard trimmed.count <= providerLimit else {
+            errorMessage = "Text exceeds maximum length of \(formattedCharacterLimit(for: providerType)) characters"
             return
         }
 
@@ -884,10 +902,12 @@ class TTSViewModel: ObservableObject {
                 return
             }
 
+            let limit = characterLimit(for: selectedProvider)
+            let formattedLimit = formattedCharacterLimit(for: selectedProvider)
             let preparedText: String
-            if normalized.count > maxTextLength {
-                preparedText = String(normalized.prefix(maxTextLength))
-                errorMessage = "Imported text exceeded 5,000 characters. The content was truncated."
+            if normalized.count > limit {
+                preparedText = String(normalized.prefix(limit))
+                errorMessage = "Imported text exceeded \(formattedLimit) characters. The content was truncated."
             } else {
                 preparedText = normalized
             }
@@ -935,9 +955,10 @@ class TTSViewModel: ObservableObject {
         guard let condensed = condensedImportPreview?.trimmingCharacters(in: .whitespacesAndNewlines),
               !condensed.isEmpty else { return }
 
-        if condensed.count > maxTextLength {
-            inputText = String(condensed.prefix(maxTextLength))
-            errorMessage = "Condensed article exceeded 5,000 characters and was truncated."
+        let limit = characterLimit(for: selectedProvider)
+        if condensed.count > limit {
+            inputText = String(condensed.prefix(limit))
+            errorMessage = "Condensed article exceeded \(formattedCharacterLimit(for: selectedProvider)) characters and was truncated."
         } else {
             inputText = condensed
         }
@@ -961,8 +982,9 @@ class TTSViewModel: ObservableObject {
 
         let composed = builder + summary
 
-        guard composed.count <= maxTextLength else {
-            errorMessage = "Summary would exceed the 5,000 character limit."
+        let limit = characterLimit(for: selectedProvider)
+        guard composed.count <= limit else {
+            errorMessage = "Summary would exceed the \(formattedCharacterLimit(for: selectedProvider)) character limit."
             return
         }
 
@@ -1655,15 +1677,6 @@ private extension TTSViewModel {
         articleSummaryError = nil
     }
 
-    func characterLimit(for provider: TTSProviderType) -> Int {
-        switch provider {
-        case .openAI:
-            return 4096
-        default:
-            return maxTextLength
-        }
-    }
-
     func mergeAudioSegments(outputs: [GenerationOutput], targetFormat: AudioSettings.AudioFormat) async throws -> (data: Data, format: AudioSettings.AudioFormat) {
         guard !outputs.isEmpty else {
             throw TTSError.apiError("No audio segments to merge.")
@@ -1743,6 +1756,20 @@ private extension TTSViewModel {
 
         let data = try Data(contentsOf: outputURL)
         return (data, finalFormat)
+    }
+}
+
+extension TTSViewModel {
+    func characterLimit(for provider: TTSProviderType) -> Int {
+        if let limit = providerCharacterLimits[provider] {
+            return limit
+        }
+        return providerCharacterLimits.values.max() ?? 5_000
+    }
+
+    func formattedCharacterLimit(for provider: TTSProviderType) -> String {
+        let limit = characterLimit(for: provider)
+        return Self.characterCountFormatter.string(from: NSNumber(value: limit)) ?? "\(limit)"
     }
 }
 
@@ -1963,8 +1990,9 @@ private extension TTSViewModel {
             throw TTSError.apiError("Segment text is empty.")
         }
 
-        if trimmed.count > maxTextLength {
-            throw TTSError.textTooLong(maxTextLength)
+        let limit = characterLimit(for: providerType)
+        if trimmed.count > limit {
+            throw TTSError.textTooLong(limit)
         }
 
         let settings = AudioSettings(

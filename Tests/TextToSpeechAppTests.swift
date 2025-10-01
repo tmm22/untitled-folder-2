@@ -291,7 +291,10 @@ final class TextToSpeechAppTests: XCTestCase {
 
     @MainActor
     func testVoicePreviewRequiresAPIKeyShowsMessage() async {
-        let viewModel = makeTestViewModel()
+        try? KeychainManager().deleteAPIKey(for: "OpenAI")
+        let openAI = OpenAIService()
+        openAI.updateAPIKey("")
+        let viewModel = makeTestViewModel(openAIService: openAI)
         let voice = Voice(id: "no-preview",
                           name: "No Preview",
                           language: "en-US",
@@ -301,8 +304,7 @@ final class TextToSpeechAppTests: XCTestCase {
 
         viewModel.previewVoice(voice)
 
-        await Task.yield()
-        await Task.yield()
+        await waitUntil { viewModel.errorMessage != nil }
 
         XCTAssertEqual(viewModel.errorMessage, "Unable to preview No Preview: OpenAI API key is required to preview this voice.")
         XCTAssertNil(viewModel.previewingVoiceID)
@@ -752,8 +754,11 @@ final class TextToSpeechAppTests: XCTestCase {
 
         await viewModel.importText(from: "https://example.com/long", autoGenerate: false)
 
-        XCTAssertEqual(viewModel.inputText.count, 5000)
-        XCTAssertEqual(viewModel.errorMessage, "Imported text exceeded 5,000 characters. The content was truncated.")
+        let limit = viewModel.characterLimit(for: viewModel.selectedProvider)
+        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
+
+        XCTAssertEqual(viewModel.inputText.count, limit)
+        XCTAssertEqual(viewModel.errorMessage, "Imported text exceeded \(formattedLimit) characters. The content was truncated.")
     }
 
     @MainActor
@@ -1090,6 +1095,17 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(TTSProviderType.google.icon, "cloud")
         XCTAssertEqual(TTSProviderType.tightAss.icon, "internaldrive")
     }
+
+    @MainActor
+    func testCharacterLimitsByProvider() {
+        let viewModel = makeTestViewModel()
+
+        XCTAssertEqual(viewModel.characterLimit(for: .openAI), 4_096)
+        XCTAssertEqual(viewModel.characterLimit(for: .elevenLabs), 5_000)
+        XCTAssertEqual(viewModel.characterLimit(for: .google), 5_000)
+        XCTAssertEqual(viewModel.characterLimit(for: .tightAss), 20_000)
+        XCTAssertEqual(viewModel.formattedCharacterLimit(for: .openAI), "4,096")
+    }
 }
 
 // MARK: - Performance Tests
@@ -1101,7 +1117,7 @@ extension TextToSpeechAppTests {
         
         measure {
             _ = longText.count
-            _ = longText.prefix(5000)
+            _ = longText.prefix(20_000)
         }
     }
     

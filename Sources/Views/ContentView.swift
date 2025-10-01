@@ -400,9 +400,11 @@ private struct CommandStripView: View {
 
     private var characterCount: some View {
         let count = viewModel.inputText.count
-        return Label("\(count)/5000", systemImage: "character.cursor.ibeam")
+        let limit = viewModel.currentCharacterLimit
+        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
+        return Label("\(count)/\(formattedLimit)", systemImage: "character.cursor.ibeam")
             .font(.footnote)
-            .foregroundColor(count > 5000 ? .red : .secondary)
+            .foregroundColor(count > limit ? .red : .secondary)
             .accessibilityLabel("Character count")
     }
 
@@ -1480,11 +1482,13 @@ private struct GenerationStatusFooter: View {
     let focusInspector: (InspectorSection) -> Void
 
     var body: some View {
+        let limit = viewModel.currentCharacterLimit
+        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Characters: \(viewModel.inputText.count)/5000", systemImage: "textformat.alt")
+                Label("Characters: \(viewModel.inputText.count)/\(formattedLimit)", systemImage: "textformat.alt")
                     .font(.caption)
-                    .foregroundColor(viewModel.inputText.count > 5000 ? .red : .secondary)
+                    .foregroundColor(viewModel.inputText.count > limit ? .red : .secondary)
 
                 Spacer()
 
