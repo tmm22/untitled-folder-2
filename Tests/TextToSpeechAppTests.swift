@@ -748,17 +748,23 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
-    func testImportTextTruncatesLongContent() async {
-        let longText = String(repeating: "A", count: 6000)
-        let viewModel = makeTestViewModel(urlContentResult: .success(longText))
+    func testImportTextSplitsLongContentUsingChunking() async {
+        let repeatedSentence = "This is a fairly long sentence crafted for chunking tests."
+        let longArticle = Array(repeating: repeatedSentence, count: 200).joined(separator: " ")
+        let viewModel = makeTestViewModel(urlContentResult: .success(longArticle))
 
         await viewModel.importText(from: "https://example.com/long", autoGenerate: false)
 
         let limit = viewModel.characterLimit(for: viewModel.selectedProvider)
-        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
+        let segments = viewModel.batchSegments(from: viewModel.inputText)
 
-        XCTAssertEqual(viewModel.inputText.count, limit)
-        XCTAssertEqual(viewModel.errorMessage, "Imported text exceeded \(formattedLimit) characters. The content was truncated.")
+        XCTAssertGreaterThan(segments.count, 1)
+        XCTAssertTrue(segments.allSatisfy { $0.count <= limit })
+        XCTAssertTrue(viewModel.inputText.contains("---"))
+        XCTAssertTrue(viewModel.shouldAllowCharacterOverflow(for: viewModel.inputText))
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertFalse(viewModel.shouldHighlightCharacterOverflow)
+        XCTAssertFalse(viewModel.articleSummary?.originalText.contains("---") ?? true)
     }
 
     @MainActor

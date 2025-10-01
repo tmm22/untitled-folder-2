@@ -33,7 +33,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Web Page Import**: Paste a URL and pull readable article text straight into the editor
 - **Inline Translation**: Detect the source language, translate on demand, and review original plus translated text side by side before generating speech
 - **Smart Import Summaries**: Clean up web articles with AI, keep only the narration-ready copy, and generate a spoken gist in a couple of clicks
-- **Auto-Chunks Long Scripts**: Seamlessly splits text that exceeds provider limits and stitches audio back together for you
+- **Auto-Chunks Long Scripts**: Seamlessly splits long scripts (including web imports) into provider-safe segments, adds delimiters, and stitches audio back together for you
 
 ### 🔒 Security & Privacy
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
@@ -214,7 +214,7 @@ swift run TextToSpeechApp
 2. Click **Import** to pull the text, or **Import & Generate** to fetch and synthesize in one step
 3. The Smart Import card shows the AI-cleaned article plus a spoken summary—use the buttons to replace the editor, append the summary, or instantly speak the gist
 4. Toggle **Auto-generate after import** if you want the return key to import and immediately generate next time
-5. The app trims at 5,000 characters so you stay within provider limits (you'll see a notice if truncation happens)
+5. If the article exceeds the active provider's limit, the importer now auto-splits it into `---` delimited segments so every chunk stays in bounds—generation will read them sequentially without losing content
 
 ### Keyboard Shortcuts
 
@@ -233,9 +233,9 @@ swift run TextToSpeechApp
 
 ### Text Length Limits
 
-- The editor enforces a 5,000-character ceiling, matching ElevenLabs and Google Cloud quotas.
-- OpenAI's `tts-1` currently accepts 4,096 characters; the app surfaces an inline error if you exceed that while OpenAI is selected.
-- For longer scripts, split the content into multiple runs or batch them with the `---` delimiter feature described below.
+- The editor enforces the provider's limit unless your text is already segmented with `---`. Chunked segments remain editable even when the combined script surpasses the per-request cap.
+- OpenAI's `tts-1` currently accepts 4,096 characters; you'll still see inline warnings if any individual segment grows past that limit.
+- For longer scripts, split the content with the `---` delimiter (the importer does this automatically) so each chunk stays within provider limits and can be batch generated in one pass.
 
 ### Export Formats
 

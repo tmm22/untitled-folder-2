@@ -238,6 +238,7 @@ class TTSViewModel: ObservableObject {
     private let notificationsKey = "notificationsEnabled"
     private let styleValuesKey = "providerStyleValues"
     private let styleComparisonEpsilon = 0.0001
+    private let batchDelimiterToken = "---"
     private var batchTask: Task<Void, Never>?
     private let notificationCenter: UNUserNotificationCenter?
     private let urlContentLoader: URLContentLoading
@@ -255,6 +256,17 @@ class TTSViewModel: ObservableObject {
 
     var currentCharacterLimit: Int {
         characterLimit(for: selectedProvider)
+    }
+
+    var shouldHighlightCharacterOverflow: Bool {
+        let limit = currentCharacterLimit
+        let segments = batchSegments(from: inputText)
+        guard !segments.isEmpty else { return false }
+        return segments.contains { $0.count > limit }
+    }
+
+    var effectiveCharacterCount: Int {
+        stripBatchDelimiters(from: inputText).count
     }
 
     var colorSchemeOverride: ColorScheme? {
@@ -357,8 +369,7 @@ class TTSViewModel: ObservableObject {
 
     var costEstimate: CostEstimate {
         let profile = ProviderCostProfile.profile(for: selectedProvider)
-        let characterCount = inputText.trimmingCharacters(in: .whitespacesAndNewlines).count
-        return profile.estimate(for: characterCount)
+        return profile.estimate(for: effectiveCharacterCount)
     }
 
     var costEstimateSummary: String { costEstimate.summary }
@@ -532,7 +543,9 @@ class TTSViewModel: ObservableObject {
     func generateSpeech() async {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !trimmed.isEmpty else {
+        let sanitized = stripBatchDelimiters(from: trimmed)
+
+        guard !sanitized.isEmpty else {
             errorMessage = "Please enter some text"
             return
         }
@@ -545,9 +558,9 @@ class TTSViewModel: ObservableObject {
         let format = currentFormatForGeneration()
         let providerLimit = characterLimit(for: providerType)
 
-        if trimmed.count > providerLimit {
+        if sanitized.count > providerLimit {
             await generateLongFormSpeech(
-                text: trimmed,
+                text: sanitized,
                 providerType: providerType,
                 voice: voice,
                 format: format,
@@ -556,7 +569,7 @@ class TTSViewModel: ObservableObject {
             return
         }
 
-        guard trimmed.count <= providerLimit else {
+        guard sanitized.count <= providerLimit else {
             errorMessage = "Text exceeds maximum length of \(formattedCharacterLimit(for: providerType)) characters"
             return
         }
@@ -566,7 +579,7 @@ class TTSViewModel: ObservableObject {
         generationProgress = 0
         
         do {
-            let preparedText = applyPronunciationRules(to: trimmed, provider: providerType)
+            let preparedText = applyPronunciationRules(to: sanitized, provider: providerType)
             let output = try await performGeneration(
                 text: preparedText,
                 providerType: providerType,
@@ -599,8 +612,9 @@ class TTSViewModel: ObservableObject {
                                         voice: Voice,
                                         format: AudioSettings.AudioFormat,
                                         shouldAutoplay: Bool) async {
+        let cleanedText = stripBatchDelimiters(from: text)
         let limit = characterLimit(for: providerType)
-        let segments = TextChunker.chunk(text: text, limit: limit)
+        let segments = TextChunker.chunk(text: cleanedText, limit: limit)
 
         guard segments.count > 1 else {
             errorMessage = "Unable to automatically split the text for generation. Please shorten it and try again."
@@ -904,22 +918,35 @@ class TTSViewModel: ObservableObject {
 
             let limit = characterLimit(for: selectedProvider)
             let formattedLimit = formattedCharacterLimit(for: selectedProvider)
+            let segments = TextChunker.chunk(text: normalized, limit: limit)
+
+            guard let firstSegment = segments.first else {
+                errorMessage = "Unable to find readable text at that address."
+                articleSummary = nil
+                return
+            }
+
             let preparedText: String
-            if normalized.count > limit {
-                preparedText = String(normalized.prefix(limit))
+            if segments.count > 1 {
+                let separator = "\n\n\(batchDelimiterToken)\n\n"
+                preparedText = segments.joined(separator: separator)
+                errorMessage = nil
+            } else if firstSegment.count > limit {
+                preparedText = String(firstSegment.prefix(limit))
                 errorMessage = "Imported text exceeded \(formattedLimit) characters. The content was truncated."
             } else {
-                preparedText = normalized
+                preparedText = firstSegment
+                errorMessage = nil
             }
 
             inputText = preparedText
 
             articleSummaryTask?.cancel()
-            articleSummary = ArticleImportSummary.make(sourceURL: url, originalText: preparedText)
+            articleSummary = ArticleImportSummary.make(sourceURL: url, originalText: normalized)
             articleSummaryError = nil
 
             if canSummarizeImports {
-                let summarySource = preparedText
+                let summarySource = normalized
                 articleSummaryTask = Task { @MainActor [weak self] in
                     guard let self else { return }
                     await self.generateArticleSummary(for: summarySource, url: url)
@@ -1498,6 +1525,14 @@ extension TTSViewModel {
         }
     }
 
+    func shouldAllowCharacterOverflow(for text: String) -> Bool {
+        let limit = characterLimit(for: selectedProvider)
+        let segments = batchSegments(from: text)
+        guard !segments.isEmpty else { return false }
+        guard segments.count > 1 else { return false }
+        return segments.allSatisfy { $0.count <= limit }
+    }
+
     func batchSegments(from text: String) -> [String] {
         let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = normalized.components(separatedBy: "\n")
@@ -1515,7 +1550,7 @@ extension TTSViewModel {
         }
 
         for line in lines {
-            if line.trimmingCharacters(in: .whitespaces) == "---" {
+            if line.trimmingCharacters(in: .whitespaces) == batchDelimiterToken {
                 flushCurrentSegment()
             } else {
                 currentLines.append(line)
@@ -1524,6 +1559,21 @@ extension TTSViewModel {
 
         flushCurrentSegment()
         return segments
+    }
+
+    private func stripBatchDelimiters(from text: String) -> String {
+        guard !text.isEmpty else { return text }
+
+        let normalized = text.replacingOccurrences(of: "\r", with: "\n")
+        let filteredLines = normalized
+            .components(separatedBy: "\n")
+            .filter { line in
+                line.trimmingCharacters(in: .whitespacesAndNewlines) != batchDelimiterToken
+            }
+        let joined = filteredLines.joined(separator: "\n")
+        return joined
+            .replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func applyPronunciationRules(to text: String, provider: TTSProviderType) -> String {
