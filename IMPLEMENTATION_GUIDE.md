@@ -249,7 +249,7 @@ struct ContentView: View {
             
             // Character Count
             HStack {
-                Text("Characters: \(viewModel.inputText.count)/5000")
+                Text("Characters: \(viewModel.inputText.count)/\(viewModel.formattedCharacterLimit(for: viewModel.selectedProvider))")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()

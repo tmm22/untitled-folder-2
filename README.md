@@ -18,7 +18,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 
 ### 🎯 Core Functionality
 - **Multi-Provider Support**: Choose between ElevenLabs, OpenAI, Google Cloud TTS, or the new Tight Ass Mode for local synthesis
-- **Rich Text Editor**: Large text input area with character counting
+- **Rich Text Editor**: Large text input area with provider-aware character counting
 - **Voice Selection**: Multiple voice options per provider with different accents and styles
 - **Instant Voice Previews**: Audition voices immediately with built-in samples or auto-generated snippets when providers lack hosted previews
 - **Expressive Voice Tuning**: Emotion/style sliders appear automatically for OpenAI, ElevenLabs, and Google voices, with per-provider defaults that persist between sessions
@@ -53,6 +53,19 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Inline Cost Estimates**: See per-provider pricing hints for your current script
 - **Batch Notifications**: Optional macOS alerts when queue processing completes
 - **Minimalist Layout (Compact) Option**: Toggleable in Settings or via the header button; reduces chrome and moves advanced controls to a popover; preserves all functionality and persists between launches
+
+### Provider Character Limits
+
+The composer highlights overages based on the active provider’s per-request allowance:
+
+| Provider | Limit (characters) |
+| --- | --- |
+| OpenAI | 4,096 |
+| ElevenLabs | 5,000 |
+| Google Cloud TTS | 5,000 |
+| Tight Ass Mode (local) | 20,000 |
+
+The app automatically chunks scripts that exceed these limits and stitches the audio back together during export.
 
 ## Minimalist Layout (Compact)
 
@@ -95,7 +108,7 @@ Tip: Use the slider.horizontal.3 button in the header to open the Advanced Contr
 │ │                                     │ │
 │ │                                     │ │
 │ └─────────────────────────────────────┘ │
-│ Characters: 0/5000                      │
+│ Characters: 0/4,096 (OpenAI)             │
 ├─────────────────────────────────────────┤
 │ ⏮ ⏯ ⏭ 🔁  ━━━━━━━━━━━  00:00/00:00  │
 │ Speed: [1.0x▼]  Volume: [━━━━━] 75%    │

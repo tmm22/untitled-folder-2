@@ -45,7 +45,7 @@ TextToSpeechApp/
 
 ### 1. Text Input
 - **Multi-line text editor** sized for long-form scripts with hover/focus chrome
-- **Character counter** that highlights when the 5,000-character limit is exceeded
+- **Character counter** that highlights when the active provider’s limit is exceeded (4,096 OpenAI · 5,000 ElevenLabs/Google · 20,000 local)
 - **Context menu shortcuts** for copy, paste, clear, and sample text insertion
 - **Placeholder guidance** that disappears as soon as the user types
 - **Minimalist layout support** that adapts padding and frame height
@@ -173,7 +173,7 @@ Providers return `styleControls` to advertise emotion/style sliders. The view mo
 │ │     (Scrollable, Resizable)        │ │
 │ │                                     │ │
 │ └─────────────────────────────────────┘ │
-│ Characters: 0/5000                      │
+│ Characters: 0/4,096 (OpenAI)             │
 ├─────────────────────────────────────────┤
 │ ⏮ ⏯ ⏭ 🔁  ━━━━━━━━━━━  00:00/00:00  │
 │ Speed: [1.0x▼]  Volume: [━━━━━] 75%    │
