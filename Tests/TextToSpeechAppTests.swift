@@ -173,7 +173,7 @@ final class TextToSpeechAppTests: XCTestCase {
     func testTextSanitizerRemovesBoilerplate() {
         let raw = "Skip to content\nMenu\nArticle heading\nThis is the body.\nSign in\nFooter navigation"
         let cleaned = TextSanitizer.cleanImportedText(raw)
-        XCTAssertEqual(cleaned, "Article heading This is the body.")
+        XCTAssertEqual(cleaned, "Article heading\nThis is the body.")
     }
 
     func testTextChunkerRespectsLimits() {

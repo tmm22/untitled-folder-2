@@ -215,6 +215,7 @@ swift run TextToSpeechApp
 3. The Smart Import card shows the AI-cleaned article plus a spoken summary—use the buttons to replace the editor, append the summary, or instantly speak the gist
 4. Toggle **Auto-generate after import** if you want the return key to import and immediately generate next time
 5. If the article exceeds the active provider's limit, the importer now auto-splits it into `---` delimited segments so every chunk stays in bounds—generation will read them sequentially without losing content
+6. Importing Reddit links now grabs the full thread (including top-level and nested comments), preserving reply depth with quoted markers like `>> u/replier:` while capping output to keep narration manageable
 
 ### Keyboard Shortcuts
 

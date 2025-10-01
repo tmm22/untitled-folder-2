@@ -39,49 +39,60 @@ struct TextSanitizer {
             "home"
         ]
 
-        let filtered = rawLines.compactMap { line -> String? in
+        var cleaned: [String] = []
+        var previousWasBlank = false
+
+        for line in rawLines {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return nil }
+
+            if trimmed.isEmpty {
+                if !previousWasBlank && !cleaned.isEmpty {
+                    cleaned.append("")
+                }
+                previousWasBlank = true
+                continue
+            }
 
             let lower = trimmed.lowercased()
 
             if lower.count <= 35 && boilerplateKeywords.contains(lower) {
-                return nil
+                continue
             }
 
             if lower.contains("skip to") && lower.count <= 50 {
-                return nil
+                continue
             }
 
             if lower.contains("menu") && lower.count <= 60 {
-                return nil
+                continue
             }
 
             if lower.contains("sign") && lower.count <= 40 {
-                return nil
+                continue
             }
 
             if lower.contains("search") && lower.count <= 40 {
-                return nil
+                continue
             }
 
             if lower.contains("cookie") || lower.contains("privacy") {
-                return nil
+                continue
             }
 
             if lower.contains("newsletter") || lower.contains("subscribe") {
-                return nil
+                continue
             }
 
             if lower.contains("advert") {
-                return nil
+                continue
             }
 
-            return trimmed
+            cleaned.append(trimmed)
+            previousWasBlank = false
         }
 
-        let joined = filtered.joined(separator: " ")
-        let condensed = joined.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        let joined = cleaned.joined(separator: "\n")
+        let condensed = joined.replacingOccurrences(of: "[ \t]{2,}", with: " ", options: .regularExpression)
         return condensed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

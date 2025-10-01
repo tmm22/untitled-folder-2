@@ -25,6 +25,7 @@ TextToSpeechApp/
 │   ├── OpenAISummarizationService.swift # AI cleanup + summary generation for imports
 │   ├── GoogleTTSService.swift     # Google Cloud TTS integration
 │   ├── LocalTTSService.swift      # On-device AVSpeechSynthesizer integration
+│   ├── URLContentService.swift    # HTML/Reddit ingestion with Smart Import hooks
 │   └── AudioPlayerService.swift   # Audio playback management
 ├── ViewModels/
 │   └── TTSViewModel.swift         # Main view model
@@ -36,7 +37,8 @@ TextToSpeechApp/
 ├── Utilities/
 │   ├── AppConfiguration.swift     # URLs and static configuration
 │   ├── KeychainManager.swift      # Secure API key storage
-│   └── AudioFormat+Extensions.swift # File type helpers for exports
+│   ├── AudioFormat+Extensions.swift # File type helpers for exports
+│   └── RedditContentParser.swift  # Reddit thread flattening for imports
 └── Resources/
     └── Info.plist                  # App configuration
 ```
@@ -99,6 +101,12 @@ TextToSpeechApp/
 - **Buffering**: Progressive download for large files
 - **Caching**: Local storage of generated audio
 - **Export**: Save generated audio files
+
+### 5. Smart Import Pipeline
+- **URLContentService** centralizes external content ingestion. It first detects Reddit hosts and switches to the `.json` API (with a dedicated user agent) so imports capture the original post plus comment threads instead of just static HTML.
+- **RedditContentParser** decodes the dual-listing payload, flattens nested replies into single-line quotes prefixed with `>` markers, and truncates after 80 comments to keep narration concise while signalling when more comments exist.
+- For non-Reddit URLs the service falls back to HTML-to-plain-text conversion via `NSAttributedString`, preserving encoding hints and keeping the importer resilient across content types.
+- All imported text flows through `TextSanitizer.cleanImportedText`, which now preserves intentional blank lines so Reddit replies stay legible while still stripping boilerplate navigation content.
 
 ## Data Models
 
