@@ -62,6 +62,10 @@ struct URLContentService: URLContentLoading {
 
         let rawHTML = String(data: data, encoding: encoding ?? .utf8) ?? String(decoding: data, as: UTF8.self)
 
+        if let articleText = ArticleHTMLExtractor.extractPrimaryText(from: rawHTML) {
+            return articleText
+        }
+
         if let attributed = try? NSAttributedString(
             data: Data(rawHTML.utf8),
             options: [

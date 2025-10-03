@@ -30,7 +30,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Batch Queueing**: Split scripts with `---` and generate every segment sequentially with status tracking
 - **Transcript Export**: Generate SRT or VTT captions alongside every synthesis
 - **Pronunciation Glossary**: Override tricky words globally or per provider
-- **Web Page Import**: Paste a URL and pull readable article text straight into the editor
+- **Web Page Import**: Paste a URL and pull the main article body straight into the editor while the importer strips navigation, promos, and share widgets
 - **Inline Translation**: Detect the source language, translate on demand, and review original plus translated text side by side before generating speech
 - **Smart Import Summaries**: Clean up web articles with AI, keep only the narration-ready copy, and generate a spoken gist in a couple of clicks
 - **Auto-Chunks Long Scripts**: Seamlessly splits long scripts (including web imports) into provider-safe segments, adds delimiters, and stitches audio back together for you
@@ -212,7 +212,8 @@ swift run TextToSpeechApp
 
 1. Paste an article URL into the URL import field above the editor
 2. Click **Import** to pull the text, or **Import & Generate** to fetch and synthesize in one step
-3. The Smart Import card shows the AI-cleaned article plus a spoken summary—use the buttons to replace the editor, append the summary, or instantly speak the gist
+3. The Smart Import card shows the AI-cleaned article body plus a spoken summary—use the buttons to replace the editor, append the summary, or instantly speak the gist
+   - When the source is a news site, the importer extracts the primary story container so only the headline and article paragraphs are kept
 4. Toggle **Auto-generate after import** if you want the return key to import and immediately generate next time
 5. If the article exceeds the active provider's limit, the importer now auto-splits it into `---` delimited segments so every chunk stays in bounds—generation will read them sequentially without losing content
 6. Importing Reddit links now grabs the full thread (including top-level and nested comments), preserving reply depth with quoted markers like `>> u/replier:` while capping output to keep narration manageable

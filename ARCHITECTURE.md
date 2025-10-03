@@ -38,7 +38,8 @@ TextToSpeechApp/
 │   ├── AppConfiguration.swift     # URLs and static configuration
 │   ├── KeychainManager.swift      # Secure API key storage
 │   ├── AudioFormat+Extensions.swift # File type helpers for exports
-│   └── RedditContentParser.swift  # Reddit thread flattening for imports
+│   ├── RedditContentParser.swift  # Reddit thread flattening for imports
+│   └── ArticleHTMLExtractor.swift # Heuristic content grabber for long-form pages
 └── Resources/
     └── Info.plist                  # App configuration
 ```
@@ -105,8 +106,9 @@ TextToSpeechApp/
 ### 5. Smart Import Pipeline
 - **URLContentService** centralizes external content ingestion. It first detects Reddit hosts and switches to the `.json` API (with a dedicated user agent) so imports capture the original post plus comment threads instead of just static HTML.
 - **RedditContentParser** decodes the dual-listing payload, flattens nested replies into single-line quotes prefixed with `>` markers, and truncates after 80 comments to keep narration concise while signalling when more comments exist.
-- For non-Reddit URLs the service falls back to HTML-to-plain-text conversion via `NSAttributedString`, preserving encoding hints and keeping the importer resilient across content types.
-- All imported text flows through `TextSanitizer.cleanImportedText`, which now preserves intentional blank lines so Reddit replies stay legible while still stripping boilerplate navigation content.
+- **ArticleHTMLExtractor** heuristically targets `<article>`, `<main>`, or keyword-tagged containers, removes nav/share/advert blocks, and collapses whitespace so only the main story text from news sites flows back into the editor.
+- If no rich article container is detected the service falls back to HTML-to-plain-text conversion via `NSAttributedString`, preserving encoding hints and keeping the importer resilient across content types.
+- All imported text flows through `TextSanitizer.cleanImportedText`, which preserves intentional blank lines so Reddit replies stay legible while still stripping boilerplate navigation content.
 
 ## Data Models
 
