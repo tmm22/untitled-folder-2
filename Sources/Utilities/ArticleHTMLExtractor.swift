@@ -152,7 +152,6 @@ enum ArticleHTMLExtractor {
             "aside",
             "nav",
             "form",
-            "header",
             "footer",
             "svg",
             "button",
@@ -171,6 +170,8 @@ enum ArticleHTMLExtractor {
             "related"
         ], from: mutableHTML)
 
+        mutableHTML = removeNavigationHeaders(in: mutableHTML)
+
         return mutableHTML
     }
 
@@ -180,6 +181,40 @@ enum ArticleHTMLExtractor {
         for tag in tags {
             let pattern = "(?is)<\(tag)\\b[^>]*>.*?</\(tag)>"
             result = regexReplace(pattern, in: result, with: "")
+        }
+
+        return result
+    }
+
+    private static func removeNavigationHeaders(in html: String) -> String {
+        var result = html
+        var searchStart = result.startIndex
+
+        while searchStart < result.endIndex {
+            guard let opener = result.range(of: "<header", options: [.caseInsensitive], range: searchStart..<result.endIndex) else {
+                break
+            }
+
+            guard let elementRange = elementRange(for: "header", in: result, startingAt: opener.lowerBound) else {
+                if let openTagEnd = closingBracketIndex(from: opener.lowerBound, in: result) {
+                    searchStart = result.index(after: openTagEnd)
+                } else {
+                    break
+                }
+                continue
+            }
+
+            let headerHTML = result[elementRange]
+            let lowercased = headerHTML.lowercased()
+            let containsHeading = lowercased.contains("<h1") || lowercased.contains("<h2") || lowercased.contains("<h3")
+            let looksLikeNavigation = lowercased.contains("<nav") || lowercased.contains("menu") || lowercased.contains("breadcrumb") || lowercased.contains("aria-label=\"breadcrumb\"")
+
+            if !containsHeading || looksLikeNavigation {
+                result.removeSubrange(elementRange)
+                searchStart = elementRange.lowerBound
+            } else {
+                searchStart = elementRange.upperBound
+            }
         }
 
         return result

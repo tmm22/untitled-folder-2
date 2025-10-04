@@ -78,4 +78,29 @@ final class ArticleHTMLExtractorTests: XCTestCase {
         let extracted = ArticleHTMLExtractor.extractPrimaryText(from: html)
         XCTAssertNil(extracted)
     }
+
+    func testNavigationHeaderInsideArticleIsRemoved() {
+        let html = """
+        <html>
+            <body>
+                <article>
+                    <header>
+                        <nav>Main sections: news, opinion, sport, lifestyle</nav>
+                    </header>
+                    <p>Rescuers continued combing the desert tracks overnight with mounted patrols, drones, and local volunteers coordinating search grids across difficult terrain and sand dunes.</p>
+                    <p>Police supervisors said the plan includes additional water drops, extended radio checkpoints, and fresh briefings to ensure every outstation is contacted before midday.</p>
+                </article>
+            </body>
+        </html>
+        """
+
+        let extracted = ArticleHTMLExtractor.extractPrimaryText(from: html)
+
+        XCTAssertNotNil(extracted)
+        guard let text = extracted else { return }
+
+        XCTAssertFalse(text.lowercased().contains("main sections"))
+        XCTAssertTrue(text.contains("Rescuers continued combing the desert tracks overnight"))
+        XCTAssertTrue(text.contains("Police supervisors said the plan includes additional water drops"))
+    }
 }

@@ -264,10 +264,18 @@ private struct CommandStripView: View {
     @State private var showingPreviewPopover = false
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            horizontalLayout
-            wrappedLayout
+        Group {
+            if isCompact {
+                wrappedLayout
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    horizontalLayout
+                        .fixedSize(horizontal: true, vertical: false)
+                    wrappedLayout
+                }
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .popover(isPresented: $showAdvancedPanel, arrowEdge: .top) {
             AdvancedControlsPanelView()
                 .environmentObject(viewModel)
@@ -353,6 +361,7 @@ private struct CommandStripView: View {
             showingPreviewPopover = true
         } label: {
             Label(voicePreviewButtonText, systemImage: voicePreviewButtonIcon)
+                .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
         .disabled(viewModel.availableVoices.isEmpty)
@@ -388,6 +397,7 @@ private struct CommandStripView: View {
             showingStylePopover = true
         } label: {
             Label("Voice Style", systemImage: "slider.horizontal.2.rectangle")
+                .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
         .disabled(!viewModel.hasActiveStyleControls)
@@ -405,6 +415,7 @@ private struct CommandStripView: View {
             .font(.footnote)
             .foregroundColor(viewModel.shouldHighlightCharacterOverflow ? .red : .secondary)
             .accessibilityLabel("Character count")
+            .commandLabelFixedSize()
     }
 
     private var translationControl: some View {
@@ -417,8 +428,10 @@ private struct CommandStripView: View {
                         .controlSize(.small)
                     Text("Translating…")
                 }
+                .commandLabelFixedSize()
             } else {
                 Label("Translate", systemImage: "arrow.triangle.2.circlepath")
+                    .commandLabelFixedSize()
             }
         }
         .buttonStyle(.bordered)
@@ -439,16 +452,19 @@ private struct CommandStripView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+            .commandLabelFixedSize()
         } else if viewModel.isPlaying {
             Label("Playing", systemImage: "speaker.wave.2.fill")
                 .font(.footnote)
                 .foregroundColor(.green)
+                .commandLabelFixedSize()
         }
     }
 
     private var batchButton: some View {
         Button(action: viewModel.startBatchGeneration) {
             Label("Batch", systemImage: "text.badge.plus")
+                .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
         .disabled(!viewModel.hasBatchableSegments || viewModel.isGenerating || viewModel.isBatchRunning)
@@ -461,6 +477,7 @@ private struct CommandStripView: View {
         } label: {
             Label("Generate", systemImage: "waveform")
                 .fontWeight(.semibold)
+                .commandLabelFixedSize()
         }
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.return, modifiers: .command)
@@ -471,6 +488,7 @@ private struct CommandStripView: View {
     private var exportButton: some View {
         Button(action: viewModel.exportAudio) {
             Label("Export", systemImage: "square.and.arrow.down")
+                .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
         .keyboardShortcut("e", modifiers: .command)
@@ -488,6 +506,7 @@ private struct CommandStripView: View {
             }
         } label: {
             Label("Transcript", systemImage: "doc.text")
+                .commandLabelFixedSize()
         }
         .disabled(viewModel.currentTranscript == nil)
         .help("Export the transcript for the current audio")
@@ -496,6 +515,7 @@ private struct CommandStripView: View {
     private var clearButton: some View {
         Button(action: viewModel.clearText) {
             Label("Clear", systemImage: "trash")
+                .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
         .keyboardShortcut("k", modifiers: .command)
@@ -649,6 +669,12 @@ private struct SmartInspectorColumn: View {
     var body: some View {
         InspectorPanelView(selection: $selection, onClose: collapse)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private extension View {
+    func commandLabelFixedSize() -> some View {
+        fixedSize(horizontal: true, vertical: false)
     }
 }
 
