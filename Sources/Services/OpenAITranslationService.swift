@@ -6,7 +6,7 @@ final class OpenAITranslationService: TextTranslationService {
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 
-    init(session: URLSession = .shared, keychain: KeychainManager = KeychainManager()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(), keychain: KeychainManager = KeychainManager()) {
         self.session = session
         self.keychain = keychain
     }
@@ -25,6 +25,7 @@ final class OpenAITranslationService: TextTranslationService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 45
 
         let prompt = """
         You are a translation engine. Detect the language of the user's text and translate it into the language specified as TARGET. Respond only with JSON using the shape {"sourceLanguage":"<ISO 639-1>","translatedText":"<text>"}.

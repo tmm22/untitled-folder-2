@@ -5,7 +5,7 @@ class GoogleTTSService: TTSProvider {
     var name: String { "Google Cloud TTS" }
     private var apiKey: String?
     private let baseURL = "https://texttospeech.googleapis.com/v1/text:synthesize"
-    private let session = URLSession.shared
+    private let session: URLSession
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -76,7 +76,8 @@ class GoogleTTSService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init() {
+    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+        self.session = session
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "Google")
     }
@@ -100,16 +101,16 @@ class GoogleTTSService: TTSProvider {
             throw TTSError.textTooLong(5000)
         }
         
-        // Prepare URL with API key
-        let urlString = "\(baseURL)?key=\(apiKey)"
-        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: baseURL) else {
             throw TTSError.networkError("Invalid URL")
         }
-        
+
         // Prepare request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        request.timeoutInterval = 45
 
         // Parse voice ID to get language code and name
         let voiceComponents = voice.id.split(separator: "-")

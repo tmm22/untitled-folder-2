@@ -17,3 +17,4 @@ This workspace currently lacks Git history; once the repo is initialised, keep c
 
 ## Security & Configuration Tips
 Never commit real API keys—configuration lives in macOS Keychain via `KeychainManager`. When sharing sample settings, redact secrets and use obvious placeholders (`ELEVENLABS_API_KEY`). Verify new network capabilities against `TextToSpeechApp.entitlements`; request only the minimal sandbox permissions needed. Review `Info.plist` strings whenever user-facing permissions text changes.
+All outbound network calls must go through the ephemeral `SecureURLSession` helper so responses and cookies stay in memory only. The sandbox entitlements are limited to `com.apple.security.network.client` and user-selected read/write access—avoid reintroducing Downloads or microphone permissions unless a feature strictly requires them.

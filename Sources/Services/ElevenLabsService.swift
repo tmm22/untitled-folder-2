@@ -5,7 +5,7 @@ class ElevenLabsService: TTSProvider {
     var name: String { "ElevenLabs" }
     private var apiKey: String?
     private let baseURL = "https://api.elevenlabs.io/v1"
-    private let session = URLSession.shared
+    private let session: URLSession
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -69,7 +69,8 @@ class ElevenLabsService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init() {
+    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+        self.session = session
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "ElevenLabs")
     }
@@ -94,14 +95,17 @@ class ElevenLabsService: TTSProvider {
         }
         
         // Prepare URL
-        let url = URL(string: "\(baseURL)/text-to-speech/\(voice.id)")!
-        
+        guard let url = URL(string: "\(baseURL)/text-to-speech/\(voice.id)") else {
+            throw TTSError.networkError("Invalid API endpoint")
+        }
+
         // Prepare request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 45
         
         // Prepare request body
         let controlsByID = Dictionary(uniqueKeysWithValues: styleControls.map { ($0.id, $0) })
@@ -166,10 +170,13 @@ class ElevenLabsService: TTSProvider {
             throw TTSError.invalidAPIKey
         }
         
-        let url = URL(string: "\(baseURL)/voices")!
-        
+        guard let url = URL(string: "\(baseURL)/voices") else {
+            throw TTSError.networkError("Invalid API endpoint")
+        }
+
         var request = URLRequest(url: url)
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        request.timeoutInterval = 45
         
         do {
             let (data, response) = try await session.data(for: request)

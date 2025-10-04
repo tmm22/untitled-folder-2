@@ -8,11 +8,15 @@ struct URLContentService: URLContentLoading {
     private let session: URLSession
     private static let redditUserAgent = "TextToSpeechApp/1.0 (+https://example.com)"
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = SecureURLSession.makeEphemeral()) {
         self.session = session
     }
 
     func fetchPlainText(from url: URL) async throws -> String {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+            throw URLError(.unsupportedURL)
+        }
+
         if let redditURL = redditJSONURL(for: url) {
             do {
                 let redditText = try await fetchRedditThread(from: redditURL)

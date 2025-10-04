@@ -39,7 +39,9 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Secure API Key Storage**: All API keys stored in macOS Keychain
 - **No Data Collection**: Your text and audio never leave your device (except for API calls)
 - **Local-Only Option**: Tight Ass Mode generates speech entirely on-device using the system voice set
-- **Sandboxed Application**: Runs in a secure environment with limited system access
+- **Sandboxed Application**: Runs inside the macOS sandbox with only network client and user-selected file permissions
+- **Ephemeral Network Sessions**: API calls use non-persistent URL sessions so credentials and payloads never hit disk caches or cookie stores
+- **Strict Remote Imports**: URL previews and article imports accept only HTTP(S) sources and ignore file or custom schemes
 
 ### 🎨 User Experience
 - **Native macOS Design**: Built with SwiftUI for a seamless Mac experience

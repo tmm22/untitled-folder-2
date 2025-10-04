@@ -363,7 +363,12 @@ class TTSViewModel: ObservableObject {
     }
 
     static func defaultPreviewLoader(url: URL) async throws -> Data {
-        let (data, _) = try await URLSession.shared.data(from: url)
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+            throw URLError(.unsupportedURL)
+        }
+
+        let session = SecureURLSession.makeEphemeral()
+        let (data, _) = try await session.data(from: url)
         return data
     }
 

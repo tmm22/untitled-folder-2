@@ -5,7 +5,7 @@ class OpenAIService: TTSProvider {
     var name: String { "OpenAI" }
     private var apiKey: String?
     private let baseURL = "https://api.openai.com/v1/audio/speech"
-    private let session = URLSession.shared
+    private let session: URLSession
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -55,7 +55,8 @@ class OpenAIService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init() {
+    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+        self.session = session
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "OpenAI")
     }
@@ -80,10 +81,15 @@ class OpenAIService: TTSProvider {
         }
         
         // Prepare request
-        var request = URLRequest(url: URL(string: baseURL)!)
+        guard let url = URL(string: baseURL) else {
+            throw TTSError.networkError("Invalid API endpoint")
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 45
         
         // Prepare request body
         let controlsByID = Dictionary(uniqueKeysWithValues: styleControls.map { ($0.id, $0) })

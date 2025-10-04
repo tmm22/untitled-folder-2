@@ -6,7 +6,7 @@ final class OpenAISummarizationService: TextSummarizationService {
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 
-    init(session: URLSession = .shared, keychain: KeychainManager = KeychainManager()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(), keychain: KeychainManager = KeychainManager()) {
         self.session = session
         self.keychain = keychain
     }
@@ -25,6 +25,7 @@ final class OpenAISummarizationService: TextSummarizationService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 45
 
         let articleSnippet = text.prefix(6_000)
         let sourceClause = sourceURL.map { "Source URL: \($0.absoluteString)" } ?? ""
