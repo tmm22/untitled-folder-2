@@ -15,10 +15,11 @@ const formatTimestamp = (value: string) => {
 export function HistoryPanel() {
   const entries = useHistoryStore((state) => state.entries);
   const hydrated = useHistoryStore((state) => state.hydrated);
-  const { hydrate, remove } = useHistoryStore((state) => state.actions);
+  const { hydrate, remove, clear } = useHistoryStore((state) => state.actions);
   const { setInputText, selectProvider, selectVoice } = useTTSStore((state) => state.actions);
   const recentGenerations = useTTSStore((state) => state.recentGenerations);
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [clearing, setClearing] = useState(false);
 
   const audioLookup = useMemo(() => new Map(recentGenerations.map((item) => [item.metadata.id, item])), [recentGenerations]);
 
@@ -65,6 +66,27 @@ export function HistoryPanel() {
     setStatus('Transcript (VTT) ready.');
   };
 
+  const handleClearHistory = async () => {
+    if (clearing) {
+      return;
+    }
+    if (entries.length === 0) {
+      setStatus('History is already empty.');
+      return;
+    }
+
+    try {
+      setClearing(true);
+      await clear();
+      setStatus('History cleared.');
+    } catch (error) {
+      console.error('Failed to clear history', error);
+      setStatus('Unable to clear history.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   if (!hydrated) {
     return (
       <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
@@ -75,8 +97,20 @@ export function HistoryPanel() {
 
   return (
     <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Recent generations</h2>
-      <p className="text-sm text-slate-400">Entries persist locally and include provider, voice, and raw text.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Recent generations</h2>
+          <p className="text-sm text-slate-400">Entries persist locally and include provider, voice, and raw text.</p>
+        </div>
+        <button
+          type="button"
+          className="rounded-md border border-rose-500/60 px-3 py-1 text-xs font-semibold text-rose-300 disabled:opacity-40"
+          onClick={() => void handleClearHistory()}
+          disabled={entries.length === 0 || clearing}
+        >
+          Clear history
+        </button>
+      </div>
       <div className="mt-4 space-y-3">
         {entries.length === 0 && <p className="text-sm text-slate-500">Generate something to populate history.</p>}
         {entries.map((entry) => {

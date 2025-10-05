@@ -35,4 +35,14 @@ describe('useHistoryStore', () => {
 
     expect(useHistoryStore.getState().entries).toHaveLength(0);
   });
+
+  test('clears all entries', async () => {
+    const actions = useHistoryStore.getState().actions;
+    await actions.record(createEntry({ id: 'history-1' }));
+    await actions.record(createEntry({ id: 'history-2' }));
+
+    await actions.clear();
+
+    expect(useHistoryStore.getState().entries).toHaveLength(0);
+  });
 });
