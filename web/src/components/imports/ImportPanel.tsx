@@ -105,6 +105,7 @@ export function ImportPanel() {
         >
           Save import
         </button>
+        <p className="text-xs text-slate-500">Reddit links are handled via the .json API; article summaries use OpenAI when configured.</p>
       </form>
 
       <div className="mt-4 space-y-3">

@@ -9,7 +9,6 @@ import { fetchVoices, synthesizeSpeech } from './services/ttsService';
 import { providerRegistry } from './providerRegistry';
 import type {
   AudioSettings,
-  BatchGenerationItem,
   GenerationHistoryItem,
   ProviderType,
   ProviderSynthesisPayload,
@@ -34,7 +33,6 @@ interface TTSBaseState {
   generationProgress: number;
   errorMessage?: string;
   recentGenerations: GenerationHistoryItem[];
-  batchItems: BatchGenerationItem[];
   currentAudio?: ProviderSynthesisResponse;
   defaultSettingsByProvider: Record<ProviderType, AudioSettings>;
 }
@@ -51,8 +49,6 @@ interface TTSActions {
   play: () => Promise<void>;
   pause: () => void;
   stop: () => void;
-  clearError: () => void;
-  reset: () => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -79,7 +75,6 @@ const baseState: TTSBaseState = {
   generationProgress: 0,
   errorMessage: undefined,
   recentGenerations: [],
-  batchItems: [],
   currentAudio: undefined,
   defaultSettingsByProvider: initialDefaultSettings,
 };

@@ -7,6 +7,7 @@ import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
 import { HistoryPanel } from '@/components/history/HistoryPanel';
 import { SnippetPanel } from '@/components/snippets/SnippetPanel';
 import { ImportPanel } from '@/components/imports/ImportPanel';
+import { BatchPanel } from '@/components/queue/BatchPanel';
 
 export default function Home() {
   return (
@@ -26,7 +27,8 @@ export default function Home() {
         <GenerateButton />
         <PlaybackControls />
         <CredentialsPanel />
-        <div className="grid gap-6 md:grid-cols-2">
+        <BatchPanel />
+        <div className="grid gap-6 lg:grid-cols-2">
           <HistoryPanel />
           <SnippetPanel />
           <PronunciationPanel />
