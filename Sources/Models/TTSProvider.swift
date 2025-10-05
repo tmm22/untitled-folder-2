@@ -92,6 +92,7 @@ struct AudioSettings {
     var format: AudioFormat = .mp3
     var sampleRate: Int = 22050
     var styleValues: [String: Double] = [:]
+    var providerOptions: [String: String] = [:]
     
     enum AudioFormat: String, CaseIterable {
         case mp3 = "mp3"
@@ -113,6 +114,10 @@ extension AudioSettings {
                     clampedTo range: ClosedRange<Double>) -> Double {
         let value = styleValues[controlID] ?? defaultValue
         return min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    func providerOption(for key: String) -> String? {
+        providerOptions[key]
     }
 }
 

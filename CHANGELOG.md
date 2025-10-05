@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format is i
 - Introduced a space-efficient three-column desktop layout featuring a context rail, expanded composer column with context shelf cards, and a persistent inspector panel.
 - Voice preview fallback that synthesizes a short sample when hosted preview clips are unavailable, with clearer API key guidance when credentials are required.
 - Smart Import summarization that cleans web articles, surfaces an AI summary card, and lets you narrate the gist without replacing the original script.
+- ElevenLabs-focused prompting workspace with selectable v3 models, a reusable prompt scratch pad, quick tag insertion, automatic fallback to stable models when alpha access is unavailable, and dynamic voice lists that match the active model.
 
 ## [1.1.1] - 2025-09-26
 ### Changed

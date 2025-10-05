@@ -14,7 +14,10 @@ final class TextToSpeechAppTests: XCTestCase {
             "audioFormat",
             "appearancePreference",
             "textSnippets",
-            "providerStyleValues"
+            "providerStyleValues",
+            "elevenLabs.prompt",
+            "elevenLabs.model",
+            "elevenLabs.tags"
         ].forEach { defaults.removeObject(forKey: $0) }
     }
 
@@ -115,6 +118,26 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    private final class MockFallbackElevenLabsService: ElevenLabsService {
+        var callCount = 0
+
+        override func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
+            callCount += 1
+            if callCount == 1 {
+                let modelID = settings.providerOption(for: ElevenLabsProviderOptionKey.modelID) ?? ElevenLabsModel.multilingualV3.rawValue
+                throw TTSError.apiError("A model with model ID \(modelID) does not exist")
+            }
+
+            XCTAssertEqual(settings.providerOption(for: ElevenLabsProviderOptionKey.modelID), ElevenLabsModel.multilingualV2.rawValue)
+            return Data([0x01, 0x02])
+        }
+
+        override func voices(for modelID: String) async throws -> [Voice] {
+            cachedVoices(for: modelID) ?? Voice.elevenLabsVoices
+        }
+    }
+
+    @MainActor
     private func waitUntil(_ predicate: @escaping () -> Bool, timeout: TimeInterval = 1.0) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !predicate() && Date() < deadline {
@@ -192,6 +215,8 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(settings.format, .mp3)
         XCTAssertEqual(settings.sampleRate, 22050)
         XCTAssertTrue(settings.styleValues.isEmpty)
+        XCTAssertTrue(settings.providerOptions.isEmpty)
+        XCTAssertNil(settings.providerOption(for: "elevenLabs.model_id"))
     }
     
     func testTTSErrorMessages() {
@@ -440,6 +465,86 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(viewModel.volume, 0.75)
         XCTAssertEqual(viewModel.selectedFormat, .mp3)
         XCTAssertTrue(viewModel.supportedFormats.contains(.flac))
+    }
+
+    @MainActor
+    func testElevenLabsModelPropagatesToAudioSettings() async {
+        resetPersistedSettings()
+        var capturedSettings: AudioSettings?
+        let viewModel = makeTestViewModel(previewGenerator: { _, providerType, settings, _ in
+            if providerType == .elevenLabs {
+                capturedSettings = settings
+            }
+            return Data()
+        })
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        viewModel.elevenLabsModel = .multilingualV3
+
+        guard let voice = viewModel.availableVoices.first else {
+            XCTFail("Expected ElevenLabs voice")
+            return
+        }
+
+        viewModel.previewVoice(voice)
+
+        // allow the async preview pipeline to invoke the stub generator
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertNotNil(capturedSettings)
+        XCTAssertEqual(capturedSettings?.providerOption(for: ElevenLabsProviderOptionKey.modelID), ElevenLabsModel.multilingualV3.rawValue)
+    }
+
+    @MainActor
+    func testInsertElevenLabsPromptOnlyPrependsOnce() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.inputText = "Hello there."
+        viewModel.elevenLabsPrompt = "Deliver with a calm documentary tone."
+
+        viewModel.insertElevenLabsPromptAtTop()
+        let firstResult = viewModel.inputText
+        XCTAssertTrue(firstResult.hasPrefix("Deliver with a calm documentary tone."))
+
+        viewModel.insertElevenLabsPromptAtTop()
+        XCTAssertEqual(viewModel.inputText, firstResult)
+    }
+
+    @MainActor
+    func testElevenLabsTagHelpersWrapAndAppend() {
+        resetPersistedSettings()
+        let viewModel = makeTestViewModel()
+        viewModel.elevenLabsTags = []
+
+        viewModel.addElevenLabsTag("whisper")
+        viewModel.addElevenLabsTag("[whisper]")
+        XCTAssertEqual(viewModel.elevenLabsTags, ["[whisper]"])
+
+        viewModel.inputText = "Line one."
+        viewModel.insertElevenLabsTag("[whisper]")
+        XCTAssertTrue(viewModel.inputText.hasSuffix("[whisper]\n"))
+    }
+
+    @MainActor
+    func testElevenLabsFallsBackWhenModelUnavailable() async {
+        resetPersistedSettings()
+        let audioSpy = SpyAudioPlayerService()
+        let service = MockFallbackElevenLabsService()
+        service.updateAPIKey("fake-key")
+        let viewModel = makeTestViewModel(audioPlayer: audioSpy, elevenLabsService: service)
+
+        viewModel.selectedProvider = .elevenLabs
+        viewModel.updateAvailableVoices()
+        viewModel.elevenLabsModel = .multilingualV3
+        viewModel.inputText = "Hello ElevenLabs"
+
+        await viewModel.generateSpeech()
+
+        XCTAssertEqual(service.callCount, 2)
+        XCTAssertEqual(viewModel.elevenLabsModel, .multilingualV2)
+        XCTAssertTrue(viewModel.errorMessage?.contains("Switched to Multilingual v2") ?? false)
     }
 
     @MainActor

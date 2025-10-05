@@ -201,6 +201,28 @@ class TTSViewModel: ObservableObject {
             saveSettings()
         }
     }
+    @Published var elevenLabsPrompt: String = "" {
+        didSet {
+            guard elevenLabsPrompt != oldValue else { return }
+            persistElevenLabsPrompt()
+        }
+    }
+    @Published var elevenLabsModel: ElevenLabsModel = .defaultSelection {
+        didSet {
+            guard elevenLabsModel != oldValue else { return }
+            persistElevenLabsModel()
+            if selectedProvider == .elevenLabs {
+                requestElevenLabsVoices(for: elevenLabsModel)
+            }
+        }
+    }
+    @Published var elevenLabsTags: [String] = ElevenLabsVoiceTag.defaultTokens {
+        didSet {
+            guard elevenLabsTags != oldValue else { return }
+            normalizeElevenLabsTagsIfNeeded()
+            persistElevenLabsTags()
+        }
+    }
     
     // MARK: - Services
     private let audioPlayer: AudioPlayerService
@@ -237,6 +259,9 @@ class TTSViewModel: ObservableObject {
     private let pronunciationKey = "pronunciationRules"
     private let notificationsKey = "notificationsEnabled"
     private let styleValuesKey = "providerStyleValues"
+    private let elevenLabsPromptKey = "elevenLabs.prompt"
+    private let elevenLabsModelKey = "elevenLabs.model"
+    private let elevenLabsTagsKey = "elevenLabs.tags"
     private let styleComparisonEpsilon = 0.0001
     private let batchDelimiterToken = "---"
     private var batchTask: Task<Void, Never>?
@@ -249,6 +274,8 @@ class TTSViewModel: ObservableObject {
     private let previewDataLoader: (URL) async throws -> Data
     private let previewAudioGenerator: ((Voice, TTSProviderType, AudioSettings, [String: Double]) async throws -> Data)?
     private var previewTask: Task<Void, Never>?
+    private var isNormalizingElevenLabsTags = false
+    private var elevenLabsVoiceTask: Task<Void, Never>?
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -485,6 +512,44 @@ class TTSViewModel: ObservableObject {
         }
     }
 
+    private func persistElevenLabsPrompt() {
+        let defaults = UserDefaults.standard
+        let trimmed = elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            defaults.removeObject(forKey: elevenLabsPromptKey)
+        } else {
+            defaults.set(trimmed, forKey: elevenLabsPromptKey)
+        }
+    }
+
+    private func persistElevenLabsModel() {
+        UserDefaults.standard.set(elevenLabsModel.rawValue, forKey: elevenLabsModelKey)
+    }
+
+    private func persistElevenLabsTags() {
+        UserDefaults.standard.set(elevenLabsTags, forKey: elevenLabsTagsKey)
+    }
+
+    private func normalizeElevenLabsTagsIfNeeded() {
+        guard !isNormalizingElevenLabsTags else { return }
+        isNormalizingElevenLabsTags = true
+        defer { isNormalizingElevenLabsTags = false }
+
+        var seen = Set<String>()
+        let normalized = elevenLabsTags.compactMap { token -> String? in
+            let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            if seen.insert(trimmed).inserted {
+                return trimmed
+            }
+            return nil
+        }
+
+        if normalized != elevenLabsTags {
+            elevenLabsTags = normalized
+        }
+    }
+
     // MARK: - Public Methods
     func resetStyleControl(_ control: ProviderStyleControl) {
         guard hasActiveStyleControls else { return }
@@ -610,6 +675,56 @@ class TTSViewModel: ObservableObject {
 
         isGenerating = false
         generationProgress = 0
+    }
+
+    private func synthesizeSpeechWithFallback(text: String,
+                                              voice: Voice,
+                                              provider: TTSProvider,
+                                              providerType: TTSProviderType,
+                                              settings baseSettings: AudioSettings) async throws -> Data {
+        var attemptSettings = baseSettings
+        var hasRetried = false
+
+        while true {
+            do {
+                return try await provider.synthesizeSpeech(
+                    text: text,
+                    voice: voice,
+                    settings: attemptSettings
+                )
+            } catch let error as TTSError {
+                guard providerType == .elevenLabs,
+                      case .apiError(let message) = error,
+                      !hasRetried,
+                      let context = elevenLabsFallbackContext(for: message, currentModelID: attemptSettings.providerOption(for: ElevenLabsProviderOptionKey.modelID))
+                else {
+                    throw error
+                }
+
+                hasRetried = true
+                elevenLabsModel = context.fallback
+                attemptSettings.providerOptions[ElevenLabsProviderOptionKey.modelID] = context.fallback.rawValue
+
+                errorMessage = "\(context.current.displayName) isn’t available on this ElevenLabs account yet. Switched to \(context.fallback.displayName)."
+                continue
+            }
+        }
+    }
+
+    private func elevenLabsFallbackContext(for message: String,
+                                           currentModelID: String?) -> (current: ElevenLabsModel, fallback: ElevenLabsModel)? {
+        let lowered = message.lowercased()
+        guard lowered.contains("model with model id"), lowered.contains("does not exist") else {
+            return nil
+        }
+
+        let activeModelID = currentModelID ?? elevenLabsModel.rawValue
+        guard let currentModel = ElevenLabsModel(rawValue: activeModelID),
+              let fallback = currentModel.fallback else {
+            return nil
+        }
+
+        return (currentModel, fallback)
     }
 
     private func generateLongFormSpeech(text: String,
@@ -1191,18 +1306,23 @@ class TTSViewModel: ObservableObject {
         }
 
         let provider = getCurrentProvider()
+        let providerType = selectedProvider
         guard provider.hasValidAPIKey() else {
             throw TTSError.invalidAPIKey
         }
 
         let voice = selectedVoice ?? provider.defaultVoice
-        let settings = AudioSettings(
+        var settings = AudioSettings(
             speed: playbackSpeed,
             volume: volume,
             format: format,
             sampleRate: sampleRate(for: format),
             styleValues: styleValues(for: selectedProvider)
         )
+
+        if selectedProvider == .elevenLabs {
+            settings.providerOptions[ElevenLabsProviderOptionKey.modelID] = elevenLabsModel.rawValue
+        }
 
         let previousAudioData = audioData
         let previousFormat = currentAudioFormat
@@ -1217,9 +1337,11 @@ class TTSViewModel: ObservableObject {
         }
 
         do {
-            let newData = try await provider.synthesizeSpeech(
+            let newData = try await synthesizeSpeechWithFallback(
                 text: inputText,
                 voice: voice,
+                provider: provider,
+                providerType: providerType,
                 settings: settings
             )
 
@@ -1276,17 +1398,82 @@ class TTSViewModel: ObservableObject {
     
     func updateAvailableVoices() {
         let provider = getCurrentProvider()
-        availableVoices = provider.availableVoices
+        if selectedProvider == .elevenLabs {
+            requestElevenLabsVoices(for: elevenLabsModel)
+        } else {
+            elevenLabsVoiceTask?.cancel()
+            availableVoices = provider.availableVoices
+            reconcileVoiceSelection(with: provider)
+        }
+        refreshStyleControls(for: selectedProvider)
+        ensureFormatSupportedForSelectedProvider()
+    }
+
+    private func requestElevenLabsVoices(for model: ElevenLabsModel) {
+        elevenLabsVoiceTask?.cancel()
+
+        let provider = elevenLabs
+        if let cached = provider.cachedVoices(for: model.rawValue), !cached.isEmpty {
+            availableVoices = cached
+        } else {
+            availableVoices = provider.availableVoices
+        }
+        reconcileVoiceSelection(with: provider)
+
+        guard provider.hasValidAPIKey() else { return }
+
+        let modelID = model.rawValue
+        elevenLabsVoiceTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let voices = try await provider.voices(for: modelID)
+                try Task.checkCancellation()
+                await MainActor.run {
+                    self.availableVoices = voices.isEmpty ? provider.availableVoices : voices
+                    self.reconcileVoiceSelection(with: provider)
+                }
+            } catch is CancellationError {
+                return
+            } catch let error as TTSError {
+                guard !Task.isCancelled else { return }
+                if case .invalidAPIKey = error {
+                    return
+                }
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.availableVoices = provider.availableVoices
+                    self.reconcileVoiceSelection(with: provider)
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.availableVoices = provider.availableVoices
+                    self.reconcileVoiceSelection(with: provider)
+                }
+            }
+        }
+    }
+
+    private func reconcileVoiceSelection(with provider: TTSProvider) {
         if let previewID = previewingVoiceID,
            !availableVoices.contains(where: { $0.id == previewID }) {
             stopPreview()
         }
-        refreshStyleControls(for: selectedProvider)
-        ensureFormatSupportedForSelectedProvider()
 
-        // Select default voice if none selected
-        if selectedVoice == nil || selectedVoice?.provider.rawValue != selectedProvider.rawValue {
-            selectedVoice = provider.defaultVoice
+        if let selected = selectedVoice,
+           !availableVoices.contains(selected) {
+            selectedVoice = nil
+        }
+
+        if selectedVoice == nil {
+            if availableVoices.contains(provider.defaultVoice) {
+                selectedVoice = provider.defaultVoice
+            } else if let first = availableVoices.first {
+                selectedVoice = first
+            } else {
+                selectedVoice = provider.defaultVoice
+            }
         }
     }
     
@@ -1447,6 +1634,21 @@ class TTSViewModel: ObservableObject {
             }
         }
 
+        if let savedPrompt = UserDefaults.standard.string(forKey: elevenLabsPromptKey) {
+            elevenLabsPrompt = savedPrompt
+        }
+
+        if let savedModelID = UserDefaults.standard.string(forKey: elevenLabsModelKey),
+           let savedModel = ElevenLabsModel(rawValue: savedModelID) {
+            elevenLabsModel = savedModel
+        }
+
+        if let storedTags = UserDefaults.standard.array(forKey: elevenLabsTagsKey) as? [String] {
+            elevenLabsTags = storedTags
+        } else {
+            normalizeElevenLabsTagsIfNeeded()
+        }
+
         applyPlaybackSettings()
 
         ensureFormatSupportedForSelectedProvider()
@@ -1477,6 +1679,64 @@ class TTSViewModel: ObservableObject {
         batchTask?.cancel()
         previewTask?.cancel()
         articleSummaryTask?.cancel()
+        elevenLabsVoiceTask?.cancel()
+    }
+}
+
+// MARK: - ElevenLabs Prompting Helpers
+extension TTSViewModel {
+    func insertElevenLabsPromptAtTop() {
+        let trimmedPrompt = elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else { return }
+
+        let promptBlock = "\(trimmedPrompt)\n\n"
+        let existing = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if existing.lowercased().hasPrefix(trimmedPrompt.lowercased()) {
+            return
+        }
+
+        if existing.isEmpty {
+            inputText = promptBlock
+        } else {
+            inputText = promptBlock + inputText
+        }
+    }
+
+    func insertElevenLabsTag(_ rawToken: String) {
+        let normalized = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+
+        if inputText.isEmpty {
+            inputText = normalized
+        } else if inputText.hasSuffix("\n") {
+            inputText.append(contentsOf: "\(normalized)\n")
+        } else {
+            inputText.append(contentsOf: "\n\(normalized)\n")
+        }
+    }
+
+    func addElevenLabsTag(_ rawToken: String) {
+        var normalized = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+
+        if !normalized.hasPrefix("[") {
+            normalized = "[\(normalized)"
+        }
+        if !normalized.hasSuffix("]") {
+            normalized.append("]")
+        }
+
+        guard !elevenLabsTags.contains(normalized) else { return }
+        elevenLabsTags.append(normalized)
+    }
+
+    func removeElevenLabsTag(_ token: String) {
+        elevenLabsTags.removeAll { $0 == token }
+    }
+
+    func resetElevenLabsTagsToDefaults() {
+        elevenLabsTags = ElevenLabsVoiceTag.defaultTokens
     }
 }
 
@@ -1651,9 +1911,11 @@ private extension TTSViewModel {
             throw VoicePreviewError.missingAPIKey(providerName: providerType.displayName)
         }
 
-        return try await provider.synthesizeSpeech(
+        return try await synthesizeSpeechWithFallback(
             text: previewSampleText(for: voice, providerType: providerType),
             voice: voice,
+            provider: provider,
+            providerType: providerType,
             settings: settings
         )
     }
@@ -1679,6 +1941,9 @@ private extension TTSViewModel {
         settings.volume = min(max(volume, 0.0), 1.0)
         settings.sampleRate = providerType == .google ? 24_000 : 22_050
         settings.format = providerType == .tightAss ? .wav : .mp3
+        if providerType == .elevenLabs {
+            settings.providerOptions[ElevenLabsProviderOptionKey.modelID] = elevenLabsModel.rawValue
+        }
         return settings
     }
 
@@ -2050,7 +2315,7 @@ private extension TTSViewModel {
             throw TTSError.textTooLong(limit)
         }
 
-        let settings = AudioSettings(
+        var settings = AudioSettings(
             speed: playbackSpeed,
             volume: volume,
             format: format,
@@ -2058,13 +2323,19 @@ private extension TTSViewModel {
             styleValues: styleValues(for: providerType)
         )
 
+        if providerType == .elevenLabs {
+            settings.providerOptions[ElevenLabsProviderOptionKey.modelID] = elevenLabsModel.rawValue
+        }
+
         if loadIntoPlayer {
             generationProgress = 0.3
         }
 
-        let data = try await provider.synthesizeSpeech(
+        let data = try await synthesizeSpeechWithFallback(
             text: trimmed,
             voice: voice,
+            provider: provider,
+            providerType: providerType,
             settings: settings
         )
 

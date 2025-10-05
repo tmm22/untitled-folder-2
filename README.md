@@ -183,6 +183,8 @@ swift run TextToSpeechApp
 4. Confirm you have free-tier characters or an active subscription before generating audio
 5. Optional: enable usage notifications to avoid exhausting your monthly allotment
 
+> **Model access:** The app fetches ElevenLabs voices dynamically per model. Alpha releases such as *Turbo v3* and *Multilingual v3* require early-access entitlements—if your account lacks them, the app automatically falls back to the closest stable model (e.g. *Multilingual v2*) and keeps generating audio.
+
 #### OpenAI
 1. Sign up at [OpenAI](https://platform.openai.com)
 2. Open **Billing → Overview** and attach a payment method or purchase credits (required for production use)

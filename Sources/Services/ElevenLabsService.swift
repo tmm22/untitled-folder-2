@@ -6,7 +6,9 @@ class ElevenLabsService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://api.elevenlabs.io/v1"
     private let session: URLSession
-    
+    private var voicesByModel: [String: [Voice]] = [:]
+    private var fallbackVoices: [Voice] = Voice.elevenLabsVoices
+
     // MARK: - Default Voice
     var defaultVoice: Voice {
         Voice(
@@ -21,19 +23,10 @@ class ElevenLabsService: TTSProvider {
     
     // MARK: - Available Voices
     var availableVoices: [Voice] {
-        // These are some of the pre-made voices available in ElevenLabs
-        // In a production app, you would fetch these dynamically from the API
-        return [
-            Voice(id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "ErXwobaYiN019PkySvjV", name: "Antoni", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", language: "en-US", gender: .female, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "VR6AewLTigWG4xSOukaG", name: "Arnold", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "pNInz6obpgDQGcFmaJgB", name: "Adam", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil),
-            Voice(id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", language: "en-US", gender: .male, provider: .elevenLabs, previewURL: nil)
-        ]
+        if let cached = voicesByModel[ElevenLabsModel.defaultSelection.rawValue], !cached.isEmpty {
+            return cached
+        }
+        return fallbackVoices
     }
 
     var styleControls: [ProviderStyleControl] {
@@ -78,10 +71,39 @@ class ElevenLabsService: TTSProvider {
     // MARK: - API Key Management
     func updateAPIKey(_ key: String) {
         self.apiKey = key
+        voicesByModel.removeAll()
+        fallbackVoices = Voice.elevenLabsVoices
     }
     
     func hasValidAPIKey() -> Bool {
         return apiKey != nil && !apiKey!.isEmpty
+    }
+
+    func cachedVoices(for modelID: String) -> [Voice]? {
+        voicesByModel[modelID]
+    }
+
+    func voices(for modelID: String) async throws -> [Voice] {
+        if let cached = voicesByModel[modelID], !cached.isEmpty {
+            return cached
+        }
+
+        if voicesByModel[modelID] == nil {
+            try await refreshVoiceCache()
+        }
+
+        if let cached = voicesByModel[modelID], !cached.isEmpty {
+            return cached
+        }
+
+        if let model = ElevenLabsModel(rawValue: modelID),
+           let fallbackModel = model.fallback,
+           let fallback = voicesByModel[fallbackModel.rawValue],
+           !fallback.isEmpty {
+            return fallback
+        }
+
+        return fallbackVoices
     }
     
     // MARK: - Speech Synthesis
@@ -113,9 +135,11 @@ class ElevenLabsService: TTSProvider {
         let similarityBoost = controlsByID["elevenLabs.similarityBoost"].map { settings.styleValue(for: $0) } ?? 0.75
         let style = controlsByID["elevenLabs.style"].map { settings.styleValue(for: $0) } ?? 0.0
 
+        let modelID = settings.providerOption(for: ElevenLabsProviderOptionKey.modelID) ?? "eleven_monolingual_v1"
+
         let requestBody = ElevenLabsRequest(
             text: text,
-            model_id: "eleven_monolingual_v1",
+            model_id: modelID,
             voice_settings: VoiceSettings(
                 stability: stability,
                 similarity_boost: similarityBoost,
@@ -165,11 +189,11 @@ class ElevenLabsService: TTSProvider {
     }
     
     // MARK: - Fetch Available Voices
-    func fetchVoices() async throws -> [Voice] {
+    private func refreshVoiceCache() async throws {
         guard let apiKey = apiKey, !apiKey.isEmpty else {
             throw TTSError.invalidAPIKey
         }
-        
+
         guard let url = URL(string: "\(baseURL)/voices") else {
             throw TTSError.networkError("Invalid API endpoint")
         }
@@ -177,25 +201,56 @@ class ElevenLabsService: TTSProvider {
         var request = URLRequest(url: url)
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         request.timeoutInterval = 45
-        
+
         do {
             let (data, response) = try await session.data(for: request)
-            
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                let voicesResponse = try JSONDecoder().decode(VoicesResponse.self, from: data)
-                return voicesResponse.voices.map { voiceData in
-                    Voice(
-                        id: voiceData.voice_id,
-                        name: voiceData.name,
-                        language: voiceData.labels?.language ?? "en-US",
-                        gender: parseGender(voiceData.labels?.gender),
-                        provider: .elevenLabs,
-                        previewURL: voiceData.preview_url
-                    )
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw TTSError.networkError("Invalid response")
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 401 {
+                    throw TTSError.invalidAPIKey
+                }
+                throw TTSError.apiError("Failed to fetch voices")
+            }
+
+            let voicesResponse = try JSONDecoder().decode(VoicesResponse.self, from: data)
+
+            var groupedByModel: [String: [Voice]] = [:]
+            var fallback: [Voice] = []
+
+            for voiceData in voicesResponse.voices {
+                let voice = Voice(
+                    id: voiceData.voice_id,
+                    name: voiceData.name,
+                    language: voiceData.labels?.language ?? "en-US",
+                    gender: parseGender(voiceData.labels?.gender),
+                    provider: .elevenLabs,
+                    previewURL: voiceData.preview_url
+                )
+
+                let models = voiceData.available_models ?? []
+                if models.isEmpty {
+                    fallback.append(voice)
+                } else {
+                    for model in models {
+                        groupedByModel[model, default: []].append(voice)
+                    }
                 }
             }
-            
-            throw TTSError.apiError("Failed to fetch voices")
+
+            if groupedByModel.isEmpty {
+                groupedByModel[ElevenLabsModel.defaultSelection.rawValue] = fallback.isEmpty ? Voice.elevenLabsVoices : fallback
+            }
+
+            voicesByModel = groupedByModel
+            if !fallback.isEmpty {
+                fallbackVoices = fallback
+            }
+        } catch let error as TTSError {
+            throw error
         } catch {
             throw TTSError.networkError(error.localizedDescription)
         }
@@ -244,6 +299,7 @@ private struct VoiceData: Codable {
     let voice_id: String
     let name: String
     let preview_url: String?
+    let available_models: [String]?
     let labels: VoiceLabels?
 }
 

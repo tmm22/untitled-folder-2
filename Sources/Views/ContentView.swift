@@ -1353,6 +1353,12 @@ private struct VoiceStylePopover: View {
                     .foregroundColor(.secondary)
             }
 
+            if viewModel.selectedProvider == .elevenLabs {
+                Divider()
+                ElevenLabsPromptingView()
+                    .environmentObject(viewModel)
+            }
+
             Divider()
 
             HStack {
