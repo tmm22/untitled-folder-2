@@ -1,6 +1,6 @@
 'use client';
 
-import { get, set } from 'idb-keyval';
+import { del, get, set } from 'idb-keyval';
 import { decodeBase64, decodeToString, encodeBase64, encodeString } from '@/lib/utils/base64';
 import type { ProviderType } from '@/modules/tts/types';
 
@@ -140,6 +140,16 @@ export function lockVault(): void {
   unlockedContext = null;
 }
 
+export async function destroyVault(): Promise<void> {
+  if (!isBrowser()) {
+    throw new Error('Vault reset requires a browser environment');
+  }
+
+  unlockedContext = null;
+  await del(META_KEY);
+  await del(DATA_KEY);
+}
+
 async function encryptValue(value: string, aesKey: CryptoKey) {
   const nonce = window.crypto.getRandomValues(new Uint8Array(12));
   const ciphertextBuffer = await window.crypto.subtle.encrypt(
@@ -214,4 +224,3 @@ export async function getProviderKey(provider: ProviderType): Promise<string | u
 export function getRawMasterKey(): ArrayBuffer | null {
   return unlockedContext?.rawKey ?? null;
 }
-

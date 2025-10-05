@@ -56,8 +56,8 @@ describe('useTTSStore', () => {
     });
 
     const store = useTTSStore.getState();
+    await store.actions.selectProvider('openAI');
     store.actions.setInputText('Sample text');
-    await store.actions.loadVoices('openAI');
     store.actions.selectVoice('test-voice');
 
     await store.actions.generate();

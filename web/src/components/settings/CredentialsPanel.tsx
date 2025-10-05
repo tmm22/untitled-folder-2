@@ -17,7 +17,7 @@ export function CredentialsPanel() {
   const error = useCredentialStore((state) => state.error);
 
   const actions = useCredentialStore((state) => state.actions);
-  const { createVault, unlock, lock, saveKey, deleteKey } = actions;
+  const { createVault, unlock, lock, saveKey, deleteKey, resetVault } = actions;
 
   useEffect(() => {
     void useCredentialStore.getState().actions.initialize();
@@ -80,6 +80,20 @@ export function CredentialsPanel() {
   const handleDeleteKey = async (provider: ProviderType) => {
     await deleteKey(provider);
     setFeedback(`${providerRegistry.get(provider).displayName} key removed.`);
+  };
+
+  const handleResetVault = async () => {
+    if (typeof window !== 'undefined' && !window.confirm('This will remove all stored keys and vault data. Continue?')) {
+      return;
+    }
+
+    try {
+      await resetVault();
+      setPassphrase('');
+      setConfirmPassphrase('');
+      setPendingKeys({} as Record<ProviderType, string>);
+      setFeedback('Vault reset. Create a new passphrase to get started again.');
+    } catch {}
   };
 
   if (status === 'loading') {
@@ -155,6 +169,13 @@ export function CredentialsPanel() {
             >
               Unlock
             </button>
+            <button
+              type="button"
+              className="rounded-md border border-rose-500/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-rose-200"
+              onClick={() => void handleResetVault()}
+            >
+              Reset vault
+            </button>
             {feedback && <span className="text-sm text-rose-300">{feedback}</span>}
           </div>
         </form>
@@ -180,6 +201,14 @@ export function CredentialsPanel() {
           Lock vault
         </button>
       </div>
+
+      <button
+        type="button"
+        className="mt-3 rounded-md border border-rose-500/60 px-3 py-1 text-xs uppercase tracking-wide text-rose-200 hover:bg-rose-500/10"
+        onClick={() => void handleResetVault()}
+      >
+        Reset vault
+      </button>
 
       <div className="mt-4 space-y-4">
         {providers.map((provider) => {

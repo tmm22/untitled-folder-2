@@ -66,7 +66,7 @@ const initialDefaultSettings = providerRegistry
 
 const baseState: TTSBaseState = {
   inputText: '',
-  selectedProvider: 'openAI',
+  selectedProvider: 'tightAss',
   selectedVoice: undefined,
   availableVoices: [],
   isLoadingVoices: false,

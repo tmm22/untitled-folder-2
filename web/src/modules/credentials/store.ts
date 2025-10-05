@@ -10,6 +10,7 @@ import {
   isUnlocked,
   listStoredProviders,
   lockVault,
+  destroyVault,
   saveProviderKey,
   unlockVault,
 } from '@/lib/crypto/LocalVault';
@@ -31,6 +32,7 @@ interface CredentialsState {
     deleteKey: (provider: ProviderType) => Promise<void>;
     refreshProviders: () => Promise<void>;
     getAuthHeaders: (provider: ProviderType) => Promise<Record<string, string>>;
+    resetVault: () => Promise<void>;
   };
 }
 
@@ -135,6 +137,22 @@ export const useCredentialStore = create<CredentialsState>((set, get) => ({
     refreshProviders: async () => {
       const providers = await listStoredProviders();
       set({ storedProviders: providers });
+    },
+    resetVault: async () => {
+      if (!isBrowser()) {
+        throw new Error('Vault reset requires the browser');
+      }
+
+      try {
+        set({ status: 'loading', error: undefined });
+        await destroyVault();
+        clearSession();
+        set({ hasVault: false, isUnlocked: false, storedProviders: [], status: 'idle' });
+      } catch (error) {
+        console.error('Failed to reset vault', error);
+        set({ status: 'idle', error: error instanceof Error ? error.message : 'Unable to reset vault' });
+        throw error;
+      }
     },
     getAuthHeaders: async (provider) => {
       if (!isBrowser()) {
