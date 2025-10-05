@@ -9,7 +9,7 @@ const COMPACT_OPTIONS: Array<{ id: CompactPreference; label: string; description
 ];
 
 export function CompactPanel() {
-  const { compactMode } = usePreferenceStore((state) => ({ compactMode: state.compactMode }));
+  const compactMode = usePreferenceStore((state) => state.compactMode);
   const { setCompactMode } = usePreferenceStore((state) => state.actions);
 
   useEffect(() => {

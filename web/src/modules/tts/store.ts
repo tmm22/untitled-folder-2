@@ -25,6 +25,8 @@ interface TTSBaseState {
   selectedProvider: ProviderType;
   selectedVoice?: Voice;
   availableVoices: Voice[];
+  isLoadingVoices: boolean;
+  voiceLoadError?: string;
   isGenerating: boolean;
   isPlaying: boolean;
   isLoopEnabled: boolean;
@@ -67,6 +69,8 @@ const baseState: TTSBaseState = {
   selectedProvider: 'openAI',
   selectedVoice: undefined,
   availableVoices: [],
+  isLoadingVoices: false,
+  voiceLoadError: undefined,
   isGenerating: false,
   isPlaying: false,
   isLoopEnabled: false,
@@ -103,6 +107,7 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
         selectedProvider: provider,
         generationProgress: 0,
         errorMessage: undefined,
+        voiceLoadError: undefined,
         playbackSpeed: descriptor.defaultSettings.speed,
       }));
       await get().actions.loadVoices(provider);
@@ -145,17 +150,29 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       });
     },
     loadVoices: async (provider) => {
-      set((prev) => ({ ...prev, availableVoices: [], selectedVoice: undefined }));
+      set((prev) => ({
+        ...prev,
+        isLoadingVoices: true,
+        voiceLoadError: undefined,
+        availableVoices: [],
+        selectedVoice: undefined,
+      }));
       try {
         const voices = await fetchVoices(provider);
         set((prev) => ({
           ...prev,
           availableVoices: voices,
           selectedVoice: voices.find((voice) => voice.id === providerRegistry.get(provider).defaultVoiceId) ?? voices[0],
+          voiceLoadError: voices.length === 0 ? 'No voices available for this provider.' : undefined,
         }));
       } catch (error) {
         console.error('Failed to load voices', error);
-        set((prev) => ({ ...prev, errorMessage: 'Unable to load voices. Please try again.' }));
+        set((prev) => ({
+          ...prev,
+          voiceLoadError: 'Unable to load voices. Please try again.',
+        }));
+      } finally {
+        set((prev) => ({ ...prev, isLoadingVoices: false }));
       }
     },
     generate: async () => {

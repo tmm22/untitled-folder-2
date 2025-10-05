@@ -17,7 +17,7 @@ import { clearSession, ensureSession, getSessionHeaders } from '@/lib/crypto/ses
 import type { ProviderType } from '@/modules/tts/types';
 
 interface CredentialsState {
-  hasVault: boolean | null;
+  hasVault: boolean;
   isUnlocked: boolean;
   storedProviders: ProviderType[];
   status: 'idle' | 'loading';
@@ -37,10 +37,10 @@ interface CredentialsState {
 const isBrowser = () => typeof window !== 'undefined' && typeof window.crypto !== 'undefined' && 'indexedDB' in window;
 
 export const useCredentialStore = create<CredentialsState>((set, get) => ({
-  hasVault: isBrowser() ? null : false,
+  hasVault: false,
   isUnlocked: false,
   storedProviders: [],
-  status: 'idle',
+  status: 'loading',
   error: undefined,
   actions: {
     initialize: async () => {
@@ -159,4 +159,3 @@ export const useCredentialStore = create<CredentialsState>((set, get) => ({
     },
   },
 }));
-

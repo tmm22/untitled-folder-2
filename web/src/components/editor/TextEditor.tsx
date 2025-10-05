@@ -4,11 +4,9 @@ import { ChangeEvent } from 'react';
 import { useTTSStore } from '@/modules/tts/store';
 
 export function TextEditor() {
-  const { inputText, characterLimit, isGenerating } = useTTSStore((state) => ({
-    inputText: state.inputText,
-    characterLimit: state.characterLimit,
-    isGenerating: state.isGenerating,
-  }));
+  const inputText = useTTSStore((state) => state.inputText);
+  const characterLimit = useTTSStore((state) => state.characterLimit);
+  const isGenerating = useTTSStore((state) => state.isGenerating);
   const setInputText = useTTSStore((state) => state.actions.setInputText);
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {

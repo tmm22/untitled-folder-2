@@ -34,6 +34,8 @@ describe('TTS workflow integration', () => {
     const state = useTTSStore.getState();
     expect(state.availableVoices).toHaveLength(mockVoices.length);
     expect(state.selectedVoice?.id).toBe('alloy');
+    expect(state.isLoadingVoices).toBe(false);
+    expect(state.voiceLoadError).toBeUndefined();
   });
 
   test('complete generate flow appends history entry', async () => {

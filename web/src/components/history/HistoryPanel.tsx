@@ -13,10 +13,8 @@ const formatTimestamp = (value: string) => {
 };
 
 export function HistoryPanel() {
-  const { entries, hydrated } = useHistoryStore((state) => ({
-    entries: state.entries,
-    hydrated: state.hydrated,
-  }));
+  const entries = useHistoryStore((state) => state.entries);
+  const hydrated = useHistoryStore((state) => state.hydrated);
   const { hydrate, remove } = useHistoryStore((state) => state.actions);
   const { setInputText, selectProvider, selectVoice } = useTTSStore((state) => state.actions);
   const recentGenerations = useTTSStore((state) => state.recentGenerations);

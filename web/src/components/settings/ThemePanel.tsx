@@ -6,7 +6,7 @@ import { usePreferenceStore, ThemePreference } from '@/modules/preferences/store
 const THEMES: ThemePreference[] = ['system', 'light', 'dark'];
 
 export function ThemePanel() {
-  const { theme } = usePreferenceStore((state) => ({ theme: state.theme }));
+  const theme = usePreferenceStore((state) => state.theme);
   const { setTheme } = usePreferenceStore((state) => state.actions);
 
   useEffect(() => {

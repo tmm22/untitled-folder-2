@@ -67,6 +67,38 @@ describe('useTTSStore', () => {
     expect(useTTSStore.getState().recentGenerations[0]?.metadata.characterCount).toBe(11);
   });
 
+  test('loadVoices surfaces errors gracefully when requests fail', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'No credentials' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await useTTSStore.getState().actions.loadVoices('openAI');
+
+    const state = useTTSStore.getState();
+    expect(state.availableVoices).toHaveLength(0);
+    expect(state.voiceLoadError).toBe('Unable to load voices. Please try again.');
+    expect(state.isLoadingVoices).toBe(false);
+  });
+
+  test('loadVoices reports when providers return an empty voice list', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await useTTSStore.getState().actions.loadVoices('openAI');
+
+    const state = useTTSStore.getState();
+    expect(state.availableVoices).toHaveLength(0);
+    expect(state.voiceLoadError).toBe('No voices available for this provider.');
+    expect(state.isLoadingVoices).toBe(false);
+  });
+
   test('generate surfaces errors from failed requests', async () => {
     vi.spyOn(global, 'fetch').mockImplementation(() =>
       Promise.resolve(

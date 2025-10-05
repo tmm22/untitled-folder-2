@@ -7,12 +7,10 @@ import type { TextSnippet } from '@/modules/tts/types';
 import { generateId } from '@/lib/utils/id';
 
 export function SnippetPanel() {
-  const { snippets, hydrated } = useSnippetStore((state) => ({
-    snippets: state.snippets,
-    hydrated: state.hydrated,
-  }));
+  const snippets = useSnippetStore((state) => state.snippets);
+  const hydrated = useSnippetStore((state) => state.hydrated);
   const { hydrate, saveSnippet, deleteSnippet } = useSnippetStore((state) => state.actions);
-  const { inputText } = useTTSStore((state) => ({ inputText: state.inputText }));
+  const inputText = useTTSStore((state) => state.inputText);
   const { setInputText } = useTTSStore((state) => state.actions);
 
   const [name, setName] = useState('');
@@ -48,9 +46,10 @@ export function SnippetPanel() {
     if (mode === 'replace') {
       setInputText(snippet.content);
     } else {
-      const current = useTTSStore.getState().inputText;
-      const next = [current.trim(), snippet.content.trim()].filter(Boolean).join('\n\n');
-      setInputText(next);
+      setInputText((prev) => {
+        const merged = [prev.trim(), snippet.content.trim()].filter(Boolean).join('\n\n');
+        return merged.trim();
+      });
     }
     setStatus(`Snippet ${mode === 'replace' ? 'loaded' : 'appended'}.`);
   };

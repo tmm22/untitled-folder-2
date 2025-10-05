@@ -10,24 +10,23 @@ const providers = providerRegistry.all();
 const mask = (value: string) => (value ? '•'.repeat(Math.min(value.length, 32)) : '—');
 
 export function CredentialsPanel() {
-  const { hasVault, isUnlocked, storedProviders, status, error } = useCredentialStore((state) => ({
-    hasVault: state.hasVault,
-    isUnlocked: state.isUnlocked,
-    storedProviders: state.storedProviders,
-    status: state.status,
-    error: state.error,
-  }));
+  const hasVault = useCredentialStore((state) => state.hasVault);
+  const isUnlocked = useCredentialStore((state) => state.isUnlocked);
+  const storedProviders = useCredentialStore((state) => state.storedProviders);
+  const status = useCredentialStore((state) => state.status);
+  const error = useCredentialStore((state) => state.error);
 
-  const { initialize, createVault, unlock, lock, saveKey, deleteKey } = useCredentialStore((state) => state.actions);
+  const actions = useCredentialStore((state) => state.actions);
+  const { createVault, unlock, lock, saveKey, deleteKey } = actions;
+
+  useEffect(() => {
+    void useCredentialStore.getState().actions.initialize();
+  }, []);
 
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [pendingKeys, setPendingKeys] = useState<Record<ProviderType, string>>({} as Record<ProviderType, string>);
   const [feedback, setFeedback] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    void initialize();
-  }, [initialize]);
 
   useEffect(() => {
     setFeedback(error);
@@ -83,7 +82,7 @@ export function CredentialsPanel() {
     setFeedback(`${providerRegistry.get(provider).displayName} key removed.`);
   };
 
-  if (hasVault === null || status === 'loading') {
+  if (status === 'loading') {
     return (
       <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
         Initialising secure storage…

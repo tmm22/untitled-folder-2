@@ -20,13 +20,11 @@ const formatTime = (seconds: number) => {
 
 export function PlaybackControls() {
   const snapshot = useAudioSnapshot();
-  const { isGenerating, isPlaying, playbackSpeed, volume, isLoopEnabled } = useTTSStore((state) => ({
-    isGenerating: state.isGenerating,
-    isPlaying: state.isPlaying,
-    playbackSpeed: state.playbackSpeed,
-    volume: state.volume,
-    isLoopEnabled: state.isLoopEnabled,
-  }));
+  const isGenerating = useTTSStore((state) => state.isGenerating);
+  const isPlaying = useTTSStore((state) => state.isPlaying);
+  const playbackSpeed = useTTSStore((state) => state.playbackSpeed);
+  const volume = useTTSStore((state) => state.volume);
+  const isLoopEnabled = useTTSStore((state) => state.isLoopEnabled);
 
   const { play, pause, stop, setPlaybackSpeed, setVolume, toggleLoop } = useTTSStore((state) => state.actions);
 

@@ -17,18 +17,14 @@ const statusLabels: Record<string, string> = {
 export function BatchPanel() {
   const [status, setStatus] = useState<string | undefined>();
 
-  const { items, isRunning, currentItemId } = useQueueStore((state) => ({
-    items: state.items,
-    isRunning: state.isRunning,
-    currentItemId: state.currentItemId,
-  }));
+  const items = useQueueStore((state) => state.items);
+  const isRunning = useQueueStore((state) => state.isRunning);
+  const currentItemId = useQueueStore((state) => state.currentItemId);
   const { enqueueSegments, start, cancel, clear, remove, retryFailed } = useQueueStore((state) => state.actions);
 
-  const { inputText, selectedProvider, selectedVoice } = useTTSStore((state) => ({
-    inputText: state.inputText,
-    selectedProvider: state.selectedProvider,
-    selectedVoice: state.selectedVoice,
-  }));
+  const inputText = useTTSStore((state) => state.inputText);
+  const selectedProvider = useTTSStore((state) => state.selectedProvider);
+  const selectedVoice = useTTSStore((state) => state.selectedVoice);
 
   useEffect(() => {
     if (status) {

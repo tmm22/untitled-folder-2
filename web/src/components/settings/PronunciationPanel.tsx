@@ -11,10 +11,8 @@ const providerOptions = [{ id: 'all', displayName: 'All providers' as const }, .
 type ProviderSelection = ProviderType | 'all';
 
 export function PronunciationPanel() {
-  const { rules, hydrated } = usePronunciationStore((state) => ({
-    rules: state.rules,
-    hydrated: state.hydrated,
-  }));
+  const rules = usePronunciationStore((state) => state.rules);
+  const hydrated = usePronunciationStore((state) => state.hydrated);
   const { hydrate, addRule, deleteRule } = usePronunciationStore((state) => state.actions);
 
   const [provider, setProvider] = useState<ProviderSelection>('all');

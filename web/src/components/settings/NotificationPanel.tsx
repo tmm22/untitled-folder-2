@@ -9,7 +9,7 @@ const OPTIONS: Array<{ id: NotificationPreference; label: string; description: s
 ];
 
 export function NotificationPanel() {
-  const { notifications } = usePreferenceStore((state) => ({ notifications: state.notifications }));
+  const notifications = usePreferenceStore((state) => state.notifications);
   const { setNotifications } = usePreferenceStore((state) => state.actions);
 
   useEffect(() => {

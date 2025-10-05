@@ -7,10 +7,8 @@ import { useTTSStore } from '@/modules/tts/store';
 import { generateId } from '@/lib/utils/id';
 
 export function ImportPanel() {
-  const { entries, hydrated } = useImportStore((state) => ({
-    entries: state.entries,
-    hydrated: state.hydrated,
-  }));
+  const entries = useImportStore((state) => state.entries);
+  const hydrated = useImportStore((state) => state.hydrated);
   const { hydrate, record, remove } = useImportStore((state) => state.actions);
   const { setInputText } = useTTSStore((state) => state.actions);
 

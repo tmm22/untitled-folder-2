@@ -4,12 +4,10 @@ import { useState } from 'react';
 import { useTTSStore } from '@/modules/tts/store';
 
 export function GenerateButton() {
-  const { isGenerating, inputText, errorMessage, characterLimit } = useTTSStore((state) => ({
-    isGenerating: state.isGenerating,
-    inputText: state.inputText,
-    errorMessage: state.errorMessage,
-    characterLimit: state.characterLimit,
-  }));
+  const isGenerating = useTTSStore((state) => state.isGenerating);
+  const inputText = useTTSStore((state) => state.inputText);
+  const errorMessage = useTTSStore((state) => state.errorMessage);
+  const characterLimit = useTTSStore((state) => state.characterLimit);
   const { generate, clearError } = useTTSStore((state) => state.actions);
   const [hasAttempted, setHasAttempted] = useState(false);
 
