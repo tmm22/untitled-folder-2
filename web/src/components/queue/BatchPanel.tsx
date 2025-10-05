@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQueueStore } from '@/modules/queue/store';
 import { useTTSStore } from '@/modules/tts/store';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
+import { extensionFromContentType } from '@/lib/utils/audio';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pending',
@@ -11,25 +12,6 @@ const statusLabels: Record<string, string> = {
   completed: 'Completed',
   failed: 'Failed',
   cancelled: 'Cancelled',
-};
-
-const contentTypeToExtension = (contentType?: string) => {
-  if (!contentType) {
-    return 'mp3';
-  }
-  if (contentType.includes('mpeg')) {
-    return 'mp3';
-  }
-  if (contentType.includes('wav') || contentType.includes('wave')) {
-    return 'wav';
-  }
-  if (contentType.includes('aac')) {
-    return 'aac';
-  }
-  if (contentType.includes('flac')) {
-    return 'flac';
-  }
-  return 'mp3';
 };
 
 export function BatchPanel() {
@@ -194,7 +176,7 @@ export function BatchPanel() {
               {item.result?.audioUrl && (
                 <a
                   href={item.result.audioUrl}
-                  download={`batch-${item.id}.${contentTypeToExtension(item.audioContentType)}`}
+                  download={`batch-${item.id}.${extensionFromContentType(item.result?.audioContentType ?? item.audioContentType)}`}
                   className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
                 >
                   Download

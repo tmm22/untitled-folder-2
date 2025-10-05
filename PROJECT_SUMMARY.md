@@ -6,7 +6,7 @@ I have successfully implemented a comprehensive macOS Text-to-Speech application
 
 ## 🌐 Web Workspace Prototype
 
-A Next.js 14 web workspace now lives under `web/`. It mirrors the macOS architecture concepts with React, Tailwind, and Zustand, ships with a secure credential vault + session handshake for provider keys, and already covers provider selection, text entry with character limits, generation through provider proxy routes (with mock fallback), playback controls, persistent history/snippet primitives, the batch queue, and Smart Import (articles + Reddit + optional summaries). Refer to [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for the technical design and parity roadmap, and use `npm run dev` / `npm run test` inside the `web/` directory for local development.
+A Next.js 14 web workspace now lives under `web/`. It mirrors the macOS architecture concepts with React, Tailwind, and Zustand, ships with a secure credential vault + session handshake for provider keys, and already covers provider selection, text entry with character limits, generation through provider proxy routes (with mock fallback), playback controls, persistent history/snippet primitives, the batch queue, transcript exports, audio downloads, and Smart Import (articles + Reddit + optional summaries). Refer to [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for the technical design and parity roadmap, and use `npm run dev` / `npm run test` inside the `web/` directory for local development.
 
 ## 📁 Project Structure
 

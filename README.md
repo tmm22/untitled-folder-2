@@ -101,10 +101,10 @@ See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at 
 Key areas in the current build:
 - Credentials vault for encrypted provider API keys and secure session hand-off
 - Batch queue panel for multi-segment scripts with progress and downloads
-- History panel with rehydrate-and-load actions
+- History panel with audio/transcript exports and rehydrate actions
 - Snippet library for reusable text
 - Pronunciation glossary (regex or literal)
-- Import shelf for URL/manual entries
+- Import shelf for URL/manual entries plus optional article summaries
 
 
 ## Minimalist Layout (Compact)

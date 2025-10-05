@@ -222,7 +222,9 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
             durationMs: response.durationMs ?? Math.round(snapshot.duration * 1000),
             characterCount: payload.text.length,
           },
+          text: payload.text,
           audioUrl: snapshot.sourceUrl ?? '',
+          audioContentType: response.audioContentType,
           transcript: response.transcript,
         };
 

@@ -48,7 +48,9 @@ export interface GenerationMetadata {
 
 export interface GenerationHistoryItem {
   metadata: GenerationMetadata;
+  text: string;
   audioUrl: string;
+  audioContentType?: string;
   transcript?: GenerationTranscript;
   label?: string;
 }

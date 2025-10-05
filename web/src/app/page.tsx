@@ -4,6 +4,9 @@ import { GenerateButton } from '@/components/editor/GenerateButton';
 import { PlaybackControls } from '@/components/playback/PlaybackControls';
 import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
 import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
+import { ThemePanel } from '@/components/settings/ThemePanel';
+import { CompactPanel } from '@/components/settings/CompactPanel';
+import { NotificationPanel } from '@/components/settings/NotificationPanel';
 import { HistoryPanel } from '@/components/history/HistoryPanel';
 import { SnippetPanel } from '@/components/snippets/SnippetPanel';
 import { ImportPanel } from '@/components/imports/ImportPanel';
@@ -26,6 +29,9 @@ export default function Home() {
         <TextEditor />
         <GenerateButton />
         <PlaybackControls />
+        <ThemePanel />
+        <CompactPanel />
+        <NotificationPanel />
         <CredentialsPanel />
         <BatchPanel />
         <div className="grid gap-6 lg:grid-cols-2">

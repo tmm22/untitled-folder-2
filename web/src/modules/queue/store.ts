@@ -235,7 +235,9 @@ async function runBatchItem(item: QueueItem): Promise<{ historyItem: GenerationH
       durationMs: response.durationMs ?? 0,
       characterCount: payload.text.length,
     },
+    text: payload.text,
     audioUrl,
+    audioContentType: response.audioContentType,
     transcript: response.transcript,
   };
 

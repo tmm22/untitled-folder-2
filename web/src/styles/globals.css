@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: var(--color-scheme, dark);
   --bg-base: #020617;
   --bg-elevated: #0f172a;
   --fg-base: #e2e8f0;
@@ -27,4 +27,20 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html.compact body {
+  font-size: 0.95rem;
+}
+
+html.compact .compact-hide {
+  display: none !important;
 }

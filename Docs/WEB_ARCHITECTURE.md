@@ -60,7 +60,7 @@ web/
 ```
 
 ## Local Persistence Modules
-- **HistoryStore** (`modules/history/store.ts`): captures serialized generation metadata and transcript pointers in IndexedDB for reuse across sessions.
+- **HistoryStore** (`modules/history/store.ts`): captures serialized generation metadata, transcript pointers, and supports transcript/audio export helpers in the UI.
 - **SnippetStore** (`modules/snippets/store.ts`): keeps reusable text blocks with append/replace helpers surfaced via `SnippetPanel`.
 - **PronunciationStore** (`modules/pronunciation/store.ts`): persists regex/literal overrides and hydrates `useTTSStore` before each generation.
 - **ImportStore** (`modules/imports/store.ts`): records URL or manual imports with summaries for later injection into the editor.
