@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg-base: #020617;
+  --bg-elevated: #0f172a;
+  --fg-base: #e2e8f0;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, rgba(14, 116, 144, 0.25), transparent 55%),
+    radial-gradient(circle at bottom, rgba(59, 130, 246, 0.18), transparent 60%),
+    var(--bg-base);
+  color: var(--fg-base);
+}
+
+@layer base {
+  * {
+    @apply border-slate-800/70;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

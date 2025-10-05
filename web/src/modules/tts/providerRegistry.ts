@@ -1,0 +1,150 @@
+import { AudioSettings, ProviderDescriptor, ProviderType } from './types';
+
+const baseSettings = (overrides: Partial<AudioSettings> = {}): AudioSettings => ({
+  speed: 1,
+  pitch: 1,
+  volume: 0.75,
+  format: 'mp3',
+  sampleRate: 22050,
+  styleValues: {},
+  ...overrides,
+});
+
+const providers: Record<ProviderType, ProviderDescriptor> = {
+  openAI: {
+    id: 'openAI',
+    displayName: 'OpenAI',
+    description: 'Neural voices with multiple expressive styles and formats.',
+    defaultVoiceId: 'alloy',
+    limits: { maxCharacters: 4096, supportsBatch: true, supportsTranscripts: true },
+    supportedFormats: ['mp3', 'wav', 'aac', 'flac'],
+    defaultSettings: baseSettings({ format: 'mp3', sampleRate: 44100 }),
+    styleControls: [
+      {
+        id: 'expressiveness',
+        label: 'Expressiveness',
+        description: 'Higher values increase the performative energy of the voice.',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.5,
+        valueFormat: 'percentage',
+      },
+      {
+        id: 'warmth',
+        label: 'Warmth',
+        description: 'Controls vocal timbre softness versus clarity.',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.4,
+        valueFormat: 'percentage',
+      },
+    ],
+    apiKeyName: 'OPENAI_API_KEY',
+  },
+  elevenLabs: {
+    id: 'elevenLabs',
+    displayName: 'ElevenLabs',
+    description: 'High quality voices optimised for narration and dialogue.',
+    defaultVoiceId: 'rachel',
+    limits: { maxCharacters: 5000, supportsBatch: true, supportsTranscripts: true },
+    supportedFormats: ['mp3', 'wav'],
+    defaultSettings: baseSettings({ sampleRate: 44100 }),
+    styleControls: [
+      {
+        id: 'stability',
+        label: 'Stability',
+        description: 'Higher values deliver consistent tone; lower adds variation.',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.71,
+        valueFormat: 'percentage',
+      },
+      {
+        id: 'similarityBoost',
+        label: 'Similarity Boost',
+        description: 'Boosts similarity to the reference voice at the cost of variety.',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.75,
+        valueFormat: 'percentage',
+      },
+      {
+        id: 'styleExaggeration',
+        label: 'Style Exaggeration',
+        description: 'Controls stylised emphasis within the speech output.',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.65,
+        valueFormat: 'percentage',
+      },
+    ],
+    apiKeyName: 'ELEVENLABS_API_KEY',
+  },
+  google: {
+    id: 'google',
+    displayName: 'Google Cloud',
+    description: 'WaveNet voices with extensive language coverage and SSML support.',
+    defaultVoiceId: 'en-US-Standard-C',
+    limits: { maxCharacters: 5000, supportsBatch: true, supportsTranscripts: false },
+    supportedFormats: ['mp3', 'wav'],
+    defaultSettings: baseSettings({ sampleRate: 24000 }),
+    styleControls: [
+      {
+        id: 'speakingRate',
+        label: 'Speaking Rate',
+        description: 'Relative speed adjustment applied before playback controls.',
+        min: 0.25,
+        max: 4,
+        step: 0.05,
+        defaultValue: 1,
+        valueFormat: { type: 'decimal', places: 2 },
+      },
+      {
+        id: 'pitch',
+        label: 'Pitch',
+        description: 'Semitone offset applied by Google TTS before streaming.',
+        min: -20,
+        max: 20,
+        step: 1,
+        defaultValue: 0,
+        valueFormat: { type: 'decimal', places: 0 },
+      },
+      {
+        id: 'intensity',
+        label: 'Intensity',
+        description: 'Controls emphasis and projection in select languages.',
+        min: 0,
+        max: 1,
+        step: 0.1,
+        defaultValue: 0.5,
+        valueFormat: 'percentage',
+      },
+    ],
+    apiKeyName: 'GOOGLE_TTS_API_KEY',
+  },
+  tightAss: {
+    id: 'tightAss',
+    displayName: 'Tight Ass Mode',
+    description: 'Offline fallback powered by the browser SpeechSynthesis API.',
+    defaultVoiceId: 'default',
+    limits: { maxCharacters: 20000, supportsBatch: true, supportsTranscripts: false },
+    supportedFormats: ['mp3'],
+    defaultSettings: baseSettings({ sampleRate: 22050 }),
+    styleControls: [],
+    apiKeyName: 'LOCAL',
+  },
+};
+
+export const providerRegistry = {
+  all(): ProviderDescriptor[] {
+    return Object.values(providers);
+  },
+  get(id: ProviderType): ProviderDescriptor {
+    return providers[id];
+  },
+};

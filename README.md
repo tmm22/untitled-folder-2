@@ -69,6 +69,43 @@ The composer highlights overages based on the active provider’s per-request al
 
 The app automatically chunks scripts that exceed these limits and stitches the audio back together during export.
 
+## Web Workspace (Next.js)
+
+The repository now includes a browser-based workspace under `web/` that will reach feature parity with the macOS build over time. It ships as a Next.js 14 + React 18 app with Tailwind styling and Zustand state management.
+
+### Prerequisites
+- Node.js 18 or newer (validated with Node 20/23)
+- npm (bundled with Node)
+
+### Getting Started
+```bash
+cd web
+npm install
+
+# Launch the development server
+npm run dev
+```
+Visit http://localhost:3000 to use the workspace. The workspace already supports provider selection, text editing with live character counting, secure provider proxy routes (with mock synthesis fallback when keys are unavailable), playback controls, and a shared state foundation for history, batch, and glossary features.
+
+### Quality Checks
+```bash
+# Lint the project
+npm run lint
+
+# Run the Vitest suite (unit + integration)
+npm run test
+```
+
+See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at the module layout, security approach, and parity roadmap.
+
+Key areas in the current build:
+- Credentials vault for encrypted provider API keys and secure session hand-off
+- History panel with rehydrate-and-load actions
+- Snippet library for reusable text
+- Pronunciation glossary (regex or literal)
+- Import shelf for URL/manual entries
+
+
 ## Minimalist Layout (Compact)
 
 The app includes an optional Compact UI that preserves all features while reducing visual chrome.
