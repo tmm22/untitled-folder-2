@@ -13,6 +13,14 @@ export interface ProviderAdapter {
 export interface ProviderContext {
   provider: ProviderType;
   apiKey?: string;
+  managedCredential?: ManagedCredential;
 }
 
 export type ProviderFactory = (context: ProviderContext) => ProviderAdapter;
+
+export interface ManagedCredential {
+  source: 'provisioned';
+  credentialId: string;
+  token: string;
+  expiresAt: number;
+}

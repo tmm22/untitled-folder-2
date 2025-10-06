@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { ProviderType } from '@/modules/tts/types';
 import { resolveProviderAdapter } from '@/lib/providers';
-import { extractApiKey } from '@/app/api/_lib/providerAuth';
+import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
 
 interface RouteParams {
   params: {
@@ -11,10 +11,14 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   const provider = params.provider as ProviderType;
-  const apiKeyOverride = extractApiKey(request);
+  const authorization = await resolveProviderAuthorization(request, provider);
 
   try {
-    const adapter = resolveProviderAdapter({ provider, apiKey: apiKeyOverride ?? undefined });
+    const adapter = resolveProviderAdapter({
+      provider,
+      apiKey: authorization.apiKey,
+      managedCredential: authorization.managedCredential,
+    });
     const voices = await adapter.listVoices();
     return NextResponse.json(voices);
   } catch (error) {

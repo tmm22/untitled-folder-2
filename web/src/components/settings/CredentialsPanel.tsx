@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { useCredentialStore } from '@/modules/credentials/store';
 import type { ProviderType } from '@/modules/tts/types';
+import { useAccountStore } from '@/modules/account/store';
 
 const providers = providerRegistry.all();
 
@@ -18,6 +19,9 @@ export function CredentialsPanel() {
 
   const actions = useCredentialStore((state) => state.actions);
   const { createVault, unlock, lock, saveKey, deleteKey, resetVault } = actions;
+  const hasProvisioningAccess = useAccountStore((state) => state.hasProvisioningAccess);
+  const planTier = useAccountStore((state) => state.planTier);
+  const billingStatus = useAccountStore((state) => state.billingStatus);
 
   useEffect(() => {
     void useCredentialStore.getState().actions.initialize();
@@ -186,10 +190,15 @@ export function CredentialsPanel() {
   return (
     <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Provider credentials</h2>
-          <p className="mt-1 text-sm text-slate-400">Keys are encrypted locally and decrypted per request only.</p>
-        </div>
+      <div>
+        <h2 className="text-lg font-semibold text-white">Provider credentials</h2>
+        <p className="mt-1 text-sm text-slate-400">Keys are encrypted locally and decrypted per request only.</p>
+        {hasProvisioningAccess && (
+          <div className="mt-2 rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-2 text-xs text-emerald-200">
+            Managed provisioning is active ({planTier} · {billingStatus}). Keys are optional for eligible providers.
+          </div>
+        )}
+      </div>
         <button
           type="button"
           className="rounded-md border border-slate-700 px-3 py-1 text-xs uppercase tracking-wide text-slate-300"

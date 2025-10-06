@@ -35,10 +35,11 @@ async function persistSnippets(snippets: TextSnippet[]) {
 
 export const useSnippetStore = create<SnippetState>((set, get) => ({
   snippets: [],
-  hydrated: !isBrowser(),
+  hydrated: false,
   actions: {
     hydrate: async () => {
       if (!isBrowser()) {
+        set({ hydrated: true });
         return;
       }
       const snippets = await loadSnippets();
@@ -61,4 +62,3 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
     },
   },
 }));
-

@@ -43,11 +43,12 @@ async function persistImports(entries: ImportedEntry[]) {
 
 export const useImportStore = create<ImportState>((set, get) => ({
   entries: [],
-  hydrated: !isBrowser(),
+  hydrated: false,
   error: undefined,
   actions: {
     hydrate: async () => {
       if (!isBrowser()) {
+        set({ hydrated: true });
         return;
       }
       const entries = await loadImports();
@@ -69,4 +70,3 @@ export const useImportStore = create<ImportState>((set, get) => ({
     },
   },
 }));
-

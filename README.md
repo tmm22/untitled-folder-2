@@ -96,6 +96,11 @@ npm run lint
 npm run test
 ```
 
+### Managed Provisioning Configuration
+- `CONVEX_URL` and `CONVEX_ADMIN_KEY` (optional): enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
+- `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
+- `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
+
 See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at the module layout, security approach, and parity roadmap.
 
 Key areas in the current build:
@@ -229,6 +234,8 @@ swift run TextToSpeechApp
 3. Go to **User → View API keys** and create a new secret key; label it for this project to allow revocation later
 4. Store the key securely—OpenAI will only show it once—then paste it into the app
 5. Pricing reference: ~$15 per 1M characters for `tts-1` as of May 2024
+
+> **Voice availability:** The app refreshes OpenAI voices directly from the `/v1/audio/voices` endpoint. If your account lacks access to experimental voices, they are omitted automatically and the UI falls back to the core set (Alloy, Amber, Cobalt, Nova, Onyx, Verse).
 
 #### Google Cloud TTS
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com)

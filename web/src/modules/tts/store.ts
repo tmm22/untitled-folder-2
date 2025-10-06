@@ -159,11 +159,14 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       }));
       try {
         const voices = await fetchVoices(provider);
+        const uniqueVoices = Array.from(new Map(voices.map((voice) => [voice.id, voice])).values());
         set((prev) => ({
           ...prev,
-          availableVoices: voices,
-          selectedVoice: voices.find((voice) => voice.id === providerRegistry.get(provider).defaultVoiceId) ?? voices[0],
-          voiceLoadError: voices.length === 0 ? 'No voices available for this provider.' : undefined,
+          availableVoices: uniqueVoices,
+          selectedVoice:
+            uniqueVoices.find((voice) => voice.id === providerRegistry.get(provider).defaultVoiceId) ?? uniqueVoices[0],
+          voiceLoadError:
+            uniqueVoices.length === 0 ? 'No voices available for this provider.' : undefined,
         }));
       } catch (error) {
         console.error('Failed to load voices', error);

@@ -50,11 +50,12 @@ async function persistEntries(entries: HistoryEntry[]): Promise<void> {
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
   entries: [],
-  hydrated: !isBrowser(),
+  hydrated: false,
   error: undefined,
   actions: {
     hydrate: async () => {
       if (!isBrowser()) {
+        set({ hydrated: true });
         return;
       }
       try {
@@ -82,4 +83,3 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     },
   },
 }));
-

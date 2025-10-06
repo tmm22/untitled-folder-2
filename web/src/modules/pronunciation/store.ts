@@ -35,10 +35,11 @@ async function persistRules(rules: PronunciationRule[]) {
 
 export const usePronunciationStore = create<PronunciationState>((set, get) => ({
   rules: [],
-  hydrated: !isBrowser(),
+  hydrated: false,
   actions: {
     hydrate: async () => {
       if (!isBrowser()) {
+        set({ hydrated: true });
         return;
       }
       const rules = await loadRules();
@@ -63,4 +64,3 @@ export const usePronunciationStore = create<PronunciationState>((set, get) => ({
     },
   },
 }));
-

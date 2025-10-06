@@ -7,7 +7,7 @@ import type {
 import type { ProviderAdapter, ProviderContext } from './types';
 import { mockSynthesize } from './mock';
 
-const ELEVEN_LABS_VOICES: Voice[] = [
+const DEFAULT_ELEVEN_LABS_VOICES: Voice[] = [
   { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', language: 'en-US', gender: 'female', provider: 'elevenLabs' },
   { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', language: 'en-US', gender: 'female', provider: 'elevenLabs' },
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', language: 'en-US', gender: 'female', provider: 'elevenLabs' },
@@ -18,6 +18,56 @@ const ELEVEN_LABS_VOICES: Voice[] = [
   { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', language: 'en-US', gender: 'male', provider: 'elevenLabs' },
   { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam', language: 'en-US', gender: 'male', provider: 'elevenLabs' },
 ];
+
+const VOICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface ElevenLabsVoiceLabels {
+  language?: string;
+  gender?: string;
+  accent?: string;
+  age?: string;
+  description?: string;
+  use_case?: string;
+  [key: string]: unknown;
+}
+
+interface ElevenLabsVoiceEntry {
+  voice_id: string;
+  name: string;
+  preview_url?: string;
+  available_models?: string[];
+  labels?: ElevenLabsVoiceLabels;
+  category?: string;
+}
+
+interface ElevenLabsVoicesResponse {
+  voices?: ElevenLabsVoiceEntry[];
+}
+
+const parseGender = (value?: string): Voice['gender'] => {
+  if (!value) {
+    return 'neutral';
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'male') {
+    return 'male';
+  }
+
+  if (normalized === 'female') {
+    return 'female';
+  }
+
+  return 'neutral';
+};
+
+const normalizeLanguage = (value?: string): string => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return 'en-US';
+  }
+  return trimmed;
+};
 
 const applyGlossary = (text: string, payload: ProviderSynthesisPayload) => {
   if (!payload.glossaryRules?.length) {
@@ -44,13 +94,33 @@ const applyGlossary = (text: string, payload: ProviderSynthesisPayload) => {
 
 class ElevenLabsAdapter implements ProviderAdapter {
   private apiKey?: string;
+  private cachedVoices?: { items: Voice[]; expiresAt: number };
 
   constructor(context: ProviderContext) {
-    this.apiKey = context.apiKey ?? process.env.ELEVENLABS_API_KEY;
+    const managedKey = context.managedCredential?.token?.trim();
+    const providedKey = context.apiKey?.trim();
+    const envKey = process.env.ELEVENLABS_API_KEY?.trim();
+    this.apiKey = managedKey || providedKey || envKey || undefined;
   }
 
   async listVoices(): Promise<Voice[]> {
-    return ELEVEN_LABS_VOICES;
+    if (this.shouldUseFallback()) {
+      return DEFAULT_ELEVEN_LABS_VOICES;
+    }
+
+    const cached = this.cachedVoices;
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return cached.items;
+    }
+
+    const voices = await this.loadVoicesFromApi();
+    if (voices && voices.length > 0) {
+      this.cachedVoices = { items: voices, expiresAt: now + VOICE_CACHE_TTL_MS };
+      return voices;
+    }
+
+    return DEFAULT_ELEVEN_LABS_VOICES;
   }
 
   async synthesize(payload: ProviderSynthesisPayload): Promise<ProviderSynthesisResponse> {
@@ -95,6 +165,73 @@ class ElevenLabsAdapter implements ProviderAdapter {
       transcript: undefined,
       durationMs: undefined,
       requestId: randomUUID(),
+    };
+  }
+
+  private shouldUseFallback(): boolean {
+    return !this.apiKey || this.apiKey.length === 0 || process.env.MOCK_TTS === '1';
+  }
+
+  private async loadVoicesFromApi(): Promise<Voice[] | undefined> {
+    if (!this.apiKey) {
+      return undefined;
+    }
+
+    try {
+      const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: {
+          'xi-api-key': this.apiKey,
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`ElevenLabs voice fetch failed (${response.status}): ${errorBody}`);
+      }
+
+      const payload = (await response.json()) as ElevenLabsVoicesResponse;
+      const voices = (payload.voices ?? [])
+        .map((voice) => this.transformVoice(voice))
+        .filter((voice): voice is Voice => Boolean(voice));
+
+      if (voices.length > 0) {
+        return voices;
+      }
+    } catch (error) {
+      console.error('Failed to load ElevenLabs voices from API', error);
+    }
+
+    return undefined;
+  }
+
+  private transformVoice(entry: ElevenLabsVoiceEntry): Voice | undefined {
+    if (!entry.voice_id || !entry.name) {
+      return undefined;
+    }
+
+    const metadata: Record<string, unknown> = {};
+
+    if (entry.available_models && entry.available_models.length > 0) {
+      metadata.availableModels = entry.available_models;
+    }
+
+    if (entry.category) {
+      metadata.category = entry.category;
+    }
+
+    if (entry.labels && Object.keys(entry.labels).length > 0) {
+      metadata.labels = entry.labels;
+    }
+
+    return {
+      id: entry.voice_id,
+      name: entry.name,
+      language: normalizeLanguage(entry.labels?.language),
+      gender: parseGender(entry.labels?.gender),
+      provider: 'elevenLabs',
+      previewUrl: entry.preview_url ?? undefined,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
     };
   }
 }

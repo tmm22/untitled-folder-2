@@ -60,7 +60,10 @@ class GoogleTTSAdapter implements ProviderAdapter {
   private apiKey?: string;
 
   constructor(context: ProviderContext) {
-    this.apiKey = context.apiKey ?? process.env.GOOGLE_TTS_API_KEY;
+    const managedKey = context.managedCredential?.token?.trim();
+    const providedKey = context.apiKey?.trim();
+    const envKey = process.env.GOOGLE_TTS_API_KEY?.trim();
+    this.apiKey = managedKey || providedKey || envKey;
   }
 
   async listVoices(): Promise<Voice[]> {

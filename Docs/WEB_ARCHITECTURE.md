@@ -41,6 +41,7 @@ web/
 │   ├── imports/{article,reddit}Parser.ts
 │   └── providers/{elevenLabs,google,openAI}.ts
 ├── modules/
+│   ├── account/
 │   ├── history/
 │   ├── imports/
 │   ├── preferences/
@@ -64,13 +65,14 @@ web/
 - **SnippetStore** (`modules/snippets/store.ts`): keeps reusable text blocks with append/replace helpers surfaced via `SnippetPanel`.
 - **PronunciationStore** (`modules/pronunciation/store.ts`): persists regex/literal overrides and hydrates `useTTSStore` before each generation.
 - **ImportStore** (`modules/imports/store.ts`): records URL or manual imports with summaries for later injection into the editor.
+- **AccountStore** (`modules/account/store.ts`): keeps lightweight user identity, plan tier, and billing status with derived flags for premium provisioning access.
 
 
 ## Feature Parity Mapping
 | macOS Feature | Web Strategy |
 | ------------- | ------------- |
 | Multi-provider synthesis (OpenAI, ElevenLabs, Google, Tight Ass Mode) | Server route handlers act as thin proxies to provider REST APIs using Vercel environment secrets. Tight Ass Mode replaced with browser `speechSynthesis` for offline fallback. |
-| Dynamic voice catalogs with preview playback | `/api/providers/[provider]/voices` returns normalized voice metadata. Preview URLs streamed via `AudioEngine`. |
+| Dynamic voice catalogs with preview playback | `/api/providers/[provider]/voices` pulls fresh voice lists from OpenAI and ElevenLabs on demand (5 minute cache) and falls back to a curated default set. Preview URLs streamed via `AudioEngine`. |
 | Character limits per provider with contextual warnings | Provider metadata supplies limits consumed by `useCharacterLimits` hook. |
 | Playback controls (play/pause/stop/seek/speed/volume/loop) | `AudioEngine` exposes observable state; UI components bind via `useAudioEngine` hook. Web Audio API ensures speed + loop controls. |
 | Queue & batch processing | `queueStore` manages an ordered list of `QueueItem`; background worker processes items sequentially with pause/cancel. |
@@ -89,6 +91,16 @@ web/
 - **SessionRegistry (server)**: Keeps a short-lived in-memory map of session tokens to shared secrets (generated via libsodium's `randomBytes`). Tokens expire after 15 minutes of inactivity. Registry falls back to environment credentials when no session token is provided.
 - **Decryption & Proxy (server)**: Handlers decrypt incoming payloads using XChaCha20-Poly1305 (via `@stablelib/xchacha20poly1305`), hydrate provider adapters with the recovered key, and forward requests with `secureFetch`. The decrypted key never leaves memory and is zeroed after the request completes.
 - **Graceful Fallback**: When user keys are absent or the vault is locked, adapters default to server-side env vars (`OPENAI_API_KEY`, etc.) or the local mock synthesizer when neither is present.
+
+## Managed Provisioning
+- **ProvisioningOrchestrator (server)**: Maintains provider adapters, stores hashed credentials, and caches active tokens. When `CONVEX_URL` + `CONVEX_ADMIN_KEY` are set, it persists via `ConvexProvisioningStore`; otherwise JSON or in-memory stores handle development builds.
+- **OpenAIProvisioningProvider**: Derives scoped tokens from the master OpenAI key and hands them to the orchestrator with TTL metadata.
+- **Provisioning Token Route** (`app/api/provisioning/token`): Authenticated by `x-account-id`, `x-plan-tier`, and `x-plan-status` headers; issues/rotates credentials for premium users and returns expiry hints for the client cache.
+- **Client Fallback Flow**: `useCredentialStore` queries the vault first, then falls back to `AccountStore` headers and calls `ensureProvisionedCredential` to guarantee a managed token exists before hitting provider proxy routes.
+- **Provider Authorization Guard**: API routes call `resolveProviderAuthorization`, which prefers session-decrypted keys, then legacy headers, and finally provisioned credentials pulled from the orchestrator; responses run through existing proxy adapters unchanged.
+- **Account API Route** (`app/api/account`): Persists plan and usage data through the account repository (Convex when available, otherwise in-memory) and seeds a sticky cookie so subsequent provisioning calls share account context.
+- **Billing Endpoints** (`app/api/billing/checkout`, `/portal`): Provide thin hooks for subscription flows and update account status/usage in tandem with provisioning.
+- **PremiumDashboard (client)**: Visualises plan tier, billing status, usage progress, and action messages while exposing upgrade/portal CTAs; hides managed messaging when the account is on the free tier.
 
 ## Security Considerations
 - Provider secrets should default to server-side env vars (`process.env.OPENAI_API_KEY`) with rate limiting and usage analytics handled later.

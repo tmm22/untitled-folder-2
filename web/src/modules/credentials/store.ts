@@ -15,6 +15,8 @@ import {
   unlockVault,
 } from '@/lib/crypto/LocalVault';
 import { clearSession, ensureSession, getSessionHeaders } from '@/lib/crypto/sessionClient';
+import { ensureProvisionedCredential } from '@/lib/provisioning/client';
+import { useAccountStore } from '@/modules/account/store';
 import type { ProviderType } from '@/modules/tts/types';
 
 interface CredentialsState {
@@ -161,15 +163,28 @@ export const useCredentialStore = create<CredentialsState>((set, get) => ({
 
       try {
         const rawKey = getRawMasterKey();
-        if (!rawKey) {
-          return {};
+        if (rawKey) {
+          await ensureSession(rawKey);
+          const apiKey = await getProviderKey(provider);
+          if (apiKey) {
+            return getSessionHeaders(apiKey);
+          }
         }
-        await ensureSession(rawKey);
-        const apiKey = await getProviderKey(provider);
-        if (!apiKey) {
-          return {};
+
+        const accountHeaders = useAccountStore
+          .getState()
+          .actions.getProvisioningHeaders();
+        if (Object.keys(accountHeaders).length > 0) {
+          try {
+            await ensureProvisionedCredential(provider, accountHeaders);
+            return accountHeaders;
+          } catch (error) {
+            console.error('Provisioning token ensure failed', error);
+            return {};
+          }
         }
-        return getSessionHeaders(apiKey);
+
+        return {};
       } catch (error) {
         console.error('Failed to prepare auth headers', error);
         return {};
