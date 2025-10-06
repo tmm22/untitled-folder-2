@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getAccountRepository } from '@/app/api/account/context';
+import { resolveRequestIdentity } from '@/lib/auth/identity';
+import { createBillingPortalSession } from '@/lib/billing/stripe';
 
 export async function POST(request: Request) {
-  const userId = request.headers.get('x-account-id');
+  const identity = resolveRequestIdentity(request);
+  const userId = identity.userId;
   if (!userId) {
     return NextResponse.json({ error: 'Missing account identifier' }, { status: 400 });
   }
 
   const repository = getAccountRepository();
   const account = await repository.getOrCreate(userId);
+  const portal = await createBillingPortalSession(account.userId);
 
   return NextResponse.json({
     account,
-    portalUrl: 'https://billing.example.com/portal',
+    portalUrl: portal.url,
+    message: portal.message,
   });
 }

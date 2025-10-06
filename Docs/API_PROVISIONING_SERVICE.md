@@ -122,13 +122,14 @@
 
 ## Prototype Snapshot (January 2025)
 - **Convex Integration (optional)**: When `CONVEX_URL` and `CONVEX_ADMIN_KEY` are provided, the orchestrator and account repository delegate reads/writes to Convex functions (`/api/provisioning/*`, `/api/account/*`). Ship Convex mutations that mirror the JSON payloads documented here.
+- **Environment Setup**: Copy `web/.env.local.example` to `.env.local` and populate at minimum `CONVEX_URL` + `CONVEX_ADMIN_KEY` (and optionally Stripe variables) so Next.js loads the configuration automatically.
 - **Fallback Persistence**: Without Convex configuration, the orchestrator uses `JsonFileProvisioningStore` when `PROVISIONING_DATA_PATH` is set, or the in-memory store for local development.
 - **Token Cache**: `InMemoryProvisioningTokenCache` keeps short-lived tokens resident in memory for reuse across requests.
 - **Provider Adapter**: `OpenAIProvisioningProvider` derives scoped pseudo tokens from the root OpenAI key while real vault-backed issuance is under design.
 - **API Surface**:
   - `POST /api/provisioning/token` issues or rotates credentials after validating `x-account-id`, `x-plan-tier`, and `x-plan-status` headers.
   - `GET /api/account` / `PATCH /api/account` proxy through the repository (Convex when configured) to hydrate and persist plan data.
-  - `POST /api/billing/checkout` and `/api/billing/portal` provide integration points for real billing flows while updating account state.
+  - `POST /api/billing/checkout` and `/api/billing/portal` provide integration points for real billing flows while updating account state. Attach a configured Stripe client at runtime via `globalThis.__appStripeClient` to enable live sessions.
 - **Client Hooks**:
   - `useAccountStore` tracks plan tier, billing status, usage summary, and whether managed provisioning is allowed.
   - `useCredentialStore` falls back to `ensureProvisionedCredential` when the encrypted vault is locked or empty.

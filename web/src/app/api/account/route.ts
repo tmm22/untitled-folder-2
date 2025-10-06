@@ -1,27 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { AccountPayload } from '@/lib/account/types';
 import { getAccountRepository } from './context';
-
-const ACCOUNT_ID_HEADER = 'x-account-id';
-
-function requireAccountId(request: Request): string | null {
-  const header = request.headers.get(ACCOUNT_ID_HEADER)?.trim();
-  if (header) {
-    return header;
-  }
-
-  const cookieHeader = request.headers.get('cookie');
-  if (!cookieHeader) {
-    return null;
-  }
-
-  const cookieMatch = cookieHeader.split(';').map((entry) => entry.trim()).find((entry) => entry.startsWith('account_id='));
-  if (!cookieMatch) {
-    return null;
-  }
-
-  return cookieMatch.split('=')[1] ?? null;
-}
+import { resolveRequestIdentity } from '@/lib/auth/identity';
 
 const ACCOUNT_ID_COOKIE = 'account_id';
 const COOKIE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
@@ -33,10 +13,8 @@ function createAccountResponse(payload: AccountPayload) {
 }
 
 export async function GET(request: Request) {
-  let userId = requireAccountId(request);
-  if (!userId) {
-    userId = crypto.randomUUID();
-  }
+  const identity = resolveRequestIdentity(request);
+  const userId = identity.userId ?? crypto.randomUUID();
 
   const repository = getAccountRepository();
   const account = await repository.getOrCreate(userId);
@@ -46,7 +24,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const userId = requireAccountId(request);
+  const identity = resolveRequestIdentity(request);
+  const userId = identity.userId;
   if (!userId) {
     return NextResponse.json({ error: 'Missing account identifier' }, { status: 400 });
   }
