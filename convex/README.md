@@ -188,3 +188,73 @@ admin token (e.g., compare to `process.env.CONVEX_ADMIN_KEY`) before invoking th
 function.
 
 For full details see the Convex docs: https://docs.convex.dev/functions/http-actions
+
+## Session Functions (`convex/session.ts`)
+
+Persist the encrypted session secrets that power the browser vault so stateless deploys (e.g. Vercel) can decrypt API keys between requests.
+
+```ts
+import { mutation } from './_generated/server';
+import { v } from 'convex/values';
+
+export const save = mutation({
+  args: {
+    record: v.object({
+      id: v.string(),
+      secret: v.string(),
+      expiresAt: v.number(),
+    }),
+  },
+  handler: async (ctx, { record }) => {
+    const existing = await ctx.db
+      .query('sessions')
+      .withIndex('by_id', (q) => q.eq('id', record.id))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, record);
+    } else {
+      await ctx.db.insert('sessions', record);
+    }
+    return { result: true };
+  },
+});
+
+export const get = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db
+      .query('sessions')
+      .withIndex('by_id', (q) => q.eq('id', sessionId))
+      .first();
+    return { session: session ?? null };
+  },
+});
+
+export const deleteSession = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db
+      .query('sessions')
+      .withIndex('by_id', (q) => q.eq('id', sessionId))
+      .first();
+    if (session) {
+      await ctx.db.delete(session._id);
+    }
+    return { result: true };
+  },
+});
+
+export const prune = mutation({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    const expired = await ctx.db
+      .query('sessions')
+      .filter((q) => q.lt(q.field('expiresAt'), now))
+      .collect();
+    await Promise.all(expired.map((session) => ctx.db.delete(session._id)));
+    return { result: expired.length };
+  },
+});
+```
+
+Expose these through HTTP actions under `/api/session/*` (validating `CONVEX_ADMIN_KEY`) to match the client calls implemented in the Next.js app.

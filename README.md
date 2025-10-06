@@ -41,6 +41,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Local-Only Option**: Tight Ass Mode generates speech entirely on-device using the system voice set
 - **Sandboxed Application**: Runs inside the macOS sandbox with only network client and user-selected file permissions
 - **Ephemeral Network Sessions**: API calls use non-persistent URL sessions so credentials and payloads never hit disk caches or cookie stores
+- **Durable Session Secrets**: Configure `CONVEX_URL`/`CONVEX_ADMIN_KEY` or a local `SESSION_DATA_PATH` so the web workspace can persist encrypted session handshakes on stateless hosts
 - **Strict Remote Imports**: URL previews and article imports accept only HTTP(S) sources and ignore file or custom schemes
 
 ### 🎨 User Experience

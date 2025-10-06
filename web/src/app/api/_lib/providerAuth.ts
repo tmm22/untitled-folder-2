@@ -86,7 +86,7 @@ export async function resolveProviderAuthorization(
   const payload = request.headers.get('x-ttsauth');
 
   if (sessionId && payload) {
-    const secret = resolveSessionSecret(sessionId);
+    const secret = await resolveSessionSecret(sessionId);
     if (secret) {
       const apiKey = decryptSessionPayload(payload, secret);
       if (apiKey) {

@@ -19,6 +19,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Secret is too short' }, { status: 400 });
   }
 
-  registerSession(sessionId, secret);
+  await registerSession(sessionId, secret);
   return NextResponse.json({ ok: true });
 }
