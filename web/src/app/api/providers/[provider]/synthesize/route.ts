@@ -5,14 +5,29 @@ import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
 import { getProvisioningStore } from '@/app/api/provisioning/context';
 import { getAccountRepository } from '@/app/api/account/context';
 
-interface RouteParams {
-  params: {
-    provider: string;
-  };
-}
+type ProviderRouteContext = {
+  params: Promise<{
+    provider?: string;
+  }>;
+};
 
-export async function POST(request: Request, { params }: RouteParams) {
-  const provider = params.provider as ProviderType;
+type ProvisioningUsageRecorder = {
+  recordUsage: (input: {
+    userId: string;
+    provider: ProviderType;
+    tokensUsed: number;
+    costMinorUnits: number;
+    recordedAt: number;
+  }) => Promise<unknown>;
+};
+
+export async function POST(request: Request, context: ProviderRouteContext) {
+  const params = await context.params;
+  const provider = params.provider as ProviderType | undefined;
+
+  if (!provider) {
+    return NextResponse.json({ error: 'Missing provider' }, { status: 400 });
+  }
   let payload: ProviderSynthesisPayload;
 
   try {
@@ -43,14 +58,17 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const store = getProvisioningStore();
-    if (typeof store.recordUsage === 'function' && accountId) {
-      await store.recordUsage({
-        userId: accountId,
-        provider,
-        tokensUsed,
-        costMinorUnits: 0,
-        recordedAt: Date.now(),
-      });
+    if (accountId && 'recordUsage' in store) {
+      const usageStore = store as unknown as ProvisioningUsageRecorder;
+      if (typeof usageStore.recordUsage === 'function') {
+        await usageStore.recordUsage({
+          userId: accountId,
+          provider,
+          tokensUsed,
+          costMinorUnits: 0,
+          recordedAt: Date.now(),
+        });
+      }
     }
 
     return NextResponse.json(result);

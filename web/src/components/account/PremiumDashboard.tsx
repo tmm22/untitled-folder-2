@@ -58,7 +58,7 @@ export function PremiumDashboard() {
     } finally {
       setProcessing(false);
     }
-  }, [applyRemoteAccount]);
+  }, [applyRemoteAccount, userId]);
 
   const handleOpenPortal = useCallback(async () => {
     setProcessing(true);
@@ -86,7 +86,7 @@ export function PremiumDashboard() {
     } finally {
       setProcessing(false);
     }
-  }, [applyRemoteAccount]);
+  }, [applyRemoteAccount, userId]);
 
   return (
     <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">

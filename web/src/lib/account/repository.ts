@@ -90,7 +90,7 @@ export class InMemoryAccountRepository implements AccountRepository {
     if (existing) {
       return existing;
     }
-    const payload: AccountPayload = {
+    const payload: AccountPayload & { usage: AccountUsageSummary } = {
       userId,
       planTier: 'free',
       billingStatus: 'free',
@@ -107,7 +107,7 @@ export class InMemoryAccountRepository implements AccountRepository {
   async updateAccount(payload: AccountPayload): Promise<AccountPayload> {
     const allowance = allowanceByTier[payload.planTier] ?? DEFAULT_STARTER_ALLOWANCE;
     const record = await this.getOrCreate(payload.userId);
-    const updated: AccountPayload = {
+    const updated: AccountPayload & { usage: AccountUsageSummary } = {
       userId: payload.userId,
       planTier: payload.planTier,
       billingStatus: payload.billingStatus,
@@ -125,7 +125,7 @@ export class InMemoryAccountRepository implements AccountRepository {
   async recordUsage(userId: string, provider: string, tokensUsed: number): Promise<AccountPayload> {
     const record = await this.getOrCreate(userId);
     const allowance = allowanceByTier[record.planTier] ?? DEFAULT_STARTER_ALLOWANCE;
-    const updated: AccountPayload = {
+    const updated: AccountPayload & { usage: AccountUsageSummary } = {
       ...record,
       usage: {
         monthTokensUsed: (record.usage?.monthTokensUsed ?? 0) + tokensUsed,

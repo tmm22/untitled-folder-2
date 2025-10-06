@@ -256,6 +256,7 @@ async function runBatchItem(item: QueueItem): Promise<{ historyItem: GenerationH
 
 function createObjectUrl(base64: string, contentType: string): string {
   const binary = decodeBase64(base64);
-  const blob = new Blob([binary], { type: contentType });
+  const buffer = binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength) as ArrayBuffer;
+  const blob = new Blob([buffer], { type: contentType });
   return URL.createObjectURL(blob);
 }

@@ -131,14 +131,14 @@ const createBaseState = (): AccountState => ({
     },
     getProvisioningHeaders: () => {
       const state = useAccountStore.getState();
+      const headers: Record<string, string> = {};
       if (!state.userId || !state.hasProvisioningAccess) {
-        return {};
+        return headers;
       }
-      return {
-        'x-account-id': state.userId,
-        'x-plan-tier': state.planTier,
-        'x-plan-status': state.billingStatus,
-      };
+      headers['x-account-id'] = state.userId;
+      headers['x-plan-tier'] = state.planTier;
+      headers['x-plan-status'] = state.billingStatus;
+      return headers;
     },
     reset: () => {
       useAccountStore.setState({

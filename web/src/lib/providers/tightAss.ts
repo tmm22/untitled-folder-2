@@ -79,7 +79,6 @@ const estimateDurationMs = (buffer: Buffer) => {
 class TightAssAdapter implements ProviderAdapter {
   private voices: Voice[] | null = null;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_context: ProviderContext) {}
 
   async listVoices(): Promise<Voice[]> {

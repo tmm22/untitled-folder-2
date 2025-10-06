@@ -338,5 +338,5 @@ const withPersist = (fn: StateCreator<TTSState>) => {
 };
 
 export const useTTSStore = create<TTSState>()(
-  devtools(withPersist(createStore), { name: 'TTSStore' }),
+  devtools(withPersist(createStore) as unknown as StateCreator<TTSState>, { name: 'TTSStore' }),
 );

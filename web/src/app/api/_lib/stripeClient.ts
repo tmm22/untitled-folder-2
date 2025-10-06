@@ -1,10 +1,26 @@
 import type Stripe from 'stripe';
 
 const STRIPE_API_VERSION = '2024-06-20';
+const STRIPE_MODULE_ID = 'stri' + 'pe';
 
 const globalStripe = globalThis as unknown as {
   __appStripeClient?: Stripe;
 };
+
+function loadStripeCtor(): typeof import('stripe').default | null {
+  try {
+    if (typeof require !== 'function') {
+      return null;
+    }
+
+    // Compute the module identifier to avoid static analysis pulling the optional dependency into client bundles.
+    const stripeModule = require(STRIPE_MODULE_ID);
+    return stripeModule.default ?? stripeModule;
+  } catch (error) {
+    console.error('Stripe SDK not available:', error);
+    return null;
+  }
+}
 
 export function getStripeClient(StripeCtor?: typeof import('stripe').default): Stripe | null {
   if (globalStripe.__appStripeClient) {
@@ -16,19 +32,12 @@ export function getStripeClient(StripeCtor?: typeof import('stripe').default): S
     return null;
   }
 
-  if (!StripeCtor) {
-    try {
-      // Dynamically import only when needed to avoid bundling stripe in the client build
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const stripeModule = require('stripe');
-      StripeCtor = stripeModule.default ?? stripeModule;
-    } catch (error) {
-      console.error('Stripe SDK not available:', error);
-      return null;
-    }
+  const ctor = StripeCtor ?? loadStripeCtor();
+  if (!ctor) {
+    return null;
   }
 
-  const client = new StripeCtor(secret, { apiVersion: STRIPE_API_VERSION });
+  const client = new ctor(secret, { apiVersion: STRIPE_API_VERSION });
   globalStripe.__appStripeClient = client;
   return client;
 }

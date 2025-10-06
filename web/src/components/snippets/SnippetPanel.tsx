@@ -46,10 +46,9 @@ export function SnippetPanel() {
     if (mode === 'replace') {
       setInputText(snippet.content);
     } else {
-      setInputText((prev) => {
-        const merged = [prev.trim(), snippet.content.trim()].filter(Boolean).join('\n\n');
-        return merged.trim();
-      });
+      const current = useTTSStore.getState().inputText;
+      const merged = [current.trim(), snippet.content.trim()].filter(Boolean).join('\n\n');
+      setInputText(merged.trim());
     }
     setStatus(`Snippet ${mode === 'replace' ? 'loaded' : 'appended'}.`);
   };

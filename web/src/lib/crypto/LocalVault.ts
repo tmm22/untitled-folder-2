@@ -47,9 +47,10 @@ async function deriveKey(passphrase: string, saltBytes: Uint8Array): Promise<Unl
     throw new Error('LocalVault is only available in the browser');
   }
 
+  const passphraseBytes = encodeString(passphrase);
   const material = await window.crypto.subtle.importKey(
     'raw',
-    encodeString(passphrase),
+    passphraseBytes as unknown as BufferSource,
     'PBKDF2',
     false,
     ['deriveKey', 'deriveBits'],
@@ -153,9 +154,9 @@ export async function destroyVault(): Promise<void> {
 async function encryptValue(value: string, aesKey: CryptoKey) {
   const nonce = window.crypto.getRandomValues(new Uint8Array(12));
   const ciphertextBuffer = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce },
+    { name: 'AES-GCM', iv: nonce as unknown as BufferSource },
     aesKey,
-    encodeString(value),
+    encodeString(value) as unknown as BufferSource,
   );
   return {
     nonce: encodeBase64(nonce),
@@ -167,9 +168,9 @@ async function decryptRecord(record: VaultRecord, aesKey: CryptoKey): Promise<st
   const nonce = decodeBase64(record.nonce);
   const ciphertext = decodeBase64(record.ciphertext);
   const plaintextBuffer = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce },
+    { name: 'AES-GCM', iv: nonce as unknown as BufferSource },
     aesKey,
-    ciphertext,
+    ciphertext as unknown as BufferSource,
   );
   return decodeToString(new Uint8Array(plaintextBuffer));
 }
