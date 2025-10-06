@@ -1,7 +1,7 @@
 import Foundation
 
 final class ManagedProvisioningClient {
-    struct Configuration {
+    struct Configuration: Equatable {
         var baseURL: URL
         var accountId: String
         var planTier: String
