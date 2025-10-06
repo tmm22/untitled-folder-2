@@ -6,6 +6,8 @@ class ElevenLabsService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://api.elevenlabs.io/v1"
     private let session: URLSession
+    private let managedProvisioningClient: ManagedProvisioningClient
+    private var activeManagedCredential: ManagedCredential?
     private var voicesByModel: [String: [Voice]] = [:]
     private var fallbackVoices: [Voice] = Voice.elevenLabsVoices
 
@@ -62,8 +64,10 @@ class ElevenLabsService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(),
+         managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.session = session
+        self.managedProvisioningClient = managedProvisioningClient
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "ElevenLabs")
     }
@@ -76,7 +80,8 @@ class ElevenLabsService: TTSProvider {
     }
     
     func hasValidAPIKey() -> Bool {
-        return apiKey != nil && !apiKey!.isEmpty
+        if let key = apiKey, !key.isEmpty { return true }
+        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
     }
 
     func cachedVoices(for modelID: String) -> [Voice]? {
@@ -108,10 +113,6 @@ class ElevenLabsService: TTSProvider {
     
     // MARK: - Speech Synthesis
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            throw TTSError.invalidAPIKey
-        }
-        
         guard text.count <= 5000 else {
             throw TTSError.textTooLong(5000)
         }
@@ -124,7 +125,8 @@ class ElevenLabsService: TTSProvider {
         // Prepare request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        let authorization = try await authorizationHeader()
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 45
@@ -160,6 +162,10 @@ class ElevenLabsService: TTSProvider {
                 case 200:
                     return data
                 case 401:
+                    if authorization.usedManagedCredential {
+                        managedProvisioningClient.invalidateCredential(for: .elevenLabs)
+                        activeManagedCredential = nil
+                    }
                     throw TTSError.invalidAPIKey
                 case 422:
                     if let errorData = try? JSONDecoder().decode(ElevenLabsError.self, from: data) {
@@ -265,6 +271,27 @@ class ElevenLabsService: TTSProvider {
         default:
             return .neutral
         }
+    }
+}
+
+private extension ElevenLabsService {
+    struct AuthorizationHeader {
+        let header: String
+        let value: String
+        let usedManagedCredential: Bool
+    }
+
+    func authorizationHeader() async throws -> AuthorizationHeader {
+        if let key = apiKey, !key.isEmpty {
+            return AuthorizationHeader(header: "xi-api-key", value: key, usedManagedCredential: false)
+        }
+
+        guard let credential = try await managedProvisioningClient.credential(for: .elevenLabs) else {
+            throw TTSError.invalidAPIKey
+        }
+
+        activeManagedCredential = credential
+        return AuthorizationHeader(header: "xi-api-key", value: credential.token, usedManagedCredential: true)
     }
 }
 

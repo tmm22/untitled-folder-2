@@ -11,13 +11,19 @@ struct SettingsView: View {
     @State private var showElevenLabsKey = false
     @State private var showOpenAIKey = false
     @State private var showGoogleKey = false
-    
+
     @State private var saveMessage: String?
     @State private var showingSaveAlert = false
-    
+
     @State private var selectedTab = "api"
-    
+
     private let keychainManager = KeychainManager()
+
+    @State private var managedBaseURL: String = ""
+    @State private var managedAccountId: String = ""
+    @State private var managedPlanTier: String = ""
+    @State private var managedPlanStatus: String = ""
+    @State private var managedProvisioningEnabledToggle: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -93,6 +99,13 @@ struct SettingsView: View {
         .frame(width: 600, height: 500)
         .onAppear {
             loadAPIKeys()
+            loadManagedProvisioning()
+        }
+        .onChange(of: viewModel.managedProvisioningConfiguration) { _ in
+            loadManagedProvisioning()
+        }
+        .onChange(of: viewModel.managedProvisioningEnabled) { _ in
+            loadManagedProvisioning()
         }
         .alert("Settings Saved", isPresented: $showingSaveAlert) {
             Button("OK") { }
@@ -220,7 +233,56 @@ struct SettingsView: View {
                     }
                 }
             }
-            
+
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "lock.shield")
+                            .foregroundColor(.purple)
+                        Text("Managed Provisioning")
+                            .fontWeight(.medium)
+                        Spacer()
+                        if let snapshot = viewModel.managedAccountSnapshot {
+                            Text("Plan: \(snapshot.planTier.capitalized) • Status: \(snapshot.billingStatus.capitalized)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Toggle("Enable managed credentials", isOn: $managedProvisioningEnabledToggle)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Base URL", text: $managedBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Account ID", text: $managedAccountId)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Plan Tier", text: $managedPlanTier)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Plan Status", text: $managedPlanStatus)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    if let error = viewModel.managedProvisioningError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
+                    HStack {
+                        Button("Refresh Account") {
+                            Task { await viewModel.refreshManagedAccountSnapshot(silently: false) }
+                        }
+                        .disabled(!managedProvisioningEnabledToggle || managedBaseURL.isEmpty || managedAccountId.isEmpty)
+
+                        Button("Clear", role: .destructive) {
+                            viewModel.clearManagedProvisioning()
+                            loadManagedProvisioning()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
             Spacer()
         }
         .padding()
@@ -385,6 +447,21 @@ struct SettingsView: View {
         openAIKey = keychainManager.getAPIKey(for: "OpenAI") ?? ""
         googleKey = keychainManager.getAPIKey(for: "Google") ?? ""
     }
+
+    private func loadManagedProvisioning() {
+        if let config = viewModel.managedProvisioningConfiguration {
+            managedBaseURL = config.baseURL.absoluteString
+            managedAccountId = config.accountId
+            managedPlanTier = config.planTier
+            managedPlanStatus = config.planStatus
+        } else {
+            managedBaseURL = ""
+            managedAccountId = ""
+            managedPlanTier = ""
+            managedPlanStatus = ""
+        }
+        managedProvisioningEnabledToggle = viewModel.managedProvisioningEnabled
+    }
     
     private func saveSettings() {
         // Save API keys
@@ -397,13 +474,28 @@ struct SettingsView: View {
         if !googleKey.isEmpty {
             viewModel.saveAPIKey(googleKey, for: .google)
         }
-        
+
         // Save other settings
         viewModel.saveSettings()
-        
+
+        let trimmedURL = managedBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAccount = managedAccountId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedURL.isEmpty || trimmedAccount.isEmpty {
+            viewModel.clearManagedProvisioning()
+        } else {
+            viewModel.updateManagedProvisioningConfiguration(
+                baseURL: trimmedURL,
+                accountId: trimmedAccount,
+                planTier: managedPlanTier.isEmpty ? "free" : managedPlanTier,
+                planStatus: managedPlanStatus.isEmpty ? "free" : managedPlanStatus,
+                enabled: managedProvisioningEnabledToggle
+            )
+        }
+        loadManagedProvisioning()
+
         saveMessage = "All settings have been saved successfully."
         showingSaveAlert = true
-        
+
         // Dismiss after a delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             dismiss()
@@ -414,6 +506,8 @@ struct SettingsView: View {
         viewModel.playbackSpeed = 1.0
         viewModel.volume = 0.75
         viewModel.isLoopEnabled = false
+        viewModel.clearManagedProvisioning()
+        loadManagedProvisioning()
     }
 }
 

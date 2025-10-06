@@ -3,28 +3,32 @@ import Foundation
 final class OpenAISummarizationService: TextSummarizationService {
     private let session: URLSession
     private let keychain: KeychainManager
+    private let managedProvisioningClient: ManagedProvisioningClient
+    private var activeManagedCredential: ManagedCredential?
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 
-    init(session: URLSession = SecureURLSession.makeEphemeral(), keychain: KeychainManager = KeychainManager()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(),
+         keychain: KeychainManager = KeychainManager(),
+         managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.session = session
         self.keychain = keychain
+        self.managedProvisioningClient = managedProvisioningClient
     }
 
     func hasCredentials() -> Bool {
-        guard let key = keychain.getAPIKey(for: "OpenAI") else { return false }
-        return !key.isEmpty
+        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
+            return true
+        }
+        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
     }
 
     func summarize(text: String, sourceURL: URL?) async throws -> SummarizationResult {
-        guard let apiKey = keychain.getAPIKey(for: "OpenAI"), !apiKey.isEmpty else {
-            throw TTSError.invalidAPIKey
-        }
-
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let authorization = try await authorizationHeader()
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
         let articleSnippet = text.prefix(6_000)
@@ -77,6 +81,10 @@ final class OpenAISummarizationService: TextSummarizationService {
                     summary: payload.summary
                 )
             case 401:
+                if authorization.usedManagedCredential {
+                    managedProvisioningClient.invalidateCredential(for: .openAI)
+                    activeManagedCredential = nil
+                }
                 throw TTSError.invalidAPIKey
             case 429:
                 throw TTSError.quotaExceeded
@@ -137,5 +145,25 @@ private struct SummarizationPayload: Codable {
     enum CodingKeys: String, CodingKey {
         case conciseArticle = "conciseArticle"
         case summary
+    }
+}
+
+private extension OpenAISummarizationService {
+    struct AuthorizationHeader {
+        let header: String
+        let value: String
+        let usedManagedCredential: Bool
+    }
+
+    func authorizationHeader() async throws -> AuthorizationHeader {
+        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
+            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
+        }
+
+        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
+            throw TTSError.invalidAPIKey
+        }
+        activeManagedCredential = credential
+        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 }

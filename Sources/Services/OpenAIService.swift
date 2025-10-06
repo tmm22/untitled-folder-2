@@ -6,6 +6,8 @@ class OpenAIService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://api.openai.com/v1/audio/speech"
     private let session: URLSession
+    private let managedProvisioningClient: ManagedProvisioningClient
+    private var activeManagedCredential: ManagedCredential?
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -55,8 +57,10 @@ class OpenAIService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(),
+         managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.session = session
+        self.managedProvisioningClient = managedProvisioningClient
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "OpenAI")
     }
@@ -67,19 +71,18 @@ class OpenAIService: TTSProvider {
     }
     
     func hasValidAPIKey() -> Bool {
-        return apiKey != nil && !apiKey!.isEmpty
+        if let key = apiKey, !key.isEmpty {
+            return true
+        }
+        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
     }
     
     // MARK: - Speech Synthesis
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            throw TTSError.invalidAPIKey
-        }
-        
         guard text.count <= 4096 else {
             throw TTSError.textTooLong(4096)
         }
-        
+
         // Prepare request
         guard let url = URL(string: baseURL) else {
             throw TTSError.networkError("Invalid API endpoint")
@@ -87,7 +90,8 @@ class OpenAIService: TTSProvider {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let authorization = try await authorizationHeader()
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 45
         
@@ -117,6 +121,10 @@ class OpenAIService: TTSProvider {
                 case 200:
                     return data
                 case 401:
+                    if authorization.usedManagedCredential {
+                        managedProvisioningClient.invalidateCredential(for: .openAI)
+                        activeManagedCredential = nil
+                    }
                     throw TTSError.invalidAPIKey
                 case 429:
                     throw TTSError.quotaExceeded
@@ -138,6 +146,27 @@ class OpenAIService: TTSProvider {
         } catch {
             throw TTSError.networkError(error.localizedDescription)
         }
+    }
+}
+
+private extension OpenAIService {
+    struct AuthorizationHeader {
+        let header: String
+        let value: String
+        let usedManagedCredential: Bool
+    }
+
+    func authorizationHeader() async throws -> AuthorizationHeader {
+        if let key = apiKey, !key.isEmpty {
+            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
+        }
+
+        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
+            throw TTSError.invalidAPIKey
+        }
+
+        activeManagedCredential = credential
+        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 }
 

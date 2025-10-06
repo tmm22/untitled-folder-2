@@ -157,6 +157,10 @@ class TTSViewModel: ObservableObject {
     @Published var isBatchRunning: Bool = false
     @Published var batchProgress: Double = 0
     @Published var pronunciationRules: [PronunciationRule] = []
+    @Published var managedProvisioningEnabled: Bool = ManagedProvisioningPreferences.shared.isEnabled
+    @Published private(set) var managedAccountSnapshot: ManagedAccountSnapshot?
+    @Published private(set) var managedProvisioningError: String?
+    @Published private(set) var managedProvisioningConfiguration: ManagedProvisioningClient.Configuration? = ManagedProvisioningPreferences.shared.currentConfiguration
     @Published private(set) var articleSummary: ArticleImportSummary?
     @Published private(set) var isSummarizingArticle: Bool = false
     @Published private(set) var articleSummaryError: String?
@@ -276,6 +280,8 @@ class TTSViewModel: ObservableObject {
     private var previewTask: Task<Void, Never>?
     private var isNormalizingElevenLabsTags = false
     private var elevenLabsVoiceTask: Task<Void, Never>?
+    private let managedProvisioningClient: ManagedProvisioningClient
+    private var managedProvisioningTask: Task<Void, Never>?
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -436,7 +442,8 @@ class TTSViewModel: ObservableObject {
          elevenLabsService: ElevenLabsService = ElevenLabsService(),
          openAIService: OpenAIService = OpenAIService(),
          googleService: GoogleTTSService = GoogleTTSService(),
-         localService: LocalTTSService = LocalTTSService()) {
+         localService: LocalTTSService = LocalTTSService(),
+         managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.notificationCenter = notificationCenterProvider()
         self.urlContentLoader = urlContentLoader
         self.translationService = translationService
@@ -449,10 +456,14 @@ class TTSViewModel: ObservableObject {
         self.openAI = openAIService
         self.googleTTS = googleService
         self.localTTS = localService
+        self.managedProvisioningClient = managedProvisioningClient
         setupAudioPlayer()
         setupPreviewPlayer()
         loadSavedSettings()
         updateAvailableVoices()
+        managedProvisioningTask = Task { [weak self] in
+            await self?.refreshManagedAccountSnapshot(silently: true)
+        }
     }
 
     private func refreshStyleControls(for providerType: TTSProviderType) {
@@ -1649,6 +1660,9 @@ class TTSViewModel: ObservableObject {
             normalizeElevenLabsTagsIfNeeded()
         }
 
+        managedProvisioningEnabled = managedProvisioningClient.isEnabled
+        managedProvisioningConfiguration = managedProvisioningClient.configuration
+
         applyPlaybackSettings()
 
         ensureFormatSupportedForSelectedProvider()
@@ -1664,7 +1678,62 @@ class TTSViewModel: ObservableObject {
             googleTTS.updateAPIKey(googleKey)
         }
     }
-    
+
+    func updateManagedProvisioningConfiguration(baseURL: String, accountId: String, planTier: String, planStatus: String, enabled: Bool) {
+        guard let url = URL(string: baseURL) else {
+            managedProvisioningError = "Invalid provisioning URL"
+            return
+        }
+
+        let configuration = ManagedProvisioningClient.Configuration(
+            baseURL: url,
+            accountId: accountId,
+            planTier: planTier.lowercased(),
+            planStatus: planStatus.lowercased()
+        )
+        managedProvisioningClient.configuration = configuration
+        managedProvisioningClient.isEnabled = enabled
+        managedProvisioningClient.invalidateAllCredentials()
+        managedProvisioningConfiguration = configuration
+        managedProvisioningEnabled = enabled
+        managedProvisioningError = nil
+
+        managedProvisioningTask?.cancel()
+        managedProvisioningTask = Task { [weak self] in
+            await self?.refreshManagedAccountSnapshot(silently: true)
+        }
+    }
+
+    func clearManagedProvisioning() {
+        managedProvisioningTask?.cancel()
+        managedProvisioningTask = nil
+        managedProvisioningClient.reset()
+        managedProvisioningConfiguration = nil
+        managedProvisioningEnabled = false
+        managedAccountSnapshot = nil
+        managedProvisioningError = nil
+    }
+
+    func refreshManagedAccountSnapshot(silently: Bool = false) async {
+        guard managedProvisioningClient.isEnabled, managedProvisioningClient.configuration != nil else {
+            managedAccountSnapshot = nil
+            if !silently {
+                managedProvisioningError = "Managed provisioning is disabled."
+            }
+            return
+        }
+
+        do {
+            let snapshot = try await managedProvisioningClient.fetchAccountSnapshot()
+            managedAccountSnapshot = snapshot
+            managedProvisioningError = nil
+        } catch {
+            if !silently {
+                managedProvisioningError = error.localizedDescription
+            }
+        }
+    }
+
     func saveSettings() {
         UserDefaults.standard.set(selectedProvider.rawValue, forKey: "selectedProvider")
         UserDefaults.standard.set(playbackSpeed, forKey: "playbackSpeed")
@@ -1680,6 +1749,7 @@ class TTSViewModel: ObservableObject {
         previewTask?.cancel()
         articleSummaryTask?.cancel()
         elevenLabsVoiceTask?.cancel()
+        managedProvisioningTask?.cancel()
     }
 }
 

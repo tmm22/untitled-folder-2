@@ -6,6 +6,8 @@ class GoogleTTSService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://texttospeech.googleapis.com/v1/text:synthesize"
     private let session: URLSession
+    private let managedProvisioningClient: ManagedProvisioningClient
+    private var activeManagedCredential: ManagedCredential?
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -76,8 +78,10 @@ class GoogleTTSService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init(session: URLSession = SecureURLSession.makeEphemeral()) {
+    init(session: URLSession = SecureURLSession.makeEphemeral(),
+         managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.session = session
+        self.managedProvisioningClient = managedProvisioningClient
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "Google")
     }
@@ -88,15 +92,12 @@ class GoogleTTSService: TTSProvider {
     }
     
     func hasValidAPIKey() -> Bool {
-        return apiKey != nil && !apiKey!.isEmpty
+        if let key = apiKey, !key.isEmpty { return true }
+        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
     }
     
     // MARK: - Speech Synthesis
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            throw TTSError.invalidAPIKey
-        }
-        
         guard text.count <= 5000 else {
             throw TTSError.textTooLong(5000)
         }
@@ -109,7 +110,8 @@ class GoogleTTSService: TTSProvider {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        let authorization = try await authorizationHeader()
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
         // Parse voice ID to get language code and name
@@ -186,6 +188,10 @@ class GoogleTTSService: TTSProvider {
                     }
                     throw TTSError.apiError("Bad request")
                 case 401, 403:
+                    if authorization.usedManagedCredential {
+                        managedProvisioningClient.invalidateCredential(for: .google)
+                        activeManagedCredential = nil
+                    }
                     throw TTSError.invalidAPIKey
                 case 429:
                     throw TTSError.quotaExceeded
@@ -323,6 +329,27 @@ private struct GoogleErrorDetail: Codable {
     let code: Int
     let message: String
     let status: String?
+}
+
+private extension GoogleTTSService {
+    struct AuthorizationHeader {
+        let header: String
+        let value: String
+        let usedManagedCredential: Bool
+    }
+
+    func authorizationHeader() async throws -> AuthorizationHeader {
+        if let key = apiKey, !key.isEmpty {
+            return AuthorizationHeader(header: "X-Goog-Api-Key", value: key, usedManagedCredential: false)
+        }
+
+        guard let credential = try await managedProvisioningClient.credential(for: .google) else {
+            throw TTSError.invalidAPIKey
+        }
+
+        activeManagedCredential = credential
+        return AuthorizationHeader(header: "X-Goog-Api-Key", value: credential.token, usedManagedCredential: true)
+    }
 }
 
 // MARK: - Format Extensions
