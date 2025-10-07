@@ -1,23 +1,12 @@
-# macOS / Xcode
+node_modules/
+web/node_modules/
+web/.next/
+web/.env.local
+web/convex/*.js
+web/convex/*.js.map
 .DS_Store
-*.swp
-*.xcuserstate
-DerivedData/
-
-# Swift Package Manager
+convex/.env.local
 .build/
-Package.pins
-Package.resolved
-.swiftpm/
-
-# Build products
-TextToSpeechApp.app/
-TextToSpeechApp 2.app/
-*.dSYM
-
-# User-specific settings
 .vscode/
-*.env
-
-# Other
-*.log
+TextToSpeechApp*.app/
+Package.resolved
