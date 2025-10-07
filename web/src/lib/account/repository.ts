@@ -71,7 +71,7 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async updateAccount(payload: AccountPayload): Promise<AccountPayload> {
-    const result = await this.request<{ account: AccountPayload }>('updateAccount', { payload });
+    const result = await this.request<{ account: AccountPayload }>('update', { payload });
     return result.account;
   }
 
