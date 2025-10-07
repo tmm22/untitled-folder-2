@@ -6,7 +6,11 @@ const router = httpRouter();
 
 function requireAdmin(request: Request) {
   const token = request.headers.get('x-convex-admin-key');
-  if (!token || token !== process.env.CONVEX_ADMIN_KEY) {
+  const allowed = [process.env.CONVEX_DEPLOYMENT_KEY, process.env.CONVEX_ADMIN_KEY]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (!token || !allowed.includes(token)) {
     throw new Response('Unauthorized', { status: 401 });
   }
 }

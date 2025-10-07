@@ -6,13 +6,18 @@ import {
   JsonFileProvisioningStore,
 } from '@/lib/provisioning';
 import { ConvexProvisioningStore } from '@/lib/provisioning/storage/convexStore';
+import { resolveConvexAuthConfig } from '@/lib/convexAuth';
 
 function createStore() {
   const convexUrl = process.env.CONVEX_URL?.trim();
-  const convexAdminKey = process.env.CONVEX_ADMIN_KEY?.trim();
-  if (convexUrl && convexAdminKey) {
+  const auth = resolveConvexAuthConfig();
+  if (convexUrl && auth) {
     try {
-      return new ConvexProvisioningStore({ baseUrl: convexUrl, adminKey: convexAdminKey });
+      return new ConvexProvisioningStore({
+        baseUrl: convexUrl,
+        authToken: auth.token,
+        authScheme: auth.scheme,
+      });
     } catch (error) {
       console.warn('Failed to initialise Convex provisioning store:', error);
     }

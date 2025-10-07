@@ -41,7 +41,7 @@ Refer to [AGENTS.md](AGENTS.md) for repository guidelines, build steps, and revi
 - **Local-Only Option**: Tight Ass Mode generates speech entirely on-device using the system voice set
 - **Sandboxed Application**: Runs inside the macOS sandbox with only network client and user-selected file permissions
 - **Ephemeral Network Sessions**: API calls use non-persistent URL sessions so credentials and payloads never hit disk caches or cookie stores
-- **Durable Session Secrets**: Configure `CONVEX_URL`/`CONVEX_ADMIN_KEY` or a local `SESSION_DATA_PATH` so the web workspace can persist encrypted session handshakes on stateless hosts
+- **Durable Session Secrets**: Configure `CONVEX_URL` plus `CONVEX_DEPLOYMENT_KEY` (or legacy `CONVEX_ADMIN_KEY`) or a local `SESSION_DATA_PATH` so the web workspace can persist encrypted session handshakes on stateless hosts
 - **Strict Remote Imports**: URL previews and article imports accept only HTTP(S) sources and ignore file or custom schemes
 
 ### 🎨 User Experience
@@ -102,7 +102,7 @@ npm run test
 ```
 
 ### Managed Provisioning Configuration
-- `CONVEX_URL` and `CONVEX_ADMIN_KEY` (optional): enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
+- `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
 - `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
 - `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
 - `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_PORTAL_RETURN_URL` (optional): when provided alongside `globalThis.__appStripeClient` (see below), the billing routes create checkout and portal sessions via Stripe.

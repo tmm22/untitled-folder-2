@@ -8,7 +8,8 @@ export interface AccountRepository {
 
 interface ConvexAccountRepositoryOptions {
   baseUrl: string;
-  adminKey: string;
+  authToken: string;
+  authScheme?: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -31,12 +32,14 @@ const now = () => Date.now();
 
 export class ConvexAccountRepository implements AccountRepository {
   private readonly baseUrl: string;
-  private readonly adminKey: string;
+  private readonly authToken: string;
+  private readonly authScheme: string;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: ConvexAccountRepositoryOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.adminKey = options.adminKey;
+    this.authToken = options.authToken;
+    this.authScheme = options.authScheme ?? 'Bearer';
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -44,7 +47,7 @@ export class ConvexAccountRepository implements AccountRepository {
     const response = await this.fetchImpl(`${this.baseUrl}/api/account/${path}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.adminKey}`,
+        Authorization: `${this.authScheme} ${this.authToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),

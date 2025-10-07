@@ -52,7 +52,7 @@ Convex stores provisioning credentials and account usage. You only need test mod
    - `convex/provisioning.ts` with the mutations/queries for credentials & usage.
    - `convex/account.ts` with get/update/record mutations for account data.
    - HTTP actions (e.g., `convex/http.ts`) that:
-     - Check the admin token (`Authorization: Bearer <CONVEX_ADMIN_KEY>`)
+     - Check the admin token (`Authorization: Deployment <CONVEX_DEPLOYMENT_KEY>` or `Bearer <CONVEX_ADMIN_KEY>`)
      - Call the corresponding mutation/query
      - Return JSON `{ result: ... }`
 6. **Deploy to Convex**:
@@ -62,7 +62,7 @@ Convex stores provisioning credentials and account usage. You only need test mod
    After deployment, copy the **deployment URL** and **admin key** into `.env.local`:
    ```
    CONVEX_URL=https://your.convex.cloud
-   CONVEX_ADMIN_KEY=your_admin_key
+  CONVEX_DEPLOYMENT_KEY=your_deployment_key
    ```
 7. Restart the dev server (Ctrl+C then `npm run dev`). The app now reads/writes through Convex.
 

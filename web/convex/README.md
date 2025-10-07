@@ -1,7 +1,7 @@
 # Convex Backend Functions
 
 The web client can persist provisioning and account data through Convex when `CONVEX_URL` and
-`CONVEX_ADMIN_KEY` are configured. Implement HTTP actions in your Convex project matching the shapes
+`CONVEX_DEPLOYMENT_KEY` (or legacy `CONVEX_ADMIN_KEY`) are configured. Implement HTTP actions in your Convex project matching the shapes
 below, then reference their endpoints through `CONVEX_URL`.
 
 ## Provisioning Functions (`convex/provisioning.ts`)
@@ -184,7 +184,7 @@ export const recordUsage = mutation({
 ## HTTP Action Mapping
 Expose each mutation/query above through Convex HTTP actions (e.g., `convex/http.ts`) so the Next.js
 app can POST to `/api/provisioning/*` and `/api/account/*`. Each action should validate the
-admin token (e.g., compare to `process.env.CONVEX_ADMIN_KEY`) before invoking the corresponding
+admin token (e.g., compare to `process.env.CONVEX_DEPLOYMENT_KEY` or legacy `process.env.CONVEX_ADMIN_KEY`) before invoking the corresponding
 function.
 
 For full details see the Convex docs: https://docs.convex.dev/functions/http-actions
@@ -257,4 +257,4 @@ export const prune = mutation({
 });
 ```
 
-Expose these through HTTP actions under `/api/session/*` (validating `CONVEX_ADMIN_KEY`) to match the client calls implemented in the Next.js app.
+Expose these through HTTP actions under `/api/session/*` (validating the `CONVEX_DEPLOYMENT_KEY`/`CONVEX_ADMIN_KEY`) to match the client calls implemented in the Next.js app.

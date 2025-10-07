@@ -5,7 +5,7 @@ web client. Follow the checklist in order—each section references the files yo
 
 ## 1. Prerequisites
 - Managed backend deployed (Convex + provisioning/billing endpoints) and reachable over HTTPS.
-- `CONVEX_URL`, `CONVEX_ADMIN_KEY`, and optional Stripe vars populated in `web/.env.local` so the web app can issue
+- `CONVEX_URL`, `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`), and optional Stripe vars populated in `web/.env.local` so the web app can issue
   credentials for desktop clients.
 - A dedicated account identifier for the macOS client (e.g., generated from the web dashboard) with plan tier/status set
   to allow provisioning.

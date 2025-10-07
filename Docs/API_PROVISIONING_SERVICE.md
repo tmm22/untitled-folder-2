@@ -121,8 +121,8 @@
 7. Add support tooling (admin dashboard, alerting).
 
 ## Prototype Snapshot (January 2025)
-- **Convex Integration (optional)**: When `CONVEX_URL` and `CONVEX_ADMIN_KEY` are provided, the orchestrator and account repository delegate reads/writes to Convex functions (`/api/provisioning/*`, `/api/account/*`). Ship Convex mutations that mirror the JSON payloads documented here.
-- **Environment Setup**: Copy `web/.env.local.example` to `.env.local` and populate at minimum `CONVEX_URL` + `CONVEX_ADMIN_KEY` (and optionally Stripe variables) so Next.js loads the configuration automatically.
+- **Convex Integration (optional)**: When `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or legacy `CONVEX_ADMIN_KEY`) are provided, the orchestrator and account repository delegate reads/writes to Convex functions (`/api/provisioning/*`, `/api/account/*`). Ship Convex mutations that mirror the JSON payloads documented here.
+- **Environment Setup**: Copy `web/.env.local.example` to `.env.local` and populate at minimum `CONVEX_URL` + `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) and optionally Stripe variables so Next.js loads the configuration automatically.
 - **Fallback Persistence**: Without Convex configuration, the orchestrator uses `JsonFileProvisioningStore` when `PROVISIONING_DATA_PATH` is set, or the in-memory store for local development.
 - **Token Cache**: `InMemoryProvisioningTokenCache` keeps short-lived tokens resident in memory for reuse across requests.
 - **Provider Adapter**: `OpenAIProvisioningProvider` derives scoped pseudo tokens from the root OpenAI key while real vault-backed issuance is under design.

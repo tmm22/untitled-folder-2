@@ -2,7 +2,8 @@ import type { SessionRecord, SessionStore } from '../types';
 
 interface ConvexSessionStoreOptions {
   baseUrl: string;
-  adminKey: string;
+  authToken: string;
+  authScheme?: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -10,28 +11,30 @@ interface ConvexResponse<T> {
   result: T;
 }
 
-function buildHeaders(adminKey: string): HeadersInit {
+function buildHeaders(token: string, scheme: string): HeadersInit {
   return {
-    Authorization: `Bearer ${adminKey}`,
+    Authorization: `${scheme} ${token}`,
     'Content-Type': 'application/json',
   };
 }
 
 export class ConvexSessionStore implements SessionStore {
   private readonly baseUrl: string;
-  private readonly adminKey: string;
+  private readonly authToken: string;
+  private readonly authScheme: string;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: ConvexSessionStoreOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.adminKey = options.adminKey;
+    this.authToken = options.authToken;
+    this.authScheme = options.authScheme ?? 'Bearer';
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
   private async request<T>(path: string, body?: unknown): Promise<T> {
     const response = await this.fetchImpl(`${this.baseUrl}/api/session/${path}`, {
       method: 'POST',
-      headers: buildHeaders(this.adminKey),
+      headers: buildHeaders(this.authToken, this.authScheme),
       body: body ? JSON.stringify(body) : undefined,
     });
 
