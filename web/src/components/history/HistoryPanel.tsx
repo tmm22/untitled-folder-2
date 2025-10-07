@@ -44,7 +44,7 @@ export function HistoryPanel() {
 
   const handleDownloadAudio = (entryId: string) => {
     const audio = audioLookup.get(entryId);
-    if (!audio) {
+    if (!audio || !audio.audioUrl) {
       setStatus('Audio is only available for items generated this session.');
       return;
     }
@@ -138,7 +138,7 @@ export function HistoryPanel() {
                   type="button"
                   className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
                   onClick={() => handleDownloadAudio(entry.id)}
-                  disabled={!audio}
+                  disabled={!audio || !audio.audioUrl}
                 >
                   Download audio
                 </button>

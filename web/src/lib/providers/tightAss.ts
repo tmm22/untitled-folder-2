@@ -10,7 +10,8 @@ import { mockSynthesize } from './mock';
 
 const execFileAsync = promisify(execFile);
 
-const isSystemSynthesisEnabled = () => process.env.TTS_DISABLE_SAY !== '1';
+const isSystemSynthesisEnabled = () =>
+  process.platform === 'darwin' && process.env.TTS_DISABLE_SAY !== '1';
 
 const DEFAULT_VOICE: Voice = {
   id: 'Alex',

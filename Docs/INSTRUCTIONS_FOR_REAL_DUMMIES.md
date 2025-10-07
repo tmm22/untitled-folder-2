@@ -119,6 +119,7 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
 | ------- | ---- |
 | `.env.local` changes not picked up | Stop `npm run dev`, rerun it. |
 | Convex request fails | Ensure HTTP actions verify admin token and return JSON; confirm `CONVEX_*` env vars. |
+| `npx convex deploy` says "No CONVEX_DEPLOYMENT set" | From `web/`, run `npx convex login` (if needed) then `npx convex dev --once` to select your deployment; retry `npx convex deploy`. |
 | Stripe error “client not configured” | Make sure the bootstrap file runs and `STRIPE_SECRET_KEY` is set. |
 | Vitest can’t find Stripe module | The tests mock the client; ensure no direct `import 'stripe'` remains outside server code. |
 
