@@ -44,6 +44,13 @@ function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), { ...init, headers });
 }
 
+const updateAccountHandler = httpAction(async (ctx, request) => {
+  requireAdmin(request);
+  const body = (await request.json()) as any;
+  const result = await ctx.runMutation(api.account.updateAccount, body);
+  return json(result);
+});
+
 router.route({
   path: '/provisioning/save',
   method: 'POST',
@@ -123,12 +130,13 @@ router.route({
 router.route({
   path: '/account/update',
   method: 'POST',
-  handler: httpAction(async (ctx, request) => {
-    requireAdmin(request);
-    const body = (await request.json()) as any;
-    const result = await ctx.runMutation(api.account.updateAccount, body);
-    return json(result);
-  }),
+  handler: updateAccountHandler,
+});
+
+router.route({
+  path: '/account/updateAccount',
+  method: 'POST',
+  handler: updateAccountHandler,
 });
 
 router.route({

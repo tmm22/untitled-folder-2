@@ -43,6 +43,29 @@ export class ConvexAccountRepository implements AccountRepository {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
+  private async requestWithFallback<T>(paths: string[], body: unknown): Promise<T> {
+    let notFoundError: Error | null = null;
+    for (const path of paths) {
+      try {
+        return await this.request<T>(path, body);
+      } catch (error) {
+        const isNotFoundError =
+          error instanceof Error && /Convex account request failed \(404\)/.test(error.message);
+        if (isNotFoundError) {
+          notFoundError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (notFoundError) {
+      throw notFoundError;
+    }
+
+    throw new Error('Convex account request failed: no routes responded successfully');
+  }
+
   private async request<T>(path: string, body: unknown): Promise<T> {
     const response = await this.fetchImpl(`${this.baseUrl}/api/account/${path}`, {
       method: 'POST',
@@ -71,7 +94,9 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async updateAccount(payload: AccountPayload): Promise<AccountPayload> {
-    const result = await this.request<{ account: AccountPayload }>('update', { payload });
+    const result = await this.requestWithFallback<{ account: AccountPayload }>(['update', 'updateAccount'], {
+      payload,
+    });
     return result.account;
   }
 
