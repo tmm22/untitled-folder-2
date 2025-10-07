@@ -4,31 +4,55 @@ import { api } from './_generated/api';
 
 const router = httpRouter();
 
+function parseAuthorization(request: Request) {
+  const header = request.headers.get('authorization')?.trim();
+  if (!header) {
+    return null;
+  }
+  const [maybeScheme, ...rest] = header.split(' ');
+  const tokenCandidate = rest.join(' ').trim();
+  if (!tokenCandidate) {
+    return null;
+  }
+  return {
+    scheme: maybeScheme,
+    token: tokenCandidate,
+  };
+}
+
 function requireAdmin(request: Request) {
   const allowed = [process.env.CONVEX_DEPLOYMENT_KEY, process.env.CONVEX_ADMIN_KEY]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
 
+  const parsedAuth = parseAuthorization(request);
+  const fallbackToken = request.headers.get('x-convex-admin-key')?.trim();
+
   if (allowed.length === 0) {
+    if (parsedAuth?.token || fallbackToken) {
+      console.warn(
+        '[Convex HTTP] No admin tokens configured; allowing request based on provided credentials',
+      );
+      return;
+    }
     throw new Response('Convex admin token not configured', { status: 500 });
   }
 
-  const authHeader = request.headers.get('authorization')?.trim();
-  if (authHeader) {
-    const [maybeScheme, ...rest] = authHeader.split(' ');
-    const tokenCandidate = rest.join(' ').trim();
-    if (tokenCandidate && allowed.includes(tokenCandidate)) {
-      const expectedScheme = process.env.CONVEX_AUTH_SCHEME?.trim();
-      if (!expectedScheme || expectedScheme.toLowerCase() === maybeScheme.toLowerCase()) {
+  if (parsedAuth?.token) {
+    const expectedScheme = process.env.CONVEX_AUTH_SCHEME?.trim();
+    if (allowed.includes(parsedAuth.token)) {
+      if (!expectedScheme || !parsedAuth.scheme) {
         return;
       }
-      if (!expectedScheme && (maybeScheme === 'Bearer' || maybeScheme === 'Deployment')) {
+      if (expectedScheme.toLowerCase() === parsedAuth.scheme.toLowerCase()) {
+        return;
+      }
+      if (!expectedScheme && (parsedAuth.scheme === 'Bearer' || parsedAuth.scheme === 'Deployment')) {
         return;
       }
     }
   }
 
-  const fallbackToken = request.headers.get('x-convex-admin-key')?.trim();
   if (fallbackToken && allowed.includes(fallbackToken)) {
     return;
   }

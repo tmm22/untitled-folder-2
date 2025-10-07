@@ -93,21 +93,22 @@ export class ConvexAccountRepository implements AccountRepository {
         try {
           return await this.executeRequest<T>(url, body);
         } catch (error) {
+          const sanitizedUrl = (() => {
+            try {
+              const candidate = new URL(url);
+              return `${candidate.origin}${candidate.pathname}`;
+            } catch {
+              return url;
+            }
+          })();
           const isNotFoundError =
             error instanceof Error && /Convex account request failed \(404\)/.test(error.message);
           if (isNotFoundError) {
-            const sanitizedUrl = (() => {
-              try {
-                const candidate = new URL(url);
-                return `${candidate.origin}${candidate.pathname}`;
-              } catch {
-                return url;
-              }
-            })();
             console.warn('[ConvexAccountRepository] HTTP 404 when calling', sanitizedUrl);
             notFoundError = error;
             continue;
           }
+          console.error('[ConvexAccountRepository] Request failed for', sanitizedUrl, error);
           throw error;
         }
       }
