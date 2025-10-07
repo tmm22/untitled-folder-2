@@ -43,31 +43,8 @@ export class ConvexAccountRepository implements AccountRepository {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  private async requestWithFallback<T>(paths: string[], body: unknown): Promise<T> {
-    let notFoundError: Error | null = null;
-    for (const path of paths) {
-      try {
-        return await this.request<T>(path, body);
-      } catch (error) {
-        const isNotFoundError =
-          error instanceof Error && /Convex account request failed \(404\)/.test(error.message);
-        if (isNotFoundError) {
-          notFoundError = error;
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (notFoundError) {
-      throw notFoundError;
-    }
-
-    throw new Error('Convex account request failed: no routes responded successfully');
-  }
-
-  private async request<T>(path: string, body: unknown): Promise<T> {
-    const response = await this.fetchImpl(`${this.baseUrl}/api/account/${path}`, {
+  private async executeRequest<T>(url: string, body: unknown): Promise<T> {
+    const response = await this.fetchImpl(url, {
       method: 'POST',
       headers: {
         Authorization: `${this.authScheme} ${this.authToken}`,
@@ -81,6 +58,10 @@ export class ConvexAccountRepository implements AccountRepository {
       throw new Error(`Convex account request failed (${response.status}): ${errorBody}`);
     }
 
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     const payload = (await response.json().catch(() => ({}))) as ConvexResponse<T> | T;
     if (payload && typeof payload === 'object' && 'result' in payload) {
       return (payload as ConvexResponse<T>).result;
@@ -88,8 +69,59 @@ export class ConvexAccountRepository implements AccountRepository {
     return payload as T;
   }
 
+  private buildUrlCandidates(path: string): string[] {
+    const suffixes = [
+      `/api/account/${path}`,
+      `/account/${path}`,
+      `/api/http/account/${path}`,
+      `/http/account/${path}`,
+    ];
+
+    return suffixes.map((suffix) => {
+      try {
+        return new URL(suffix, this.baseUrl).toString();
+      } catch {
+        return `${this.baseUrl.replace(/\/$/, '')}${suffix}`;
+      }
+    });
+  }
+
+  private async requestWithFallback<T>(paths: string[], body: unknown): Promise<T> {
+    let notFoundError: Error | null = null;
+    for (const path of paths) {
+      for (const url of this.buildUrlCandidates(path)) {
+        try {
+          return await this.executeRequest<T>(url, body);
+        } catch (error) {
+          const isNotFoundError =
+            error instanceof Error && /Convex account request failed \(404\)/.test(error.message);
+          if (isNotFoundError) {
+            const sanitizedUrl = (() => {
+              try {
+                const candidate = new URL(url);
+                return `${candidate.origin}${candidate.pathname}`;
+              } catch {
+                return url;
+              }
+            })();
+            console.warn('[ConvexAccountRepository] HTTP 404 when calling', sanitizedUrl);
+            notFoundError = error;
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+
+    if (notFoundError) {
+      throw notFoundError;
+    }
+
+    throw new Error('Convex account request failed: no routes responded successfully');
+  }
+
   async getOrCreate(userId: string): Promise<AccountPayload> {
-    const result = await this.request<{ account: AccountPayload }>('getOrCreate', { userId });
+    const result = await this.requestWithFallback<{ account: AccountPayload }>(['getOrCreate'], { userId });
     return result.account;
   }
 
@@ -101,7 +133,7 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async recordUsage(userId: string, provider: string, tokensUsed: number): Promise<AccountPayload> {
-    const result = await this.request<{ account: AccountPayload }>('recordUsage', {
+    const result = await this.requestWithFallback<{ account: AccountPayload }>(['recordUsage'], {
       userId,
       provider,
       tokensUsed,
