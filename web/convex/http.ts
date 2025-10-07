@@ -5,14 +5,35 @@ import { api } from './_generated/api';
 const router = httpRouter();
 
 function requireAdmin(request: Request) {
-  const token = request.headers.get('x-convex-admin-key');
   const allowed = [process.env.CONVEX_DEPLOYMENT_KEY, process.env.CONVEX_ADMIN_KEY]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
 
-  if (!token || !allowed.includes(token)) {
-    throw new Response('Unauthorized', { status: 401 });
+  if (allowed.length === 0) {
+    throw new Response('Convex admin token not configured', { status: 500 });
   }
+
+  const authHeader = request.headers.get('authorization')?.trim();
+  if (authHeader) {
+    const [maybeScheme, ...rest] = authHeader.split(' ');
+    const tokenCandidate = rest.join(' ').trim();
+    if (tokenCandidate && allowed.includes(tokenCandidate)) {
+      const expectedScheme = process.env.CONVEX_AUTH_SCHEME?.trim();
+      if (!expectedScheme || expectedScheme.toLowerCase() === maybeScheme.toLowerCase()) {
+        return;
+      }
+      if (!expectedScheme && (maybeScheme === 'Bearer' || maybeScheme === 'Deployment')) {
+        return;
+      }
+    }
+  }
+
+  const fallbackToken = request.headers.get('x-convex-admin-key')?.trim();
+  if (fallbackToken && allowed.includes(fallbackToken)) {
+    return;
+  }
+
+  throw new Response('Unauthorized', { status: 401 });
 }
 
 function json(data: unknown, init: ResponseInit = {}) {
