@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
+import { getProviderDescription } from '@/modules/tts/getProviderDescription';
 import { useCredentialStore } from '@/modules/credentials/store';
 import type { ProviderType } from '@/modules/tts/types';
 import { useAccountStore } from '@/modules/account/store';
@@ -230,7 +231,7 @@ export function CredentialsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-100">{provider.displayName}</h3>
-                  <p className="text-xs text-slate-500">{provider.description}</p>
+                  <p className="text-xs text-slate-500">{getProviderDescription(provider.id)}</p>
                 </div>
                 <span className="text-xs text-slate-400">{hasKey ? 'Stored: ' + mask('********') : 'No key saved'}</span>
               </div>

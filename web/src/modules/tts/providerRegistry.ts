@@ -130,7 +130,7 @@ const providers: Record<ProviderType, ProviderDescriptor> = {
   tightAss: {
     id: 'tightAss',
     displayName: 'Tight Ass Mode',
-    description: 'Offline synthesis rendered with your macOS system voices.',
+    description: 'Offline synthesis using your browser speech engine.',
     defaultVoiceId: 'Alex',
     limits: { maxCharacters: 20000, supportsBatch: true, supportsTranscripts: false },
     supportedFormats: ['mp3'],

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
+import { getProviderDescription } from '@/modules/tts/getProviderDescription';
 import { useTTSStore } from '@/modules/tts/store';
 import type { ProviderType } from '@/modules/tts/types';
 
@@ -51,6 +52,10 @@ export function ProviderSelector() {
   }, [availableVoices.length, isLoadingVoices, requestVoices, selectedProvider, voiceLoadError]);
 
   const voiceSelectDisabled = availableVoices.length === 0 || isGenerating || isLoadingVoices;
+  const providerDescription = getProviderDescription(selectedProvider, {
+    selectedVoice,
+    fallbackVoices: availableVoices,
+  });
 
   return (
     <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -70,7 +75,7 @@ export function ProviderSelector() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{providerRegistry.get(selectedProvider).description}</span>
+        <span className="text-xs text-slate-500">{providerDescription}</span>
       </label>
 
       <label className="flex flex-col gap-2 md:col-span-2">

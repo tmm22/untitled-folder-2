@@ -71,7 +71,7 @@ web/
 ## Feature Parity Mapping
 | macOS Feature | Web Strategy |
 | ------------- | ------------- |
-| Multi-provider synthesis (OpenAI, ElevenLabs, Google, Tight Ass Mode) | Server route handlers act as thin proxies to provider REST APIs using Vercel environment secrets. Tight Ass Mode replaced with browser `speechSynthesis` for offline fallback. |
+| Multi-provider synthesis (OpenAI, ElevenLabs, Google, Tight Ass Mode) | Server route handlers act as thin proxies to provider REST APIs using Vercel environment secrets. Tight Ass Mode replaced with browser `speechSynthesis` for offline fallback, and the provider selector now reflects the detected voice + engine details from `speechSynthesis`. |
 | Dynamic voice catalogs with preview playback | `/api/providers/[provider]/voices` pulls fresh voice lists from OpenAI and ElevenLabs on demand (5 minute cache) and falls back to a curated default set. Preview URLs streamed via `AudioEngine`. |
 | Character limits per provider with contextual warnings | Provider metadata supplies limits consumed by `useCharacterLimits` hook. |
 | Playback controls (play/pause/stop/seek/speed/volume/loop) | `AudioEngine` exposes observable state; UI components bind via `useAudioEngine` hook. Web Audio API ensures speed + loop controls. |

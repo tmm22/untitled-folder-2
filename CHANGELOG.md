@@ -3,6 +3,9 @@
 All notable changes to this project are documented in this file. The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+### Changed
+- Web provider selector now surfaces the active Tight Ass Mode voice and detected speech engine instead of generic macOS copy.
+
 ### Added
 - Per-slider reset controls and documentation updates for the Voice Style panel, plus a global reset affordance that surfaces whenever styles deviate from provider defaults.
 - Relocated voice style controls into a dedicated popover alongside provider selection, keeping the main toolbar uncluttered while preserving per-control and global resets.
