@@ -4,14 +4,29 @@ import { JsonFileSessionStore } from './storage/jsonFileStore';
 import { ConvexSessionStore } from './storage/convexStore';
 import type { SessionStore } from './types';
 
-let store: SessionStore | null = null;
+export type SessionStoreKind = 'convex' | 'json-file' | 'memory';
 
-function createStore(): SessionStore {
+let store: SessionStore | null = null;
+let storeKind: SessionStoreKind | null = null;
+
+interface CreateStoreOptions {
+  preferConvex?: boolean;
+}
+
+function createStore(options: CreateStoreOptions = {}): SessionStore {
+  const { preferConvex = true } = options;
   const convexUrl = process.env.CONVEX_URL?.trim();
   const auth = resolveConvexAuthConfig();
-  if (convexUrl && auth) {
+
+  if (preferConvex && convexUrl && auth) {
     try {
-      return new ConvexSessionStore({ baseUrl: convexUrl, authToken: auth.token, authScheme: auth.scheme });
+      const convexStore = new ConvexSessionStore({
+        baseUrl: convexUrl,
+        authToken: auth.token,
+        authScheme: auth.scheme,
+      });
+      storeKind = 'convex';
+      return convexStore;
     } catch (error) {
       console.warn('Failed to initialise Convex session store:', error);
     }
@@ -19,9 +34,11 @@ function createStore(): SessionStore {
 
   const filePath = process.env.SESSION_DATA_PATH?.trim();
   if (filePath) {
+    storeKind = 'json-file';
     return new JsonFileSessionStore(filePath);
   }
 
+  storeKind = 'memory';
   return new InMemorySessionStore();
 }
 
@@ -30,4 +47,38 @@ export function getSessionStore(): SessionStore {
     store = createStore();
   }
   return store;
+}
+
+function describeReason(reason: unknown): string {
+  if (!reason) {
+    return 'unknown error';
+  }
+  if (reason instanceof Error) {
+    return reason.message;
+  }
+  try {
+    return String(reason);
+  } catch {
+    return 'unknown error';
+  }
+}
+
+export function promoteSessionFallbackStore(reason?: unknown): SessionStore | null {
+  if (storeKind !== 'convex') {
+    return null;
+  }
+  const fallback = createStore({ preferConvex: false });
+  store = fallback;
+  const fallbackKind = storeKind ?? 'memory';
+  console.warn(`Falling back to ${fallbackKind} session store after Convex failure:`, describeReason(reason));
+  return fallback;
+}
+
+export function getSessionStoreKind(): SessionStoreKind | null {
+  return storeKind;
+}
+
+export function resetSessionStoreForTesting(): void {
+  store = null;
+  storeKind = null;
 }
