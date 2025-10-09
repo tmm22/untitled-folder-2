@@ -12,8 +12,9 @@ import {
   clearHistoryEntries,
 } from '@/lib/history/client';
 
-const STORAGE_KEY = 'tts-history-v1';
+const STORAGE_KEY = 'tts-history-v2';
 const ENTRY_LIMIT = 100;
+const PERSISTED_HISTORY_VERSION = 2;
 
 const isBrowser = () => typeof window !== 'undefined' && 'indexedDB' in window;
 const isClient = () => typeof window !== 'undefined';
@@ -21,6 +22,37 @@ const isClient = () => typeof window !== 'undefined';
 const shouldUseRemoteHistory = () => {
   const accountState = useAccountStore.getState();
   return accountState.sessionKind === 'authenticated';
+};
+
+const sortEntriesByCreatedAt = (entries: HistoryEntry[]) =>
+  [...entries].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+
+interface PersistedHistoryEnvelope {
+  version: number;
+  ownerId: string | null;
+  entries: HistoryEntry[];
+}
+
+const getAccountContext = () => {
+  const { userId, sessionKind } = useAccountStore.getState();
+  const normalizedUserId = userId?.trim() || null;
+  return {
+    userId: normalizedUserId,
+    sessionKind,
+    isAuthenticated: sessionKind === 'authenticated',
+  };
+};
+
+const isPersistedHistoryEnvelope = (value: unknown): value is PersistedHistoryEnvelope => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Partial<PersistedHistoryEnvelope>;
+  return (
+    candidate.version === PERSISTED_HISTORY_VERSION &&
+    Array.isArray(candidate.entries) &&
+    'ownerId' in candidate
+  );
 };
 
 export interface HistoryEntry {
@@ -49,16 +81,53 @@ async function loadEntries(): Promise<HistoryEntry[]> {
   if (!isBrowser()) {
     return [];
   }
-  return ((await get<HistoryEntry[]>(STORAGE_KEY)) ?? []).sort((a, b) =>
-    a.createdAt < b.createdAt ? 1 : -1,
-  );
+
+  const persisted = await get<HistoryEntry[] | PersistedHistoryEnvelope>(STORAGE_KEY);
+  if (!persisted) {
+    return [];
+  }
+
+  const { userId, isAuthenticated } = getAccountContext();
+
+  if (Array.isArray(persisted)) {
+    if (isAuthenticated) {
+      return [];
+    }
+    return sortEntriesByCreatedAt(persisted);
+  }
+
+  if (!isPersistedHistoryEnvelope(persisted)) {
+    return [];
+  }
+
+  if (persisted.entries.length === 0) {
+    return [];
+  }
+
+  if (isAuthenticated) {
+    if (!userId || persisted.ownerId !== userId) {
+      return [];
+    }
+    return sortEntriesByCreatedAt(persisted.entries);
+  }
+
+  if (persisted.ownerId && persisted.ownerId !== userId) {
+    return [];
+  }
+
+  return sortEntriesByCreatedAt(persisted.entries);
 }
 
 async function persistEntries(entries: HistoryEntry[]): Promise<void> {
   if (!isBrowser()) {
     return;
   }
-  await set(STORAGE_KEY, entries.slice(0, ENTRY_LIMIT));
+  const { userId } = getAccountContext();
+  await set<PersistedHistoryEnvelope>(STORAGE_KEY, {
+    version: PERSISTED_HISTORY_VERSION,
+    ownerId: userId,
+    entries: sortEntriesByCreatedAt(entries).slice(0, ENTRY_LIMIT),
+  });
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({

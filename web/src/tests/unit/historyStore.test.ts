@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useHistoryStore } from '@/modules/history/store';
 import type { HistoryEntry } from '@/modules/history/store';
 import { useAccountStore } from '@/modules/account/store';
@@ -7,6 +7,17 @@ const mockFetchHistoryEntries = vi.fn<[], Promise<HistoryEntry[]>>();
 const mockRecordHistoryEntry = vi.fn<[HistoryEntry], Promise<void>>();
 const mockRemoveHistoryEntry = vi.fn<[string], Promise<void>>();
 const mockClearHistoryEntries = vi.fn<[], Promise<void>>();
+
+const idbState = new Map<string, unknown>();
+const mockIdbGet = vi.fn(async (key: string) => idbState.get(key));
+const mockIdbSet = vi.fn(async (key: string, value: unknown) => {
+  idbState.set(key, value);
+});
+
+vi.mock('idb-keyval', () => ({
+  get: (key: string) => mockIdbGet(key),
+  set: (key: string, value: unknown) => mockIdbSet(key, value),
+}));
 
 vi.mock('@/lib/history/client', () => ({
   fetchHistoryEntries: () => mockFetchHistoryEntries(),
@@ -25,11 +36,25 @@ const createEntry = (overrides?: Partial<HistoryEntry>): HistoryEntry => ({
   transcript: overrides?.transcript,
 });
 
+const STORAGE_KEY = 'tts-history-v2';
+
+beforeAll(() => {
+  if (typeof window !== 'undefined' && !('indexedDB' in window)) {
+    Object.defineProperty(window, 'indexedDB', {
+      value: {},
+      configurable: true,
+    });
+  }
+});
+
 describe('useHistoryStore', () => {
   beforeEach(async () => {
+    idbState.clear();
+    mockIdbGet.mockClear();
+    mockIdbSet.mockClear();
+    useAccountStore.setState((prev) => ({ ...prev, userId: 'guest-user', sessionKind: 'guest' }));
     useHistoryStore.setState({ entries: [], hydrated: true, error: undefined });
     await useHistoryStore.getState().actions.clear();
-    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'guest' }));
     mockFetchHistoryEntries.mockReset();
     mockFetchHistoryEntries.mockResolvedValue([]);
     mockRecordHistoryEntry.mockReset();
@@ -69,7 +94,11 @@ describe('useHistoryStore', () => {
   });
 
   test('hydrates and syncs with remote when authenticated', async () => {
-    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+    useAccountStore.setState((prev) => ({
+      ...prev,
+      sessionKind: 'authenticated',
+      userId: 'account-1',
+    }));
     mockFetchHistoryEntries.mockResolvedValue([
       createEntry({ id: 'remote-1', text: 'Remote entry' }),
     ]);
@@ -82,7 +111,11 @@ describe('useHistoryStore', () => {
   });
 
   test('records to remote when authenticated', async () => {
-    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+    useAccountStore.setState((prev) => ({
+      ...prev,
+      sessionKind: 'authenticated',
+      userId: 'account-2',
+    }));
     mockFetchHistoryEntries.mockResolvedValue([]);
     await useHistoryStore.getState().actions.hydrate();
 
@@ -100,7 +133,11 @@ describe('useHistoryStore', () => {
     mockFetchHistoryEntries.mockReset();
     mockFetchHistoryEntries.mockResolvedValue([createEntry({ id: 'auto', text: 'Auto' })]);
 
-    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+    useAccountStore.setState((prev) => ({
+      ...prev,
+      sessionKind: 'authenticated',
+      userId: 'account-auto',
+    }));
 
     await vi.waitFor(() => {
       expect(mockFetchHistoryEntries).toHaveBeenCalled();
@@ -108,7 +145,7 @@ describe('useHistoryStore', () => {
     });
   });
 
-  test('uploads local entries when switching to authenticated session', async () => {
+  test('does not upload orphaned local entries when switching to authenticated session', async () => {
     const actions = useHistoryStore.getState().actions;
     await actions.record(createEntry({ id: 'local-only', text: 'local' }));
 
@@ -116,12 +153,35 @@ describe('useHistoryStore', () => {
     mockFetchHistoryEntries.mockReset();
     mockFetchHistoryEntries.mockResolvedValue([]);
 
-    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+    useAccountStore.setState((prev) => ({
+      ...prev,
+      sessionKind: 'authenticated',
+      userId: 'account-3',
+    }));
 
     await vi.waitFor(() => {
-      expect(mockRecordHistoryEntry).toHaveBeenCalledWith(expect.objectContaining({ id: 'local-only' }));
+      expect(useHistoryStore.getState().entries).toHaveLength(0);
     });
+    expect(mockRecordHistoryEntry).not.toHaveBeenCalled();
+  });
 
-    expect(useHistoryStore.getState().entries[0]?.id).toBe('local-only');
+  test('uploads stored entries that belong to the authenticated user', async () => {
+    const entry = createEntry({ id: 'matching-local', text: 'local-auth' });
+    idbState.set(STORAGE_KEY, {
+      version: 2,
+      ownerId: 'account-4',
+      entries: [entry],
+    });
+    mockFetchHistoryEntries.mockResolvedValue([]);
+    useAccountStore.setState((prev) => ({
+      ...prev,
+      sessionKind: 'authenticated',
+      userId: 'account-4',
+    }));
+
+    await useHistoryStore.getState().actions.hydrate();
+
+    expect(mockRecordHistoryEntry).toHaveBeenCalledWith(expect.objectContaining({ id: 'matching-local' }));
+    expect(useHistoryStore.getState().entries[0]?.id).toBe('matching-local');
   });
 });
