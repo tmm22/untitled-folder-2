@@ -123,7 +123,7 @@ async function persistEntries(entries: HistoryEntry[]): Promise<void> {
     return;
   }
   const { userId } = getAccountContext();
-  await set<PersistedHistoryEnvelope>(STORAGE_KEY, {
+  await set(STORAGE_KEY, {
     version: PERSISTED_HISTORY_VERSION,
     ownerId: userId,
     entries: sortEntriesByCreatedAt(entries).slice(0, ENTRY_LIMIT),
