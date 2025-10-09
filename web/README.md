@@ -1,6 +1,6 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-## Authentication & Data Layer
+## Authentication & Data Laye....r
 
 The web studio uses Clerk for authentication and Convex as the backing data store for account metadata.
 
