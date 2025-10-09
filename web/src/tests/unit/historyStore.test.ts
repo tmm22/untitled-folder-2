@@ -31,6 +31,7 @@ describe('useHistoryStore', () => {
     await useHistoryStore.getState().actions.clear();
     useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'guest' }));
     mockFetchHistoryEntries.mockReset();
+    mockFetchHistoryEntries.mockResolvedValue([]);
     mockRecordHistoryEntry.mockReset();
     mockRemoveHistoryEntry.mockReset();
     mockClearHistoryEntries.mockReset();
@@ -91,5 +92,19 @@ describe('useHistoryStore', () => {
 
     expect(mockRecordHistoryEntry).toHaveBeenCalledWith(entry);
     expect(useHistoryStore.getState().entries[0]?.id).toBe('remote-record');
+  });
+
+  test('rehydrates automatically when session changes', async () => {
+    mockFetchHistoryEntries.mockResolvedValue([]);
+    await useHistoryStore.getState().actions.hydrate();
+    mockFetchHistoryEntries.mockReset();
+    mockFetchHistoryEntries.mockResolvedValue([createEntry({ id: 'auto', text: 'Auto' })]);
+
+    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+
+    await vi.waitFor(() => {
+      expect(mockFetchHistoryEntries).toHaveBeenCalled();
+      expect(useHistoryStore.getState().entries.some((entry) => entry.id === 'auto')).toBe(true);
+    });
   });
 });

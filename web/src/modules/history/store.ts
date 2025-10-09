@@ -132,3 +132,23 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     },
   },
 }));
+
+let hasSubscribedToAccountStore = false;
+
+function ensureAccountStoreSubscription() {
+  if (hasSubscribedToAccountStore || typeof window === 'undefined') {
+    return;
+  }
+  hasSubscribedToAccountStore = true;
+  let lastSessionKind = useAccountStore.getState().sessionKind;
+  useAccountStore.subscribe((state) => {
+    if (state.sessionKind === lastSessionKind) {
+      return;
+    }
+    lastSessionKind = state.sessionKind;
+    const { hydrate } = useHistoryStore.getState().actions;
+    void hydrate();
+  });
+}
+
+ensureAccountStoreSubscription();
