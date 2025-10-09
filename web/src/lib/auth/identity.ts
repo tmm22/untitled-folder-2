@@ -44,9 +44,11 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
   };
 }
 
+type ClerkRequest = Parameters<typeof getAuth>[0];
+
 function resolveFromClerk(request: Request): RequestIdentity | null {
   try {
-    const authState = getAuth(request);
+    const authState = getAuth(request as ClerkRequest);
     const userId = authState.userId?.trim() || null;
     if (userId) {
       return {

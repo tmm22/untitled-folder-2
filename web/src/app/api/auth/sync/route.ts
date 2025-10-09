@@ -82,8 +82,10 @@ async function callConvexEnsureUser(
   return null;
 }
 
+type ClerkRequest = Parameters<typeof getAuth>[0];
+
 export async function POST(request: Request) {
-  const { userId } = getAuth(request);
+  const { userId } = getAuth(request as ClerkRequest);
 
   if (!userId) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextResponse } from 'next/server';
 import { POST } from '@/app/api/auth/sync/route';
-import { __setMockServerAuthState } from '@clerk/nextjs/server';
+import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 import * as convexAuth from '@/lib/convexAuth';
 
 describe('POST /api/auth/sync', () => {

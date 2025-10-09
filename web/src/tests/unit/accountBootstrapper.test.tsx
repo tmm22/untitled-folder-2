@@ -4,10 +4,12 @@ import React from 'react';
 import { AccountBootstrapper, __dangerous__resetAccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { useAccountStore, __dangerous__resetAccountSyncState } from '@/modules/account/store';
 import type { AccountPayload } from '@/lib/account/types';
-import { __setMockClerkState } from '@clerk/nextjs';
-import { __setMockServerAuthState } from '@clerk/nextjs/server';
+import { __setMockClerkState } from '@/tests/mocks/clerkNextjsMock';
+import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 
 const mockSyncAuthenticatedUser = vi.fn<[], Promise<unknown>>();
+const ORIGINAL_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const TEST_PUBLISHABLE_KEY = 'pk_test_1234567890abcdefghijklmnopqrstuvwxyzABCDE';
 
 vi.mock('@/lib/auth/client', () => ({
   syncAuthenticatedUser: () => mockSyncAuthenticatedUser(),
@@ -21,6 +23,7 @@ vi.mock('@/lib/account/client', () => ({
 
 describe('AccountBootstrapper', () => {
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = TEST_PUBLISHABLE_KEY;
     __dangerous__resetAccountBootstrapper();
     __dangerous__resetAccountSyncState();
     useAccountStore.getState().actions.reset();
@@ -38,6 +41,10 @@ describe('AccountBootstrapper', () => {
         lastUpdated: Date.now(),
       },
     });
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = ORIGINAL_KEY;
   });
 
   it('initializes guest users without invoking Clerk sync', async () => {
