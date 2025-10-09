@@ -107,4 +107,21 @@ describe('useHistoryStore', () => {
       expect(useHistoryStore.getState().entries.some((entry) => entry.id === 'auto')).toBe(true);
     });
   });
+
+  test('uploads local entries when switching to authenticated session', async () => {
+    const actions = useHistoryStore.getState().actions;
+    await actions.record(createEntry({ id: 'local-only', text: 'local' }));
+
+    mockRecordHistoryEntry.mockReset();
+    mockFetchHistoryEntries.mockReset();
+    mockFetchHistoryEntries.mockResolvedValue([]);
+
+    useAccountStore.setState((prev) => ({ ...prev, sessionKind: 'authenticated' }));
+
+    await vi.waitFor(() => {
+      expect(mockRecordHistoryEntry).toHaveBeenCalledWith(expect.objectContaining({ id: 'local-only' }));
+    });
+
+    expect(useHistoryStore.getState().entries[0]?.id).toBe('local-only');
+  });
 });

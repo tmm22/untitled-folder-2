@@ -74,9 +74,24 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       try {
         if (shouldUseRemoteHistory()) {
           try {
-            const remoteEntries = await fetchHistoryEntries();
-            set({ entries: remoteEntries.slice(0, ENTRY_LIMIT), hydrated: true, error: undefined });
-            await persistEntries(remoteEntries);
+            const [remoteEntries, localEntries] = await Promise.all([
+              fetchHistoryEntries(),
+              loadEntries(),
+            ]);
+
+            const remoteIds = new Set(remoteEntries.map((entry) => entry.id));
+            const unsynced = localEntries.filter((entry) => !remoteIds.has(entry.id));
+
+            if (unsynced.length > 0) {
+              await Promise.allSettled(unsynced.map((entry) => recordHistoryEntry(entry)));
+            }
+
+            const combinedEntries = [...unsynced, ...remoteEntries]
+              .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+              .slice(0, ENTRY_LIMIT);
+
+            set({ entries: combinedEntries, hydrated: true, error: undefined });
+            await persistEntries(combinedEntries);
             return;
           } catch (remoteError) {
             console.error('Failed to load remote history, falling back to local', remoteError);
