@@ -13,6 +13,8 @@ Set the following environment variables before running the app:
 
 After updating `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
 
+Signed-in users have their generation history synchronized to Convex automatically. Guests continue to use browser storage, and switching between guest and authenticated sessions resets the local history cache.
+
 ## Getting Started
 
 First, run the development server:

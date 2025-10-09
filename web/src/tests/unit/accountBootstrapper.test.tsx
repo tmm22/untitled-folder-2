@@ -52,6 +52,7 @@ describe('AccountBootstrapper', () => {
 
     await waitFor(() => {
       expect(useAccountStore.getState().userId).not.toBe('');
+      expect(useAccountStore.getState().sessionKind).toBe('guest');
     });
 
     expect(mockSyncAuthenticatedUser).not.toHaveBeenCalled();
@@ -80,6 +81,7 @@ describe('AccountBootstrapper', () => {
     await waitFor(() => {
       expect(mockSyncAuthenticatedUser).toHaveBeenCalled();
       expect(useAccountStore.getState().userId).toBe('clerk-user');
+      expect(useAccountStore.getState().sessionKind).toBe('authenticated');
     });
   });
 });

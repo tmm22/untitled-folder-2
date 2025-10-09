@@ -53,6 +53,19 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_clerk_id', ['clerkId']),
 
+  history_entries: defineTable({
+    id: v.string(),
+    userId: v.string(),
+    provider: v.string(),
+    voiceId: v.string(),
+    text: v.string(),
+    createdAt: v.string(),
+    durationMs: v.number(),
+    transcript: v.optional(v.any()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_entry', ['userId', 'id']),
+
   sessions: defineTable({
     id: v.string(),
     secret: v.string(),

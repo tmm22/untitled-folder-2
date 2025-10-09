@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as account from "../account.js";
+import type * as history from "../history.js";
 import type * as http from "../http.js";
 import type * as provisioning from "../provisioning.js";
 import type * as session from "../session.js";
@@ -29,6 +30,7 @@ import type * as users from "../users.js";
  */
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  history: typeof history;
   http: typeof http;
   provisioning: typeof provisioning;
   session: typeof session;

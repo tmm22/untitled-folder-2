@@ -32,6 +32,7 @@ describe('Account store', () => {
       premiumExpiresAt: undefined,
       hasProvisioningAccess: false,
       usageSummary: undefined,
+      sessionKind: 'guest',
     }));
   });
 
@@ -44,11 +45,13 @@ describe('Account store', () => {
     expect(state.hasProvisioningAccess).toBe(true);
     expect(state.usageSummary?.monthTokensUsed).toBe(1_000);
     expect(mockFetchAccount).toHaveBeenCalled();
+    expect(state.sessionKind).toBe('guest');
   });
 
   it('prefers provided user id for authenticated sessions', async () => {
     await useAccountStore.getState().actions.initialize('clerk-user');
 
     expect(mockFetchAccount).toHaveBeenCalledWith('clerk-user');
+    expect(useAccountStore.getState().sessionKind).toBe('authenticated');
   });
 });

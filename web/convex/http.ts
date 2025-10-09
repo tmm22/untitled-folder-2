@@ -175,6 +175,50 @@ router.route({
 });
 
 router.route({
+  path: '/history/list',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runQuery(api.history.list, body);
+    return json(result);
+  }),
+});
+
+router.route({
+  path: '/history/record',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runMutation(api.history.record, body);
+    return json(result);
+  }),
+});
+
+router.route({
+  path: '/history/remove',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runMutation(api.history.remove, body);
+    return json(result);
+  }),
+});
+
+router.route({
+  path: '/history/clear',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runMutation(api.history.clear, body);
+    return json(result);
+  }),
+});
+
+router.route({
   path: '/users/ensure',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {

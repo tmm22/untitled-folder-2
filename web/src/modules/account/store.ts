@@ -15,6 +15,7 @@ interface AccountState {
   premiumExpiresAt?: number;
   hasProvisioningAccess: boolean;
   usageSummary?: AccountUsageSummary;
+  sessionKind: 'guest' | 'authenticated';
   actions: {
     initialize: (preferredUserId?: string) => Promise<void>;
     applyRemoteAccount: (payload: Partial<AccountUpdatePayload>) => void;
@@ -69,6 +70,7 @@ const baseState = {
   premiumExpiresAt: undefined as number | undefined,
   hasProvisioningAccess: false,
   usageSummary: undefined as AccountUsageSummary | undefined,
+  sessionKind: 'guest' as 'guest' | 'authenticated',
 };
 
 export const useAccountStore = create<AccountState>(() => ({
@@ -84,6 +86,7 @@ export const useAccountStore = create<AccountState>(() => ({
         let nextBillingStatus = prev.billingStatus;
         let nextPremiumExpiresAt = prev.premiumExpiresAt;
         let nextUsageSummary = prev.usageSummary;
+        let nextSessionKind: 'guest' | 'authenticated' = prev.sessionKind;
 
         if (normalizedPreferred) {
           if (normalizedPreferred !== prev.userId) {
@@ -94,9 +97,18 @@ export const useAccountStore = create<AccountState>(() => ({
             nextUsageSummary = undefined;
             userIdChanged = true;
           }
-        } else if (!prev.userId) {
-          nextUserId = generateUserId();
-          userIdChanged = true;
+          nextSessionKind = 'authenticated';
+        } else {
+          const wasAuthenticated = prev.sessionKind === 'authenticated';
+          if (!prev.userId || wasAuthenticated) {
+            nextUserId = generateUserId();
+            nextPlanTier = 'free';
+            nextBillingStatus = 'free';
+            nextPremiumExpiresAt = undefined;
+            nextUsageSummary = undefined;
+            userIdChanged = true;
+          }
+          nextSessionKind = 'guest';
         }
 
         return {
@@ -107,6 +119,7 @@ export const useAccountStore = create<AccountState>(() => ({
           premiumExpiresAt: nextPremiumExpiresAt,
           usageSummary: nextUsageSummary,
           hasProvisioningAccess: computeProvisioningAccess(nextPlanTier, nextBillingStatus, nextPremiumExpiresAt),
+          sessionKind: nextSessionKind,
         };
       });
 
