@@ -83,7 +83,7 @@ The repository now includes a browser-based workspace under `web/` that will rea
 cd web
 npm install
 
-# Copy environment template and fill in Convex/Stripe keys
+# Copy environment template and fill in Convex/PayPal keys
 cp .env.local.example .env.local
 # then edit .env.local with your deployment details
 
@@ -105,9 +105,11 @@ npm run test
 - `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
 - `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
 - `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
-- `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_PORTAL_RETURN_URL` (optional): when provided alongside `globalThis.__appStripeClient` (see below), the billing routes create checkout and portal sessions via Stripe.
-
-> **Stripe client bootstrap**: In your server runtime (e.g., `app/api/_lib/stripeClient.ts`), assign `globalThis.__appStripeClient = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });` so the Next.js routes can call Stripe without bundling the SDK locally. Tests stub this global automatically.
+- `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: enable the managed workspace billing routes to authenticate with PayPal.
+- `PAYPAL_PLAN_ID` (or tier-specific `PAYPAL_PLAN_ID_STARTER`, `PAYPAL_PLAN_ID_PRO`, etc.): maps subscription checkouts to PayPal billing plans.
+- `PAYPAL_SUCCESS_URL`, `PAYPAL_CANCEL_URL`: optional overrides for the PayPal approval return/cancel URLs.
+- `PAYPAL_PORTAL_URL`: optional URL or template (supports `{customerId}` token) for directing users to manage their subscription; defaults to PayPal’s autopay dashboard.
+- `PAYPAL_ENVIRONMENT`: set to `live` when ready to accept production payments; defaults to `sandbox`.
 
 See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at the module layout, security approach, and parity roadmap.
 

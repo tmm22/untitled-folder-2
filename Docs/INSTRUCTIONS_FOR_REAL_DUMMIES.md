@@ -1,6 +1,6 @@
 # Provisioning + Billing Setup (For Real Dummies)
 
-These steps assume you have zero prior experience with environment files, Convex, or Stripe. Follow them in
+These steps assume you have zero prior experience with environment files, Convex, or PayPal. Follow them in
 order and you’ll have the premium provisioning backend running.
 
 ---
@@ -68,35 +68,24 @@ Convex stores provisioning credentials and account usage. You only need test mod
 
 ---
 
-## 3. Optional: Stripe Billing
+## 3. Optional: PayPal Billing
 
 Skip this if you’re happy with the built-in trial messaging. Otherwise:
 
-1. **Create a Stripe account** (<https://dashboard.stripe.com>) and toggle “Test mode”.
-2. **Get API keys**: Developers → API keys → copy the Secret Key into `.env.local` as `STRIPE_SECRET_KEY`.
-3. **Create a Product + Price**: Products → Add product → create a subscription price. Copy the Price ID into
-   `STRIPE_PRICE_ID`.
+1. **Create a PayPal developer account** (<https://developer.paypal.com/>) and log into the Dashboard.
+2. **Create a sandbox app** under My Apps & Credentials → REST API apps. Copy the **Client ID** and **Secret**
+   into `.env.local` as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
+3. **Create a subscription plan** (Dashboard → Subscriptions → Plans) that matches your pricing. Copy the Plan ID
+   into `.env.local` as `PAYPAL_PLAN_ID` (or `PAYPAL_PLAN_ID_STARTER` if you want to map by tier).
 4. **Fill success/cancel URLs** in `.env.local` (localhost URLs work in dev):
    ```
-   STRIPE_SUCCESS_URL=http://localhost:3000/billing/success
-   STRIPE_CANCEL_URL=http://localhost:3000/billing/cancel
-   STRIPE_PORTAL_RETURN_URL=http://localhost:3000/billing
+   PAYPAL_SUCCESS_URL=http://localhost:3000/billing/success
+   PAYPAL_CANCEL_URL=http://localhost:3000/billing/cancel
+   PAYPAL_PORTAL_URL=https://www.sandbox.paypal.com/myaccount/autopay/
    ```
-5. **Bootstrap Stripe in the app**:
-   - We already ship `web/src/app/api/_lib/stripeClient.ts`.
-   - Create `web/src/app/api/_lib/stripeBootstrap.ts` with:
-     ```ts
-     import Stripe from 'stripe';
-     import { overrideStripeClient } from '@/app/api/_lib/stripeClient';
-
-     const secret = process.env.STRIPE_SECRET_KEY?.trim();
-     if (secret) {
-       overrideStripeClient(new Stripe(secret, { apiVersion: '2024-06-20' }));
-     }
-     ```
-   - Import this bootstrap once in a server-only file (e.g., at the top of `app/api/route.ts` or a shared
-     `serverInit.ts`) so it runs before checkout/portal routes.
-6. Restart `npm run dev`. Clicking “Start free trial” should now return a Stripe checkout URL.
+   The portal URL can include `{customerId}` if you want to inject the account identifier.
+5. (Optional) Switch to production by setting `PAYPAL_ENVIRONMENT=live` and using live credentials + plan IDs.
+6. Restart `npm run dev`. Clicking “Start free trial” should now return a PayPal approval link.
 
 ---
 
@@ -107,9 +96,9 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
    npm run dev
    ```
 2. Open <http://localhost:3000>. The premium dashboard should show your plan. Try “Start free trial”—with
-   Convex + Stripe configured, you’ll get a real checkout link and Convex will record usage.
-3. Check Convex dashboard logs if things go sideways (`npx convex logs`). Stripe also shows request logs under
-   Developers → Logs (in Test mode).
+   Convex + PayPal configured, you’ll get a real approval link and Convex will record usage.
+3. Check Convex dashboard logs if things go sideways (`npx convex logs`). PayPal shows request logs under
+   Dashboard → My Apps & Credentials → Sandbox/Live App → Logs.
 
 ---
 
@@ -120,19 +109,19 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
 | `.env.local` changes not picked up | Stop `npm run dev`, rerun it. |
 | Convex request fails | Ensure HTTP actions verify admin token and return JSON; confirm `CONVEX_*` env vars. |
 | `npx convex deploy` says "No CONVEX_DEPLOYMENT set" | From `web/`, run `npx convex login` (if needed) then `npx convex dev --once` to select your deployment; retry `npx convex deploy`. |
-| Stripe error “client not configured” | Make sure the bootstrap file runs and `STRIPE_SECRET_KEY` is set. |
-| Vitest can’t find Stripe module | The tests mock the client; ensure no direct `import 'stripe'` remains outside server code. |
+| PayPal error “client not configured” | Double-check `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` in `.env.local` and restart the dev server. |
+| PayPal approval link missing | Ensure `PAYPAL_PLAN_ID` is valid and the plan is in the same environment (sandbox vs live) as your credentials. |
 
 > If you’re stuck, grab the exact error message and share it. The app now logs helpful hints in the console
-> when Convex/Stripe aren’t configured.
+> when Convex/PayPal aren’t configured.
 
 ---
 
 ## Summary Checklist
 
-- Copy `.env.local.example` → `.env.local`; fill Convex + (optionally) Stripe keys.
+- Copy `.env.local.example` → `.env.local`; fill Convex + (optionally) PayPal keys.
 - Run Convex CLI: `npx convex dev`, implement `convex/provisioning.ts` & `convex/account.ts`, then `npx convex deploy`.
 - Restart `npm run dev`—premium provisioning uses your Convex backend immediately.
-- Optional Stripe: add keys, bootstrap the SDK, and restart.
+- Optional PayPal: add keys, set plan IDs + URLs, and restart.
 
 You’re done! 🥳

@@ -6,32 +6,35 @@ function buildRequest(headers: Record<string, string>) {
   return new Request('http://localhost', { method: 'POST', headers });
 }
 
-const { getStripeClientMock, createCheckoutMock, createPortalMock } = vi.hoisted(() => {
-  const checkoutFn = vi.fn(async () => ({ id: 'cs_test', url: 'https://stripe.test/checkout' }));
-  const portalFn = vi.fn(async () => ({ url: 'https://stripe.test/portal' }));
-  const getClient = vi.fn(() => ({
-    checkout: { sessions: { create: checkoutFn } },
-    billingPortal: { sessions: { create: portalFn } },
+const { getPayPalClientMock, createSubscriptionMock, createPortalMock } = vi.hoisted(() => {
+  const subscriptionFn = vi.fn(async () => ({
+    id: 'sub_test',
+    links: [{ rel: 'approve', href: 'https://paypal.test/checkout' }],
   }));
-  return { getStripeClientMock: getClient, createCheckoutMock: checkoutFn, createPortalMock: portalFn };
+  const portalFn = vi.fn(async () => ({ url: 'https://paypal.test/portal' }));
+  const getClient = vi.fn(() => ({
+    createSubscription: subscriptionFn,
+    createPortalSession: portalFn,
+  }));
+  return { getPayPalClientMock: getClient, createSubscriptionMock: subscriptionFn, createPortalMock: portalFn };
 });
 
-vi.mock('@/app/api/_lib/stripeClient', () => ({
-  getStripeClient: getStripeClientMock,
+vi.mock('@/app/api/_lib/paypalClient', () => ({
+  getPayPalClient: getPayPalClientMock,
 }));
 
 describe('Billing actions API', () => {
   beforeEach(() => {
-    createCheckoutMock.mockClear();
+    createSubscriptionMock.mockClear();
     createPortalMock.mockClear();
-    getStripeClientMock.mockReturnValue({
-      checkout: { sessions: { create: createCheckoutMock } },
-      billingPortal: { sessions: { create: createPortalMock } },
+    getPayPalClientMock.mockReturnValue({
+      createSubscription: createSubscriptionMock,
+      createPortalSession: createPortalMock,
     });
   });
 
   afterEach(() => {
-    getStripeClientMock.mockReset();
+    getPayPalClientMock.mockReset();
   });
 
   it('rejects calls without account id', async () => {
@@ -44,15 +47,15 @@ describe('Billing actions API', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.account.planTier).toBe('starter');
-    expect(body.checkoutUrl).toContain('https://stripe.test/checkout');
-    expect(createCheckoutMock).toHaveBeenCalled();
+    expect(body.checkoutUrl).toContain('https://paypal.test/checkout');
+    expect(createSubscriptionMock).toHaveBeenCalled();
   });
 
   it('returns portal payload', async () => {
     const response = await portal(buildRequest({ 'x-account-id': 'acct-123' }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.portalUrl).toContain('https://stripe.test/portal');
+    expect(body.portalUrl).toContain('https://paypal.test/portal');
     expect(createPortalMock).toHaveBeenCalled();
   });
 });
