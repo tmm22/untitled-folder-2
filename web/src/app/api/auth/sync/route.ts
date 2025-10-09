@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { getAuth, currentUser } from '@clerk/nextjs/server';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
 
 interface EnsureUserPayload {
@@ -82,8 +82,8 @@ async function callConvexEnsureUser(
   return null;
 }
 
-export async function POST() {
-  const { userId } = auth();
+export async function POST(request: Request) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -114,4 +114,3 @@ export async function POST() {
     return NextResponse.json({ error: 'Unable to sync account' }, { status: 502 });
   }
 }
-

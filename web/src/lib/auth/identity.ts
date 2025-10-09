@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { getAuth } from '@clerk/nextjs/server';
 
 interface RequestIdentity {
   userId: string | null;
@@ -44,9 +44,10 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
   };
 }
 
-function resolveFromClerk(): RequestIdentity | null {
+function resolveFromClerk(request: Request): RequestIdentity | null {
   try {
-    const { userId } = auth();
+    const authState = getAuth(request);
+    const userId = authState.userId?.trim() || null;
     if (userId) {
       return {
         userId,
@@ -63,7 +64,7 @@ function resolveFromClerk(): RequestIdentity | null {
 }
 
 export function resolveRequestIdentity(request: Request): RequestIdentity {
-  const clerkIdentity = resolveFromClerk();
+  const clerkIdentity = resolveFromClerk(request);
   if (clerkIdentity?.userId) {
     return clerkIdentity;
   }

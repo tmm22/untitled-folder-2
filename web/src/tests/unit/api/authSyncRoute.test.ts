@@ -21,7 +21,8 @@ describe('POST /api/auth/sync', () => {
   });
 
   it('rejects unauthenticated requests', async () => {
-    const response = await POST();
+    const request = new Request('https://example.com/api/auth/sync', { method: 'POST' });
+    const response = await POST(request);
     expect(response.status).toBe(401);
     const payload = await response.json();
     expect(payload.error).toBe('Not authenticated');
@@ -32,7 +33,8 @@ describe('POST /api/auth/sync', () => {
     process.env.CONVEX_URL = '';
     resolveConvexAuthConfigSpy.mockReturnValue(null);
 
-    const response = await POST();
+    const request = new Request('https://example.com/api/auth/sync', { method: 'POST' });
+    const response = await POST(request);
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload).toEqual({ user: null, skipped: true });
@@ -61,7 +63,8 @@ describe('POST /api/auth/sync', () => {
     );
     globalThis.fetch = fetchMock;
 
-    const response = await POST();
+    const request = new Request('https://example.com/api/auth/sync', { method: 'POST' });
+    const response = await POST(request);
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload).toEqual({ user: { clerkId: 'user_456' } });
