@@ -13,6 +13,10 @@ vi.mock('@/components/account/AccountBootstrapper', () => ({
   __dangerous__resetAccountBootstrapper: () => {},
 }));
 
+vi.mock('@/components/account/AuthPanel', () => ({
+  AuthPanel: () => null,
+}));
+
 describe('Home page render', () => {
   beforeEach(() => {
     __dangerous__resetAccountSyncState();

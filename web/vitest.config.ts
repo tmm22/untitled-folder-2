@@ -9,9 +9,11 @@ export default defineConfig({
     include: ['src/tests/**/*.test.{ts,tsx}'],
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: /^@clerk\/nextjs\/server$/, replacement: path.resolve(__dirname, './src/tests/mocks/clerkNextjsServerMock.ts') },
+      { find: /^@clerk\/nextjs$/, replacement: path.resolve(__dirname, './src/tests/mocks/clerkNextjsMock.tsx') },
+    ],
   },
   esbuild: {
     jsx: 'automatic',

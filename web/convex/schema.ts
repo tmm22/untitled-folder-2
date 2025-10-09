@@ -42,6 +42,17 @@ export default defineSchema({
     }),
   }).index('by_user', ['userId']),
 
+  users: defineTable({
+    clerkId: v.string(),
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    lastLoginAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_clerk_id', ['clerkId']),
+
   sessions: defineTable({
     id: v.string(),
     secret: v.string(),

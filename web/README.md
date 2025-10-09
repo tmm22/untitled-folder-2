@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## Authentication & Data Layer
+
+The web studio uses Clerk for authentication and Convex as the backing data store for account metadata.
+
+Set the following environment variables before running the app:
+
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` – Clerk publishable key for client-side rendering.
+- `CLERK_SECRET_KEY` – Clerk secret key used by server routes.
+- `CONVEX_URL` – Base URL of your Convex deployment (e.g. `https://flat-moon-123.convex.cloud`).
+- `CONVEX_DEPLOYMENT_KEY` or `CONVEX_ADMIN_KEY` – Token the app uses to call Convex HTTP actions.
+
+After updating `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
+
 ## Getting Started
 
 First, run the development server:

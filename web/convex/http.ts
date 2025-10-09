@@ -175,6 +175,28 @@ router.route({
 });
 
 router.route({
+  path: '/users/ensure',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runMutation(api.users.ensureUser, body);
+    return json(result);
+  }),
+});
+
+router.route({
+  path: '/users/get',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    requireAdmin(request);
+    const body = (await request.json()) as any;
+    const result = await ctx.runQuery(api.users.getUser, body);
+    return json(result);
+  }),
+});
+
+router.route({
   path: '/session/save',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {

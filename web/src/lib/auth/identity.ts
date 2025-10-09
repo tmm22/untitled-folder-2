@@ -1,7 +1,9 @@
+import { auth } from '@clerk/nextjs/server';
+
 interface RequestIdentity {
   userId: string | null;
   isVerified: boolean;
-  source: 'authorization' | 'header' | 'cookie' | 'generated';
+  source: 'authorization' | 'header' | 'cookie' | 'generated' | 'clerk';
 }
 
 const ACCOUNT_COOKIE = 'account_id';
@@ -42,7 +44,30 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
   };
 }
 
+function resolveFromClerk(): RequestIdentity | null {
+  try {
+    const { userId } = auth();
+    if (userId) {
+      return {
+        userId,
+        isVerified: true,
+        source: 'clerk',
+      };
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Clerk auth resolution failed, falling back to legacy headers/cookies', error);
+    }
+  }
+  return null;
+}
+
 export function resolveRequestIdentity(request: Request): RequestIdentity {
+  const clerkIdentity = resolveFromClerk();
+  if (clerkIdentity?.userId) {
+    return clerkIdentity;
+  }
+
   const authorization = resolveFromAuthorization(request.headers.get('authorization'));
   if (authorization?.userId) {
     return authorization;

@@ -1,10 +1,9 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { PlanTier } from '@/lib/provisioning';
 import { fetchAccount } from '@/lib/account/client';
-import type { AccountPayload, AccountUsageSummary } from '@/lib/account/types';
+import type { AccountUsageSummary } from '@/lib/account/types';
 
 export type BillingStatus = 'free' | 'trial' | 'active' | 'past_due' | 'canceled';
 export type AccountPlanTier = PlanTier | 'free';
@@ -17,7 +16,7 @@ interface AccountState {
   hasProvisioningAccess: boolean;
   usageSummary?: AccountUsageSummary;
   actions: {
-    initialize: () => Promise<void>;
+    initialize: (preferredUserId?: string) => Promise<void>;
     applyRemoteAccount: (payload: Partial<AccountUpdatePayload>) => void;
     setPlanTier: (planTier: AccountPlanTier) => void;
     setBillingStatus: (status: BillingStatus) => void;
@@ -36,7 +35,11 @@ export interface AccountUpdatePayload {
   usage?: AccountUsageSummary;
 }
 
-const computeProvisioningAccess = (planTier: AccountPlanTier, billingStatus: BillingStatus, premiumExpiresAt?: number): boolean => {
+const computeProvisioningAccess = (
+  planTier: AccountPlanTier,
+  billingStatus: BillingStatus,
+  premiumExpiresAt?: number,
+): boolean => {
   if (planTier === 'free') {
     return false;
   }
@@ -54,42 +57,82 @@ const computeProvisioningAccess = (planTier: AccountPlanTier, billingStatus: Bil
 
 const generateUserId = () => {
   if (typeof window !== 'undefined' && typeof window.crypto !== 'undefined' && 'randomUUID' in window.crypto) {
-    return window.crypto.randomUUID();
+    return `guest-${window.crypto.randomUUID()}`;
   }
-  return `user-${Math.random().toString(36).slice(2, 12)}`;
+  return `guest-${Math.random().toString(36).slice(2, 12)}`;
 };
 
-const createBaseState = (): AccountState => ({
+const baseState = {
   userId: '',
-  planTier: 'free',
-  billingStatus: 'free',
-  premiumExpiresAt: undefined,
+  planTier: 'free' as AccountPlanTier,
+  billingStatus: 'free' as BillingStatus,
+  premiumExpiresAt: undefined as number | undefined,
   hasProvisioningAccess: false,
-  usageSummary: undefined,
+  usageSummary: undefined as AccountUsageSummary | undefined,
+};
+
+export const useAccountStore = create<AccountState>(() => ({
+  ...baseState,
   actions: {
-    initialize: async () => {
-      const state = useAccountStore.getState();
-      if (!state.userId) {
-        const userId = generateUserId();
-        useAccountStore.setState((prev) => ({
+    initialize: async (preferredUserId) => {
+      const normalizedPreferred = preferredUserId?.trim();
+      let userIdChanged = false;
+
+      useAccountStore.setState((prev) => {
+        let nextUserId = prev.userId;
+        let nextPlanTier = prev.planTier;
+        let nextBillingStatus = prev.billingStatus;
+        let nextPremiumExpiresAt = prev.premiumExpiresAt;
+        let nextUsageSummary = prev.usageSummary;
+
+        if (normalizedPreferred) {
+          if (normalizedPreferred !== prev.userId) {
+            nextUserId = normalizedPreferred;
+            nextPlanTier = 'free';
+            nextBillingStatus = 'free';
+            nextPremiumExpiresAt = undefined;
+            nextUsageSummary = undefined;
+            userIdChanged = true;
+          }
+        } else if (!prev.userId) {
+          nextUserId = generateUserId();
+          userIdChanged = true;
+        }
+
+        return {
           ...prev,
-          userId,
-        }));
+          userId: nextUserId,
+          planTier: nextPlanTier,
+          billingStatus: nextBillingStatus,
+          premiumExpiresAt: nextPremiumExpiresAt,
+          usageSummary: nextUsageSummary,
+          hasProvisioningAccess: computeProvisioningAccess(nextPlanTier, nextBillingStatus, nextPremiumExpiresAt),
+        };
+      });
+
+      const { userId } = useAccountStore.getState();
+      if (!userId) {
+        return;
       }
-      useAccountStore.setState((prev) => ({
-        ...prev,
-        hasProvisioningAccess: computeProvisioningAccess(prev.planTier, prev.billingStatus, prev.premiumExpiresAt),
-      }));
-      await ensureServerSync();
+
+      if (userIdChanged) {
+        lastSyncedUserId = null;
+      }
+
+      await ensureServerSync(userId);
     },
     applyRemoteAccount: (payload) => {
       useAccountStore.setState((prev) => {
         const planTier = payload.planTier ?? prev.planTier;
         const billingStatus = payload.billingStatus ?? prev.billingStatus;
         const premiumExpiresAt = payload.premiumExpiresAt ?? prev.premiumExpiresAt;
+        const userId = payload.userId?.trim() || prev.userId || generateUserId();
+
+        lastSyncedUserId = userId;
+
         return {
           ...prev,
-          userId: payload.userId?.trim() || prev.userId || generateUserId(),
+          userId,
           planTier,
           billingStatus,
           premiumExpiresAt,
@@ -122,7 +165,10 @@ const createBaseState = (): AccountState => ({
     refreshFromServer: async () => {
       try {
         const state = useAccountStore.getState();
-        const payload = await fetchAccount(state.userId || undefined);
+        if (!state.userId) {
+          return;
+        }
+        const payload = await fetchAccount(state.userId);
         useAccountStore.getState().actions.applyRemoteAccount(payload as AccountUpdatePayload);
         useAccountStore.setState((prev) => ({ ...prev, usageSummary: payload.usage ?? prev.usageSummary }));
       } catch (error) {
@@ -141,31 +187,29 @@ const createBaseState = (): AccountState => ({
       return headers;
     },
     reset: () => {
+      lastSyncedUserId = null;
       useAccountStore.setState({
-        userId: '',
-        planTier: 'free',
-        billingStatus: 'free',
-        premiumExpiresAt: undefined,
-        hasProvisioningAccess: false,
-        usageSummary: undefined,
+        ...baseState,
       });
-      hasSyncedOnce = false;
     },
   },
-});
+}));
 
-export const useAccountStore = create<AccountState>(() => createBaseState());
+let lastSyncedUserId: string | null = null;
 
-let hasSyncedOnce = false;
-
-async function ensureServerSync() {
-  if (hasSyncedOnce) {
+async function ensureServerSync(explicitUserId?: string) {
+  const targetUserId = explicitUserId ?? useAccountStore.getState().userId;
+  if (!targetUserId) {
+    lastSyncedUserId = null;
     return;
   }
-  hasSyncedOnce = true;
+  if (lastSyncedUserId === targetUserId) {
+    return;
+  }
+  lastSyncedUserId = targetUserId;
   await useAccountStore.getState().actions.refreshFromServer();
 }
 
 export function __dangerous__resetAccountSyncState() {
-  hasSyncedOnce = false;
+  lastSyncedUserId = null;
 }

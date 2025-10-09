@@ -13,6 +13,7 @@ import { ImportPanel } from '@/components/imports/ImportPanel';
 import { BatchPanel } from '@/components/queue/BatchPanel';
 import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { PremiumDashboard } from '@/components/account/PremiumDashboard';
+import { AuthPanel } from '@/components/account/AuthPanel';
 
 export default function Home() {
   return (
@@ -27,6 +28,7 @@ export default function Home() {
         </p>
       </header>
 
+      <AuthPanel />
       <PremiumDashboard />
 
       <div className="flex flex-col gap-8">

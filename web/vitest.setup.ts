@@ -28,4 +28,3 @@ Object.defineProperty(HTMLMediaElement.prototype, 'load', {
   writable: true,
   value: vi.fn(),
 });
-

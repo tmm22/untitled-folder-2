@@ -45,4 +45,10 @@ describe('Account store', () => {
     expect(state.usageSummary?.monthTokensUsed).toBe(1_000);
     expect(mockFetchAccount).toHaveBeenCalled();
   });
+
+  it('prefers provided user id for authenticated sessions', async () => {
+    await useAccountStore.getState().actions.initialize('clerk-user');
+
+    expect(mockFetchAccount).toHaveBeenCalledWith('clerk-user');
+  });
 });
