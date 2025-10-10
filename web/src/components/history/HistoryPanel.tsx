@@ -89,22 +89,22 @@ export function HistoryPanel() {
 
   if (!hydrated) {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
+      <section className="panel text-sm text-cocoa-600">
         Loading history…
       </section>
     );
   }
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
+    <section className="panel">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-white">Recent generations</h2>
-          <p className="text-sm text-slate-400">Entries persist locally and include provider, voice, and raw text.</p>
+          <h2 className="panel-title">Recent generations</h2>
+          <p className="panel-subtitle">Entries persist locally and include provider, voice, and raw text.</p>
         </div>
         <button
           type="button"
-          className="rounded-md border border-rose-500/60 px-3 py-1 text-xs font-semibold text-rose-300 disabled:opacity-40"
+          className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100 disabled:opacity-40"
           onClick={() => void handleClearHistory()}
           disabled={entries.length === 0 || clearing}
         >
@@ -112,31 +112,34 @@ export function HistoryPanel() {
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        {entries.length === 0 && <p className="text-sm text-slate-500">Generate something to populate history.</p>}
+        {entries.length === 0 && <p className="text-sm text-cocoa-500">Generate something to populate history.</p>}
         {entries.map((entry) => {
           const audio = audioLookup.get(entry.id);
           return (
-            <div key={entry.id} className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <div className="flex flex-wrap items-center justify-between text-sm text-slate-300">
-                <span className="font-medium capitalize">{entry.provider}</span>
-                <span className="text-xs text-slate-500">{formatTimestamp(entry.createdAt)}</span>
+            <div
+              key={entry.id}
+              className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner"
+            >
+              <div className="flex flex-wrap items-center justify-between text-sm text-cocoa-700">
+                <span className="font-semibold capitalize text-cocoa-900">{entry.provider}</span>
+                <span className="text-xs text-cocoa-500">{formatTimestamp(entry.createdAt)}</span>
               </div>
-              <p className="line-clamp-2 text-sm text-slate-400">{entry.text || 'No text stored.'}</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <p className="line-clamp-2 text-sm text-cocoa-600">{entry.text || 'No text stored.'}</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-cocoa-500">
                 <span>Voice: {entry.voiceId || 'default'}</span>
                 <span>Duration: {Math.round(entry.durationMs / 1000)}s</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="rounded-md bg-sky-500 px-3 py-1 text-xs font-semibold text-white"
+                  className="action-button action-button--accent px-3 py-1"
                   onClick={() => void handleLoad(entry)}
                 >
                   Load in editor
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
+                  className="pill-button border-charcoal-300 text-cocoa-700 disabled:opacity-40"
                   onClick={() => handleDownloadAudio(entry.id)}
                   disabled={!audio || !audio.audioUrl}
                 >
@@ -144,21 +147,21 @@ export function HistoryPanel() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                  className="pill-button border-charcoal-300 text-cocoa-700"
                   onClick={() => handleDownloadSrt(entry)}
                 >
                   Export SRT
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                  className="pill-button border-charcoal-300 text-cocoa-700"
                   onClick={() => handleDownloadVtt(entry)}
                 >
                   Export VTT
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300"
+                  className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
                   onClick={() => void remove(entry.id)}
                 >
                   Delete
@@ -168,7 +171,7 @@ export function HistoryPanel() {
           );
         })}
       </div>
-      {status && <p className="mt-3 text-sm text-slate-300">{status}</p>}
+      {status && <p className="mt-3 text-sm text-cocoa-600">{status}</p>}
     </section>
   );
 }

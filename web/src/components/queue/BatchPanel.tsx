@@ -75,24 +75,24 @@ export function BatchPanel() {
   };
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <section className="panel">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Batch queue</h2>
-          <p className="text-sm text-slate-400">Split scripts with lines containing --- and process them sequentially.</p>
+          <h2 className="panel-title">Batch queue</h2>
+          <p className="panel-subtitle">Split scripts with lines containing --- and process them sequentially.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-cocoa-600">
           <span>Total: {items.length}</span>
           <span>Pending: {pendingCount}</span>
           <span>Running: {isRunning ? 'Yes' : 'No'}</span>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
+      <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
         <button
           type="button"
           onClick={handleQueueSegments}
-          className="inline-flex items-center justify-center rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800"
+          className="action-button action-button--accent"
         >
           Queue segments from editor ({segmentsInEditor.length})
         </button>
@@ -100,7 +100,7 @@ export function BatchPanel() {
           <button
             type="button"
             onClick={handleStart}
-            className="rounded-md bg-emerald-500 px-3 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-emerald-900"
+            className="cta-button px-4 py-2"
             disabled={isRunning || items.length === 0}
           >
             Start queue
@@ -108,7 +108,7 @@ export function BatchPanel() {
           <button
             type="button"
             onClick={cancel}
-            className="rounded-md border border-amber-500/60 px-3 py-2 text-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+            className="pill-button border-amber-300 text-amber-700 hover:bg-amber-100 disabled:opacity-50"
             disabled={!isRunning}
           >
             Cancel after current
@@ -116,7 +116,7 @@ export function BatchPanel() {
           <button
             type="button"
             onClick={retryFailed}
-            className="rounded-md border border-sky-500/60 px-3 py-2 text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
+            className="pill-button border-accent-400 text-charcoal-900 hover:bg-accent-200 disabled:opacity-50"
             disabled={failedCount === 0 || isRunning}
           >
             Retry failed
@@ -124,7 +124,7 @@ export function BatchPanel() {
           <button
             type="button"
             onClick={clear}
-            className="rounded-md border border-rose-500/60 px-3 py-2 text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
+            className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
             disabled={items.length === 0 || isRunning}
           >
             Clear queue
@@ -132,40 +132,47 @@ export function BatchPanel() {
         </div>
       </div>
 
-      <div className="mt-4 space-y-3">
-        {items.length === 0 && <p className="text-sm text-slate-500">No queued segments yet.</p>}
+      <div className="mt-6 space-y-4">
+        {items.length === 0 && <p className="text-sm text-cocoa-500">No queued segments yet.</p>}
         {items.map((item) => (
-          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
+          <div
+            key={item.id}
+            className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-cocoa-700">
               <div className="flex items-center gap-2">
-                <span className="font-semibold capitalize">{item.provider}</span>
-                <span className={`text-xs ${
-                  item.status === 'failed'
-                    ? 'text-rose-300'
-                    : item.status === 'completed'
-                    ? 'text-emerald-300'
-                    : 'text-slate-400'
-                }`}>{statusLabels[item.status]}</span>
+                <span className="font-semibold capitalize text-cocoa-900">{item.provider}</span>
+                <span
+                  className={`text-xs font-medium ${
+                    item.status === 'failed'
+                      ? 'text-rose-600'
+                      : item.status === 'completed'
+                      ? 'text-emerald-600'
+                      : 'text-cocoa-500'
+                  }`}
+                >
+                  {statusLabels[item.status]}
+                </span>
               </div>
-              <span className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</span>
+              <span className="text-xs text-cocoa-500">{new Date(item.createdAt).toLocaleString()}</span>
             </div>
-            <p className="line-clamp-2 text-sm text-slate-400">{item.text}</p>
-            <div className="relative h-1 rounded-full bg-slate-800">
+            <p className="line-clamp-2 text-sm text-cocoa-600">{item.text}</p>
+            <div className="relative h-1 rounded-full bg-cream-200">
               <div
                 className={`absolute inset-y-0 rounded-full transition-all ${
                   item.status === 'completed'
                     ? 'bg-emerald-500'
                     : item.status === 'failed'
                     ? 'bg-rose-500'
-                    : 'bg-sky-500'
+                    : 'bg-charcoal-900'
                 }`}
                 style={{ width: `${Math.min(100, Math.round(item.progress * 100))}%` }}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-cocoa-500">
               <span>Voice: {item.voiceId || 'default'}</span>
               {item.status === 'failed' && item.errorMessage && (
-                <span className="text-rose-300">{item.errorMessage}</span>
+                <span className="text-rose-600">{item.errorMessage}</span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -173,14 +180,14 @@ export function BatchPanel() {
                 <a
                   href={item.result.audioUrl}
                   download={`batch-${item.id}.${extensionFromContentType(item.result?.audioContentType ?? item.audioContentType)}`}
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                  className="pill-button border-charcoal-300 text-cocoa-700"
                 >
                   Download
                 </a>
               )}
               <button
                 type="button"
-                className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
+                className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100 disabled:opacity-40"
                 onClick={() => remove(item.id)}
                 disabled={item.status === 'running' && currentItemId === item.id}
               >
@@ -191,7 +198,7 @@ export function BatchPanel() {
         ))}
       </div>
 
-      {status && <p className="mt-4 text-sm text-slate-300">{status}</p>}
+      {status && <p className="mt-5 text-sm text-cocoa-600">{status}</p>}
     </section>
   );
 }

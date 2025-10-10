@@ -58,11 +58,11 @@ export function ProviderSelector() {
   });
 
   return (
-    <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <section className="panel grid grid-cols-1 gap-5 md:grid-cols-3">
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-300">Provider</span>
+        <span className="field-label">Provider</span>
         <select
-          className="w-full rounded-md border border-slate-700/50 bg-slate-900/80 px-3 py-2 text-slate-100 shadow focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 disabled:cursor-not-allowed"
+          className="field-input appearance-none"
           value={selectedProvider}
           onChange={(event) => {
             void selectProvider(event.target.value as typeof selectedProvider);
@@ -75,13 +75,13 @@ export function ProviderSelector() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{providerDescription}</span>
+        <span className="text-xs text-cocoa-500">{providerDescription}</span>
       </label>
 
       <label className="flex flex-col gap-2 md:col-span-2">
-        <span className="text-sm font-medium text-slate-300">Voice</span>
+        <span className="field-label">Voice</span>
         <select
-          className="w-full rounded-md border border-slate-700/50 bg-slate-900/80 px-3 py-2 text-slate-100 shadow focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 disabled:cursor-not-allowed"
+          className="field-input appearance-none"
           value={selectedVoice?.id ?? ''}
           onChange={(event) => selectVoice(event.target.value)}
           disabled={voiceSelectDisabled}
@@ -96,12 +96,12 @@ export function ProviderSelector() {
         </select>
       </label>
       {voiceLoadError ? (
-        <div className="md:col-span-3 flex flex-col gap-2 rounded-md border border-rose-500/50 bg-rose-950/40 p-3 text-sm text-rose-200">
+        <div className="md:col-span-3 flex flex-col gap-2 rounded-2xl border border-rose-300 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-inner">
           <span>{voiceLoadError}</span>
           <div>
             <button
               type="button"
-              className="rounded-md border border-rose-400 px-3 py-1 text-xs font-semibold text-rose-100"
+              className="pill-button border-rose-300 bg-rose-100 text-rose-700 hover:bg-rose-200 focus:ring-rose-200"
               onClick={() => {
                 void requestVoices(selectedProvider);
               }}

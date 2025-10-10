@@ -55,63 +55,60 @@ export function SnippetPanel() {
 
   if (!hydrated) {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
+      <section className="panel text-sm text-cocoa-600">
         Loading snippets…
       </section>
     );
   }
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Snippet library</h2>
-      <p className="text-sm text-slate-400">Store reusable intros, outros, and prompts.</p>
-      <form className="mt-3 flex flex-col gap-3" onSubmit={handleSave}>
-        <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Name
+    <section className="panel">
+      <h2 className="panel-title">Snippet library</h2>
+      <p className="panel-subtitle">Store reusable intros, outros, and prompts.</p>
+      <form className="mt-4 flex flex-col gap-4" onSubmit={handleSave}>
+        <label className="flex flex-col gap-2">
+          <span className="field-label">Name</span>
           <input
             type="text"
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Podcast intro"
             required
           />
         </label>
-        <button
-          type="submit"
-          className="inline-flex w-max items-center justify-center rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white"
-        >
+        <button type="submit" className="cta-button md:w-max">
           Save current text
         </button>
       </form>
 
       <div className="mt-4 space-y-3">
-        {snippets.length === 0 && <p className="text-sm text-slate-500">No snippets yet.</p>}
+        {snippets.length === 0 && <p className="text-sm text-cocoa-500">No snippets yet.</p>}
         {snippets.map((snippet) => (
-          <div key={snippet.id} className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
+          <div key={snippet.id} className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">{snippet.name}</h3>
-              <span className="text-xs text-slate-500">{new Date(snippet.createdAt).toLocaleDateString()}</span>
+              <h3 className="text-sm font-semibold text-cocoa-900">{snippet.name}</h3>
+              <span className="text-xs text-cocoa-500">{new Date(snippet.createdAt).toLocaleDateString()}</span>
             </div>
-            <p className="line-clamp-2 text-sm text-slate-400">{snippet.content}</p>
+            <p className="line-clamp-2 text-sm text-cocoa-600">{snippet.content}</p>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <button
                 type="button"
-                className="rounded-md bg-sky-500 px-3 py-1 text-xs font-semibold text-white"
+                className="action-button action-button--accent px-3 py-1"
                 onClick={() => applySnippet(snippet, 'replace')}
               >
                 Replace editor
               </button>
               <button
                 type="button"
-                className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                className="pill-button border-charcoal-300 text-cocoa-700"
                 onClick={() => applySnippet(snippet, 'append')}
               >
                 Append
               </button>
               <button
                 type="button"
-                className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300"
+                className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
                 onClick={() => void deleteSnippet(snippet.id)}
               >
                 Delete
@@ -121,7 +118,7 @@ export function SnippetPanel() {
         ))}
       </div>
 
-      {status && <p className="mt-4 text-sm text-slate-300">{status}</p>}
+      {status && <p className="mt-4 text-sm text-cocoa-600">{status}</p>}
     </section>
   );
 }

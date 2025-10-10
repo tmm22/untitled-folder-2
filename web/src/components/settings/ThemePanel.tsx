@@ -22,19 +22,17 @@ export function ThemePanel() {
   }, [theme]);
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Appearance</h2>
-      <p className="text-sm text-slate-400">Switch between system default, light, or dark themes.</p>
-      <div className="mt-3 flex gap-3">
+    <section className="panel">
+      <h2 className="panel-title">Appearance</h2>
+      <p className="panel-subtitle">Switch between system default, light, or dark themes.</p>
+      <div className="mt-4 flex gap-3">
         {THEMES.map((candidate) => (
           <button
             key={candidate}
             type="button"
             onClick={() => setTheme(candidate)}
-            className={`rounded-md border px-3 py-2 text-sm capitalize ${
-              candidate === theme
-                ? 'border-sky-500 bg-sky-500/20 text-sky-200'
-                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+            className={`pill-button capitalize ${
+              candidate === theme ? 'border-charcoal-900 bg-charcoal-900 text-cream-50 hover:bg-charcoal-800' : ''
             }`}
           >
             {candidate}

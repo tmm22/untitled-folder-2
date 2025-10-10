@@ -190,19 +190,19 @@ export function PipelineEditor(props: PipelineEditorProps) {
   };
 
   return (
-    <form className="mt-4 space-y-4 rounded-lg border border-slate-800/60 bg-slate-950/60 p-4" onSubmit={handleSubmit}>
+    <form className="panel mt-4 space-y-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
-        <h3 className="text-lg font-semibold text-white">{mode === 'create' ? 'New pipeline' : 'Edit pipeline'}</h3>
-        <p className="text-sm text-slate-400">
+        <h3 className="text-lg font-semibold text-charcoal-900">{mode === 'create' ? 'New pipeline' : 'Edit pipeline'}</h3>
+        <p className="text-sm text-cocoa-600">
           Chain post-processing steps and reuse the workflow on imported content or scheduled webhooks.
         </p>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-300">
-        Name
+      <label className="flex flex-col gap-2">
+        <span className="field-label">Name</span>
         <input
           type="text"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+          className="field-input"
           value={draft.name}
           onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
           placeholder="Morning summary pipeline"
@@ -210,22 +210,22 @@ export function PipelineEditor(props: PipelineEditorProps) {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-300">
-        Description (optional)
+      <label className="flex flex-col gap-2">
+        <span className="field-label">Description (optional)</span>
         <textarea
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+          className="field-input min-h-[120px]"
           value={draft.description ?? ''}
           onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
           placeholder="Describe the content this pipeline prepares."
         />
       </label>
 
-      <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
-        <label className="flex flex-col gap-1">
-          Default source URL (optional)
+      <div className="grid gap-3 text-sm text-cocoa-700 md:grid-cols-2">
+        <label className="flex flex-col gap-2">
+          <span className="field-label">Default source URL (optional)</span>
           <input
             type="url"
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input"
             value={draft.defaultSourceUrl ?? ''}
             onChange={(event) =>
               setDraft((prev) => ({
@@ -237,11 +237,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
           />
         </label>
 
-        <label className="flex flex-col gap-1">
-          Schedule cron (optional)
+        <label className="flex flex-col gap-2">
+          <span className="field-label">Schedule cron (optional)</span>
           <input
             type="text"
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input"
             value={draft.schedule?.cron ?? ''}
             onChange={(event) => {
               const value = event.target.value.trim();
@@ -256,11 +256,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
       </div>
 
       {draft.schedule && (
-        <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Schedule description (optional)
+        <label className="flex flex-col gap-2 text-sm text-cocoa-700">
+          <span className="field-label">Schedule description (optional)</span>
           <input
             type="text"
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input"
             value={draft.schedule.description ?? ''}
             onChange={(event) =>
               setDraft((prev) => ({
@@ -275,17 +275,17 @@ export function PipelineEditor(props: PipelineEditorProps) {
         </label>
       )}
 
-      <div className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
+      <div className="rounded-md border border-cream-400 bg-cream-50/40 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-semibold text-white">Steps</h4>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-cocoa-600">
               Configure the transformations executed in order. Use chunk + queue at the end to feed the batch runner.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1 text-sm text-slate-200"
+              className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1 text-sm text-cocoa-700"
               value={stepKindToAdd}
               onChange={(event) => setStepKindToAdd(event.target.value as PipelineStepKind)}
             >
@@ -297,7 +297,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
             </select>
             <button
               type="button"
-              className="rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+              className="rounded-md border border-cream-300 px-3 py-1 text-sm text-cocoa-700 hover:bg-cream-200"
               onClick={handleAddStep}
             >
               Add step
@@ -306,18 +306,18 @@ export function PipelineEditor(props: PipelineEditorProps) {
         </div>
 
         {draft.steps.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500">No steps yet. Add a clean/translate/chunk step to get started.</p>
+          <p className="mt-3 text-sm text-cocoa-500">No steps yet. Add a clean/translate/chunk step to get started.</p>
         )}
 
         <div className="mt-3 space-y-3">
           {draft.steps.map((step, index) => (
-            <div key={step.id} className="space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3">
+            <div key={step.id} className="space-y-3 rounded-md border border-cream-400 bg-cream-50/90 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-white">{STEP_LABELS[step.kind]}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-200 disabled:opacity-40"
+                    className="rounded-md border border-cream-300 px-2 py-1 text-xs text-cocoa-700 disabled:opacity-40"
                     disabled={!canReorder(index, -1)}
                     onClick={() => handleReorder(index, -1)}
                   >
@@ -325,7 +325,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   </button>
                   <button
                     type="button"
-                    className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-200 disabled:opacity-40"
+                    className="rounded-md border border-cream-300 px-2 py-1 text-xs text-cocoa-700 disabled:opacity-40"
                     disabled={!canReorder(index, 1)}
                     onClick={() => handleReorder(index, 1)}
                   >
@@ -342,11 +342,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
               </div>
 
               {step.kind === 'clean' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-2">
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      className="h-4 w-4 rounded border-cream-300 bg-cream-50"
                       checked={Boolean(step.options.normaliseWhitespace ?? true)}
                       onChange={(event) =>
                         updateStep<PipelineCleanStep>(step.id, (prev) => ({
@@ -363,7 +363,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      className="h-4 w-4 rounded border-cream-300 bg-cream-50"
                       checked={Boolean(step.options.stripBullets)}
                       onChange={(event) =>
                         updateStep<PipelineCleanStep>(step.id, (prev) => ({
@@ -381,14 +381,14 @@ export function PipelineEditor(props: PipelineEditorProps) {
               )}
 
               {step.kind === 'summarise' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-2">
                   <label className="flex flex-col gap-1">
                     Bullet count
                     <input
                       type="number"
                       min={1}
                       max={10}
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).bulletCount ?? 3}
                       onChange={(event) =>
                         updateStep<PipelineSummariseStep>(step.id, (prev) => ({
@@ -404,7 +404,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="flex flex-col gap-1">
                     Format
                     <select
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).style ?? 'bullets'}
                       onChange={(event) =>
                         updateStep<PipelineSummariseStep>(step.id, (prev) => ({
@@ -423,7 +423,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="inline-flex items-center gap-2 md:col-span-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      className="h-4 w-4 rounded border-cream-300 bg-cream-50"
                       checked={Boolean((step.options as any).includeKeywords)}
                       onChange={(event) =>
                         updateStep<PipelineSummariseStep>(step.id, (prev) => ({
@@ -441,12 +441,12 @@ export function PipelineEditor(props: PipelineEditorProps) {
               )}
 
               {step.kind === 'translate' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-[2fr,1fr]">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-[2fr,1fr]">
                   <label className="flex flex-col gap-1">
                     Target language
                     <input
                       type="text"
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).targetLanguage ?? ''}
                       onChange={(event) =>
                         updateStep<PipelineTranslateStep>(step.id, (prev) => ({
@@ -463,7 +463,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      className="h-4 w-4 rounded border-cream-300 bg-cream-50"
                       checked={Boolean((step.options as any).keepOriginal)}
                       onChange={(event) =>
                         updateStep<PipelineTranslateStep>(step.id, (prev) => ({
@@ -481,11 +481,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
               )}
 
               {step.kind === 'tone' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-2">
                   <label className="flex flex-col gap-1">
                     Target tone
                     <select
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).tone ?? 'neutral'}
                       onChange={(event) =>
                         updateStep<PipelineToneStep>(step.id, (prev) => ({
@@ -508,7 +508,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                     Audience hint (optional)
                     <input
                       type="text"
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).audienceHint ?? ''}
                       onChange={(event) =>
                         updateStep<PipelineToneStep>(step.id, (prev) => ({
@@ -526,11 +526,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
               )}
 
               {step.kind === 'chunk' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-3">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-3">
                   <label className="flex flex-col gap-1">
                     Strategy
                     <select
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).strategy ?? 'paragraph'}
                       onChange={(event) =>
                         updateStep<PipelineChunkStep>(step.id, (prev) => ({
@@ -551,7 +551,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                     <input
                       type="number"
                       min={300}
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).maxCharacters ?? 1600}
                       onChange={(event) =>
                         updateStep<PipelineChunkStep>(step.id, (prev) => ({
@@ -567,7 +567,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      className="h-4 w-4 rounded border-cream-300 bg-cream-50"
                       checked={Boolean((step.options as any).joinShortSegments)}
                       onChange={(event) =>
                         updateStep<PipelineChunkStep>(step.id, (prev) => ({
@@ -585,11 +585,11 @@ export function PipelineEditor(props: PipelineEditorProps) {
               )}
 
               {step.kind === 'queue' && (
-                <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                <div className="grid gap-2 text-sm text-cocoa-700 md:grid-cols-2">
                   <label className="flex flex-col gap-1">
                     Provider
                     <select
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).provider}
                       onChange={(event) =>
                         updateStep<PipelineQueueStep>(step.id, (prev) => ({
@@ -611,7 +611,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                   <label className="flex flex-col gap-1">
                     Voice preference
                     <select
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).voicePreference ?? 'history'}
                       onChange={(event) =>
                         updateStep<PipelineQueueStep>(step.id, (prev) => ({
@@ -633,7 +633,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                       Voice ID
                       <input
                         type="text"
-                        className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                        className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                         value={(step.options as any).voiceId ?? ''}
                         onChange={(event) =>
                           updateStep<PipelineQueueStep>(step.id, (prev) => ({
@@ -653,7 +653,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
                     <input
                       type="number"
                       min={0}
-                      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1"
+                      className="rounded-md border border-cream-300 bg-cream-50 px-3 py-1"
                       value={(step.options as any).segmentDelayMs ?? ''}
                       onChange={(event) =>
                         updateStep<PipelineQueueStep>(step.id, (prev) => ({
@@ -678,7 +678,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
-          className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          className="rounded-md border border-cream-300 px-4 py-2 text-sm text-cocoa-700 hover:bg-cream-200"
           onClick={onCancel}
           disabled={isSaving}
         >

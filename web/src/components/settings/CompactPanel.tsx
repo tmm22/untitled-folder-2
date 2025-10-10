@@ -22,23 +22,29 @@ export function CompactPanel() {
   }, [compactMode]);
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Compact layout</h2>
-      <p className="text-sm text-slate-400">Match the macOS minimalist layout in the browser.</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+    <section className="panel">
+      <h2 className="panel-title">Compact layout</h2>
+      <p className="panel-subtitle">Match the macOS minimalist layout in the browser.</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
         {COMPACT_OPTIONS.map((option) => (
           <button
             key={option.id}
             type="button"
             onClick={() => setCompactMode(option.id)}
-            className={`flex h-full flex-col gap-1 rounded-md border px-3 py-3 text-left ${
+            className={`flex h-full flex-col gap-1 rounded-2xl border px-4 py-4 text-left transition ${
               option.id === compactMode
-                ? 'border-sky-500 bg-sky-500/10 text-sky-100'
-                : 'border-slate-700 text-slate-200 hover:bg-slate-800'
+                ? 'border-charcoal-900 bg-charcoal-900 text-cream-50 shadow-lg hover:bg-charcoal-800'
+                : 'border-cream-300 bg-cream-100/80 text-cocoa-700 hover:bg-cream-200'
             }`}
           >
             <span className="text-sm font-semibold">{option.label}</span>
-            <span className="text-xs text-slate-400">{option.description}</span>
+            <span
+              className={`text-xs ${
+                option.id === compactMode ? 'text-charcoal-200' : 'text-cocoa-500'
+              }`}
+            >
+              {option.description}
+            </span>
           </button>
         ))}
       </div>
