@@ -159,31 +159,31 @@ export function ImportPanel() {
 
   if (!hydrated) {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
+      <section className="panel text-sm text-cocoa-600">
         Loading imports…
       </section>
     );
   }
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Imports</h2>
-      <p className="text-sm text-slate-400">Fetch web content or stash manual notes for later narration.</p>
-      <form className="mt-3 flex flex-col gap-3" onSubmit={handleImport}>
-        <label className="flex flex-col gap-1 text-sm text-slate-300">
-          URL
+    <section className="panel">
+      <h2 className="panel-title">Imports</h2>
+      <p className="panel-subtitle">Fetch web content or stash manual notes for later narration.</p>
+      <form className="mt-4 flex flex-col gap-4" onSubmit={handleImport}>
+        <label className="flex flex-col gap-2">
+          <span className="field-label">URL</span>
           <input
             type="url"
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input"
             placeholder="https://example.com/article"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Or paste content
+        <label className="flex flex-col gap-2">
+          <span className="field-label">Or paste content</span>
           <textarea
-            className="min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+            className="field-input min-h-[120px] resize-none"
             value={manualContent}
             onChange={(event) => setManualContent(event.target.value)}
             placeholder="Paste cleaned-up content here…"
@@ -191,35 +191,40 @@ export function ImportPanel() {
         </label>
         <button
           type="submit"
-          className="inline-flex w-max items-center justify-center rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white"
+          className="cta-button md:w-max"
         >
           Save import
         </button>
-        <p className="text-xs text-slate-500">Reddit links are handled via the .json API; article summaries use OpenAI when configured.</p>
+        <p className="text-xs text-cocoa-500">
+          Reddit links are handled via the .json API; article summaries use OpenAI when configured.
+        </p>
       </form>
 
       <div className="mt-4 space-y-3">
-        {entries.length === 0 && <p className="text-sm text-slate-500">No imports captured yet.</p>}
+        {entries.length === 0 && <p className="text-sm text-cocoa-500">No imports captured yet.</p>}
         {entries.map((entry) => (
-          <div key={entry.id} className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-            <div className="flex items-center justify-between text-sm text-slate-300">
+          <div
+            key={entry.id}
+            className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner"
+          >
+            <div className="flex items-center justify-between text-sm text-cocoa-700">
               <span className="font-medium truncate" title={entry.source}>
                 {entry.title || entry.source}
               </span>
-              <span className="text-xs text-slate-500">{new Date(entry.createdAt).toLocaleDateString()}</span>
+              <span className="text-xs text-cocoa-500">{new Date(entry.createdAt).toLocaleDateString()}</span>
             </div>
-            {entry.summary && <p className="text-xs text-slate-400">Summary: {entry.summary}</p>}
+            {entry.summary && <p className="text-xs text-cocoa-600">Summary: {entry.summary}</p>}
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white"
+                className="action-button action-button--accent px-3 py-1"
                 onClick={() => handleUseEntry(entry.content)}
               >
                 Load into editor
               </button>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs text-cocoa-600">
                 <select
-                  className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
+                  className="field-input w-max min-w-[160px] border-cream-300 px-2 py-1 text-xs"
                   value={pipelineSelections[entry.id] ?? ''}
                   onChange={(event) =>
                     setPipelineSelections((prev) => ({
@@ -237,7 +242,7 @@ export function ImportPanel() {
                 </select>
                 <button
                   type="button"
-                  className="rounded-md border border-sky-500/60 px-3 py-1 text-sky-300 disabled:opacity-40"
+                  className="pill-button border-accent-400 text-charcoal-900 hover:bg-accent-200 disabled:opacity-40"
                   onClick={() => void handleRunPipeline(entry.id)}
                   disabled={pipelines.length === 0}
                 >
@@ -246,20 +251,20 @@ export function ImportPanel() {
               </div>
               <button
                 type="button"
-                className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300"
+                className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
                 onClick={() => void remove(entry.id)}
               >
                 Delete
               </button>
             </div>
             {pipelineStatuses[entry.id] && (
-              <p className="text-xs text-slate-400">{pipelineStatuses[entry.id]}</p>
+              <p className="text-xs text-cocoa-600">{pipelineStatuses[entry.id]}</p>
             )}
           </div>
         ))}
       </div>
 
-      {status && <p className="mt-4 text-sm text-slate-300">{status}</p>}
+      {status && <p className="mt-4 text-sm text-cocoa-600">{status}</p>}
 
       <div className="mt-6">
         <PipelineManager />

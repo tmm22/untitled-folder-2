@@ -21,25 +21,39 @@ export function NotificationPanel() {
   }, [notifications]);
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <h2 className="text-lg font-semibold text-white">Notifications</h2>
-      <p className="text-sm text-slate-400">Browser alerts appear when batch processing completes.</p>
-      <div className="mt-3 flex flex-col gap-2">
-        {OPTIONS.map((option) => (
-          <label key={option.id} className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-            <input
-              type="radio"
-              className="mt-1"
-              name="notifications"
-              checked={notifications === option.id}
-              onChange={() => setNotifications(option.id)}
-            />
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-slate-100">{option.label}</span>
-              <span className="text-xs text-slate-400">{option.description}</span>
-            </div>
-          </label>
-        ))}
+    <section className="panel">
+      <h2 className="panel-title">Notifications</h2>
+      <p className="panel-subtitle">Browser alerts appear when batch processing completes.</p>
+      <div className="mt-4 flex flex-col gap-2">
+        {OPTIONS.map((option) => {
+          const isActive = notifications === option.id;
+          return (
+            <label
+              key={option.id}
+              className={`flex items-start gap-3 rounded-2xl border px-4 py-4 transition ${
+                isActive
+                  ? 'border-charcoal-900 bg-charcoal-900 text-cream-50 shadow-lg'
+                  : 'border-cream-300 bg-cream-100/80 text-cocoa-700 hover:bg-cream-200'
+              }`}
+            >
+              <input
+                type="radio"
+                className="mt-1 accent-charcoal-900"
+                name="notifications"
+                checked={isActive}
+                onChange={() => setNotifications(option.id)}
+              />
+              <div className="flex flex-col gap-1">
+                <span className={`text-sm font-semibold ${isActive ? 'text-cream-50' : 'text-cocoa-800'}`}>
+                  {option.label}
+                </span>
+                <span className={`text-xs ${isActive ? 'text-charcoal-200' : 'text-cocoa-500'}`}>
+                  {option.description}
+                </span>
+              </div>
+            </label>
+          );
+        })}
       </div>
     </section>
   );

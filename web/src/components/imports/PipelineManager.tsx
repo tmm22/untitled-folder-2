@@ -216,43 +216,46 @@ export function PipelineManager() {
   };
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-white">Automation pipelines</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="panel-title">Automation pipelines</h2>
+          <p className="panel-subtitle">
             Save post-processing flows and reuse them on imports or via scheduled webhooks.
           </p>
         </div>
         <button
           type="button"
-          className="rounded-md border border-sky-500/60 px-3 py-2 text-sm font-semibold text-sky-300"
+          className="action-button action-button--accent"
           onClick={handleCreate}
         >
           New pipeline
         </button>
       </div>
 
-      {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
-      {status && <p className="mt-3 text-sm text-emerald-300">{status}</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {status && <p className="mt-3 text-sm text-emerald-600">{status}</p>}
 
-      <div className="mt-4 space-y-3">
-        {isLoading && <p className="text-sm text-slate-500">Loading pipelines…</p>}
+      <div className="mt-5 space-y-4">
+        {isLoading && <p className="text-sm text-cocoa-500">Loading pipelines…</p>}
         {!isLoading && pipelines.length === 0 && (
-          <p className="text-sm text-slate-500">No pipelines configured yet. Create one to automate your imports.</p>
+          <p className="text-sm text-cocoa-500">No pipelines configured yet. Create one to automate your imports.</p>
         )}
         {pipelines.map((pipeline) => {
           const detail = pipelineDetails[pipeline.id];
           const isExpanded = expandedId === pipeline.id;
           const webhookUrl = detail ? buildWebhookUrl(detail.webhookSecret) : undefined;
           return (
-            <div key={pipeline.id} className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
+            <div
+              key={pipeline.id}
+              className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-cocoa-700">
                 <div>
-                  <span className="font-semibold text-white">{pipeline.name}</span>
-                  {pipeline.description && <p className="text-xs text-slate-400">{pipeline.description}</p>}
+                  <span className="font-semibold text-charcoal-900">{pipeline.name}</span>
+                  {pipeline.description && <p className="text-xs text-cocoa-600">{pipeline.description}</p>}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-cocoa-500">
                   <span>Last run: {formatTimestamp(pipeline.lastRunAt)}</span>
                   {pipeline.schedule?.cron && <span>Schedule: {pipeline.schedule.cron}</span>}
                 </div>
@@ -260,44 +263,44 @@ export function PipelineManager() {
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <button
                   type="button"
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                  className="pill-button border-charcoal-300 text-cocoa-700"
                   onClick={() => void handleEdit(pipeline.id)}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                  className="pill-button border-charcoal-300 text-cocoa-700"
                   onClick={() => void handleToggleDetails(pipeline.id)}
                 >
                   {isExpanded ? 'Hide details' : 'Webhook details'}
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300"
+                  className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
                   onClick={() => void handleDelete(pipeline.id)}
                 >
                   Delete
                 </button>
               </div>
               {isExpanded && detail && (
-                <div className="space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+                <div className="space-y-3 rounded-2xl border border-cream-300 bg-cream-50/90 p-4 text-xs text-cocoa-600 shadow-inner">
                   <div>
-                    <p className="font-semibold text-white">Webhook endpoint</p>
-                    <p className="mt-1 break-all rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-200">
+                    <p className="font-semibold text-charcoal-900">Webhook endpoint</p>
+                    <p className="mt-1 break-all rounded-2xl border border-cream-300 bg-cream-100/80 px-3 py-2 text-[11px] text-cocoa-700">
                       {webhookUrl}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                        className="pill-button border-charcoal-300 text-cocoa-700"
                         onClick={() => webhookUrl && handleCopy(webhookUrl)}
                       >
                         Copy URL
                       </button>
                       <button
                         type="button"
-                        className="rounded-md border border-amber-500/60 px-3 py-1 text-xs text-amber-300 disabled:opacity-50"
+                        className="pill-button border-amber-300 text-amber-700 hover:bg-amber-100 disabled:opacity-50"
                         onClick={() => void handleRotateSecret(detail.id)}
                         disabled={isSaving}
                       >
@@ -305,14 +308,14 @@ export function PipelineManager() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1 text-slate-400">
+                  <div className="space-y-1 text-cocoa-600">
                     <p>POST to this URL to trigger the pipeline remotely. Body options:</p>
                     <ul className="list-disc pl-6">
                       <li>
-                        <code className="font-mono text-slate-200">content</code>: override raw text for this run.
+                        <code className="font-mono text-charcoal-900">content</code>: override raw text for this run.
                       </li>
                       <li>
-                        <code className="font-mono text-slate-200">title</code> &amp; <code className="font-mono text-slate-200">summary</code>: optional metadata.
+                        <code className="font-mono text-charcoal-900">title</code> &amp; <code className="font-mono text-charcoal-900">summary</code>: optional metadata.
                       </li>
                       <li>
                         Omit content to use the pipeline&apos;s default source URL ({detail.defaultSource?.value ?? 'not set'}).

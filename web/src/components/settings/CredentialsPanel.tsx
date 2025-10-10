@@ -103,7 +103,7 @@ export function CredentialsPanel() {
 
   if (status === 'loading') {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4 text-sm text-slate-300">
+      <section className="panel text-sm text-cocoa-600">
         Initialising secure storage…
       </section>
     );
@@ -111,29 +111,29 @@ export function CredentialsPanel() {
 
   if (hasVault === false) {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-        <h2 className="text-lg font-semibold text-white">Create secure credential vault</h2>
-        <p className="mt-2 text-sm text-slate-400">
+      <section className="panel">
+        <h2 className="panel-title">Create secure credential vault</h2>
+        <p className="panel-subtitle">
           Store provider API keys locally with AES-GCM encryption. The passphrase never leaves your device and is required
           every time you reopen the workspace.
         </p>
-        <form className="mt-4 flex flex-col gap-3" onSubmit={handleCreateVault}>
-          <label className="flex flex-col gap-1 text-sm text-slate-300">
-            Passphrase
+        <form className="mt-5 flex flex-col gap-4" onSubmit={handleCreateVault}>
+          <label className="flex flex-col gap-2">
+            <span className="field-label">Passphrase</span>
             <input
               type="password"
-              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+              className="field-input"
               value={passphrase}
               onChange={(event) => setPassphrase(event.target.value)}
               minLength={8}
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-300">
-            Confirm passphrase
+          <label className="flex flex-col gap-2">
+            <span className="field-label">Confirm passphrase</span>
             <input
               type="password"
-              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+              className="field-input"
               value={confirmPassphrase}
               onChange={(event) => setConfirmPassphrase(event.target.value)}
               minLength={8}
@@ -142,11 +142,11 @@ export function CredentialsPanel() {
           </label>
           <button
             type="submit"
-            className="mt-2 inline-flex w-max items-center justify-center rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white"
+            className="cta-button md:w-max"
           >
             Create vault
           </button>
-          {feedback && <p className="text-sm text-amber-300">{feedback}</p>}
+          {feedback && <p className="text-sm text-cocoa-600">{feedback}</p>}
         </form>
       </section>
     );
@@ -154,34 +154,34 @@ export function CredentialsPanel() {
 
   if (!isUnlocked) {
     return (
-      <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-        <h2 className="text-lg font-semibold text-white">Unlock credential vault</h2>
-        <form className="mt-4 flex flex-col gap-3" onSubmit={handleUnlock}>
-          <label className="flex flex-col gap-1 text-sm text-slate-300">
-            Passphrase
+      <section className="panel">
+        <h2 className="panel-title">Unlock credential vault</h2>
+        <form className="mt-5 flex flex-col gap-4" onSubmit={handleUnlock}>
+          <label className="flex flex-col gap-2">
+            <span className="field-label">Passphrase</span>
             <input
               type="password"
-              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+              className="field-input"
               value={passphrase}
               onChange={(event) => setPassphrase(event.target.value)}
               required
             />
           </label>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
             <button
               type="submit"
-              className="inline-flex items-center justify-center rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white"
+              className="cta-button"
             >
               Unlock
             </button>
             <button
               type="button"
-              className="rounded-md border border-rose-500/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-rose-200"
+              className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
               onClick={() => void handleResetVault()}
             >
               Reset vault
             </button>
-            {feedback && <span className="text-sm text-rose-300">{feedback}</span>}
+            {feedback && <span className="text-sm text-rose-600">{feedback}</span>}
           </div>
         </form>
       </section>
@@ -189,20 +189,20 @@ export function CredentialsPanel() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
-      <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-lg font-semibold text-white">Provider credentials</h2>
-        <p className="mt-1 text-sm text-slate-400">Keys are encrypted locally and decrypted per request only.</p>
-        {hasProvisioningAccess && (
-          <div className="mt-2 rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-2 text-xs text-emerald-200">
-            Managed provisioning is active ({planTier} · {billingStatus}). Keys are optional for eligible providers.
-          </div>
-        )}
-      </div>
+    <section className="panel">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="panel-title">Provider credentials</h2>
+          <p className="panel-subtitle">Keys are encrypted locally and decrypted per request only.</p>
+          {hasProvisioningAccess && (
+            <div className="mt-3 rounded-2xl border border-emerald-300 bg-emerald-50/90 px-4 py-3 text-xs font-semibold text-emerald-700">
+              Managed provisioning is active ({planTier} · {billingStatus}). Keys are optional for eligible providers.
+            </div>
+          )}
+        </div>
         <button
           type="button"
-          className="rounded-md border border-slate-700 px-3 py-1 text-xs uppercase tracking-wide text-slate-300"
+          className="pill-button border-charcoal-300 text-cocoa-700 hover:bg-cream-200"
           onClick={() => {
             lock();
             setFeedback('Vault locked.');
@@ -214,32 +214,42 @@ export function CredentialsPanel() {
 
       <button
         type="button"
-        className="mt-3 rounded-md border border-rose-500/60 px-3 py-1 text-xs uppercase tracking-wide text-rose-200 hover:bg-rose-500/10"
+        className="mt-4 pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
         onClick={() => void handleResetVault()}
       >
         Reset vault
       </button>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-6 space-y-4">
         {providers.map((provider) => {
           const hasKey = storedProviders.includes(provider.id);
           return (
             <div
               key={provider.id}
-              className="flex flex-col gap-2 rounded-md border border-slate-800/80 bg-slate-900/40 p-3"
+              className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 transition ${
+                hasKey
+                  ? 'border-charcoal-900 bg-charcoal-900 text-cream-50 shadow-lg'
+                  : 'border-cream-300 bg-cream-100/80 text-cocoa-800'
+              }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-100">{provider.displayName}</h3>
-                  <p className="text-xs text-slate-500">{getProviderDescription(provider.id)}</p>
+                  <h3 className={`text-sm font-semibold ${hasKey ? 'text-cream-50' : 'text-cocoa-900'}`}>
+                    {provider.displayName}
+                  </h3>
+                  <p className={`text-xs ${hasKey ? 'text-charcoal-200' : 'text-cocoa-500'}`}>
+                    {getProviderDescription(provider.id)}
+                  </p>
                 </div>
-                <span className="text-xs text-slate-400">{hasKey ? 'Stored: ' + mask('********') : 'No key saved'}</span>
+                <span className={`text-xs ${hasKey ? 'text-charcoal-200' : 'text-cocoa-500'}`}>
+                  {hasKey ? 'Stored: ' + mask('********') : 'No key saved'}
+                </span>
               </div>
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <input
                   type="password"
                   placeholder={hasKey ? 'Update API key…' : 'Enter API key…'}
-                  className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+                  className={`field-input flex-1 ${hasKey ? 'border-charcoal-700 bg-charcoal-800/80 text-cream-50 placeholder:text-charcoal-400' : ''}`}
                   value={pendingKeys[provider.id] ?? ''}
                   onChange={(event) =>
                     setPendingKeys((prev) => ({ ...prev, [provider.id]: event.target.value }))
@@ -248,7 +258,7 @@ export function CredentialsPanel() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-white"
+                    className={`action-button ${hasKey ? 'action-button--accent' : ''}`}
                     onClick={() => void handleSaveKey(provider.id)}
                   >
                     Save
@@ -256,7 +266,7 @@ export function CredentialsPanel() {
                   {hasKey && (
                     <button
                       type="button"
-                      className="rounded-md border border-rose-500/60 px-3 py-2 text-sm text-rose-300"
+                      className="pill-button border-rose-300 text-rose-700 hover:bg-rose-100"
                       onClick={() => void handleDeleteKey(provider.id)}
                     >
                       Remove
@@ -269,7 +279,7 @@ export function CredentialsPanel() {
         })}
       </div>
 
-      {feedback && <p className="mt-4 text-sm text-emerald-300">{feedback}</p>}
+      {feedback && <p className="mt-5 text-sm text-cocoa-600">{feedback}</p>}
     </section>
   );
 }

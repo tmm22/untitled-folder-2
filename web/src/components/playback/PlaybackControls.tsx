@@ -38,11 +38,11 @@ export function PlaybackControls() {
   }, []);
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-slate-800/60 bg-slate-950/50 p-4 shadow-lg shadow-slate-900/40">
+    <section className="panel flex flex-col gap-5">
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded-md bg-sky-500 px-4 py-2 font-medium text-white shadow hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+          className="control-button control-button--primary px-6"
           onClick={() => (snapshot.isPlaying ? pause() : play())}
           disabled={isGenerating}
         >
@@ -50,7 +50,7 @@ export function PlaybackControls() {
         </button>
         <button
           type="button"
-          className="rounded-md border border-slate-700 px-4 py-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600"
+          className="control-button control-button--ghost"
           onClick={() => stop()}
           disabled={isGenerating}
         >
@@ -58,16 +58,12 @@ export function PlaybackControls() {
         </button>
         <button
           type="button"
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
-            isLoopEnabled
-              ? 'border-sky-500/70 bg-sky-500/10 text-sky-200'
-              : 'border-slate-700 text-slate-300 hover:bg-slate-800'
-          }`}
+          className={`control-button ${isLoopEnabled ? 'control-button--toggle-active' : ''}`}
           onClick={() => toggleLoop()}
         >
           Loop
         </button>
-        <span className="ml-auto text-sm text-slate-400">
+        <span className="ml-auto text-sm text-cocoa-500">
           {formatTime(snapshot.currentTime)} / {formatTime(snapshot.duration)}
         </span>
       </div>
@@ -79,12 +75,12 @@ export function PlaybackControls() {
         step={0.1}
         value={snapshot.currentTime}
         onChange={handleSeek}
-        className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
+        className="h-1 w-full cursor-pointer appearance-none rounded-full bg-cream-300 accent-charcoal-900"
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-2">
-          <span className="text-sm text-slate-400">Playback speed</span>
+          <span className="text-sm font-medium text-cocoa-600">Playback speed</span>
           <input
             type="range"
             min={0.5}
@@ -92,12 +88,12 @@ export function PlaybackControls() {
             step={0.1}
             value={playbackSpeed}
             onChange={(event) => setPlaybackSpeed(Number(event.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
+            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-cream-300 accent-charcoal-900"
           />
-          <span className="text-xs text-slate-500">{playbackSpeed.toFixed(1)}x</span>
+          <span className="text-xs text-cocoa-500">{playbackSpeed.toFixed(1)}x</span>
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-sm text-slate-400">Volume</span>
+          <span className="text-sm font-medium text-cocoa-600">Volume</span>
           <input
             type="range"
             min={0}
@@ -105,9 +101,9 @@ export function PlaybackControls() {
             step={0.05}
             value={volume}
             onChange={(event) => setVolume(Number(event.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
+            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-cream-300 accent-charcoal-900"
           />
-          <span className="text-xs text-slate-500">{Math.round(volume * 100)}%</span>
+          <span className="text-xs text-cocoa-500">{Math.round(volume * 100)}%</span>
         </label>
       </div>
     </section>

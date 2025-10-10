@@ -4,11 +4,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { useAccountStore } from '@/modules/account/store';
 
 const statusColors: Record<string, string> = {
-  active: 'bg-emerald-900/30 text-emerald-200 border-emerald-700/60',
-  trial: 'bg-sky-900/30 text-sky-200 border-sky-700/60',
-  past_due: 'bg-amber-900/30 text-amber-200 border-amber-700/60',
-  canceled: 'bg-rose-900/30 text-rose-200 border-rose-700/60',
-  free: 'bg-slate-900/40 text-slate-300 border-slate-700/60',
+  active: 'border-emerald-300 bg-emerald-50/90 text-emerald-700',
+  trial: 'border-accent-400 bg-accent-200/80 text-charcoal-900',
+  past_due: 'border-amber-300 bg-amber-50 text-amber-700',
+  canceled: 'border-rose-300 bg-rose-50 text-rose-700',
+  free: 'border-cream-300 bg-cream-100/80 text-cocoa-700',
 };
 
 function formatNumber(value: number): string {
@@ -88,44 +88,48 @@ export function PremiumDashboard() {
   }, [applyRemoteAccount]);
 
   return (
-    <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">
+    <section className="panel">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-white">Premium workspace</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="panel-title">Premium workspace</h2>
+          <p className="panel-subtitle">
             Managed API provisioning keeps the app running even when you do not supply your own keys.
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wide ${statusClass}`}>
+        <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
           {billingStatus.replace('_', ' ')} · {planTier}
         </span>
       </header>
 
       {hasProvisioningAccess ? (
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="rounded-md border border-slate-800/60 bg-slate-900/40 p-3 text-slate-200">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Monthly usage</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNumber(usageSummary?.monthTokensUsed ?? 0)} tokens</p>
-            <p className="text-xs text-slate-400">Allowance {formatNumber(usageSummary?.monthlyAllowance ?? 0)}</p>
-            <div className="mt-3 h-2 rounded-full bg-slate-800">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-cream-300 bg-cream-50/90 p-4 shadow-inner text-cocoa-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa-500">Monthly usage</p>
+            <p className="mt-2 text-2xl font-semibold text-charcoal-900">
+              {formatNumber(usageSummary?.monthTokensUsed ?? 0)} tokens
+            </p>
+            <p className="text-xs text-cocoa-600">
+              Allowance {formatNumber(usageSummary?.monthlyAllowance ?? 0)}
+            </p>
+            <div className="mt-4 h-2 rounded-full bg-cream-200">
               <div
-                className="h-2 rounded-full bg-sky-500"
+                className="h-2 rounded-full bg-charcoal-900"
                 style={{ width: `${usagePercent}%` }}
                 aria-hidden
               />
             </div>
           </div>
-          <div className="rounded-md border border-slate-800/60 bg-slate-900/40 p-3 text-slate-200">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Auto provisioning</p>
-            <p className="mt-1 text-base">Enabled for OpenAI</p>
-            <p className="text-xs text-slate-400">More providers coming soon.</p>
+          <div className="rounded-2xl border border-cream-300 bg-cream-50/90 p-4 shadow-inner text-cocoa-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa-500">Auto provisioning</p>
+            <p className="mt-2 text-base text-charcoal-900">Enabled for OpenAI</p>
+            <p className="text-xs text-cocoa-600">More providers coming soon.</p>
           </div>
-          <div className="rounded-md border border-slate-800/60 bg-slate-900/40 p-3 text-slate-200">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Manage plan</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+          <div className="rounded-2xl border border-cream-300 bg-cream-50/90 p-4 shadow-inner text-cocoa-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa-500">Manage plan</p>
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                className="rounded-md bg-slate-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200"
+                className="action-button action-button--accent text-xs uppercase tracking-wide"
                 onClick={handleOpenPortal}
                 disabled={isProcessing}
               >
@@ -133,7 +137,7 @@ export function PremiumDashboard() {
               </button>
               <button
                 type="button"
-                className="rounded-md border border-rose-500/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-rose-200"
+                className="pill-button border-rose-300 text-rose-700 uppercase tracking-wide"
                 disabled
               >
                 Cancel plan
@@ -142,15 +146,17 @@ export function PremiumDashboard() {
           </div>
         </div>
       ) : (
-        <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-base text-slate-200">Upgrade to unlock managed provider access and higher token limits.</p>
-            <p className="text-sm text-slate-400">Perfect for users who do not want to juggle API keys.</p>
+        <div className="mt-6 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="text-cocoa-700">
+            <p className="text-base font-semibold text-charcoal-900">
+              Upgrade to unlock managed provider access and higher token limits.
+            </p>
+            <p className="text-sm text-cocoa-600">Perfect for users who do not want to juggle API keys.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+              className="cta-button px-5 py-2 text-sm"
               onClick={handleStartTrial}
               disabled={isProcessing}
             >
@@ -158,14 +164,14 @@ export function PremiumDashboard() {
             </button>
             <button
               type="button"
-              className="rounded-md border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200"
+              className="pill-button border-charcoal-300 text-cocoa-700"
             >
               Compare plans
             </button>
           </div>
         </div>
       )}
-      {actionMessage && <p className="mt-4 text-sm text-sky-300">{actionMessage}</p>}
+      {actionMessage && <p className="mt-5 text-sm text-cocoa-600">{actionMessage}</p>}
     </section>
   );
 }
