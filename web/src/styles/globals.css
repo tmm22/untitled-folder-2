@@ -60,7 +60,8 @@ body {
   }
 
   .cta-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-charcoal-900 px-5 py-3 text-base font-semibold text-cream-50 shadow-lg transition hover:bg-charcoal-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-charcoal-900/60 disabled:cursor-not-allowed disabled:bg-charcoal-600 disabled:text-charcoal-200 disabled:shadow-none disabled:ring-0;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-charcoal-900 px-5 py-3 text-base font-semibold text-cream-50 shadow-lg transition hover:bg-charcoal-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-charcoal-900/60;
+    @apply disabled:cursor-not-allowed disabled:bg-charcoal-600 disabled:text-charcoal-200 disabled:shadow-none disabled:ring-0;
   }
 
   .control-button {
