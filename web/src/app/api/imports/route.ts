@@ -132,20 +132,10 @@ async function fetchContent(url: string): Promise<string> {
   const parsed = new URL(url);
   await assertHostnameAllowed(parsed);
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'TextToSpeechApp/1.0 (+https://example.com)',
-      Accept: 'text/html,application/json',
-    },
-    redirect: 'manual',
-  });
+  const response = await fetchWithRedirects(parsed);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch content (${response.status})`);
-  }
-
-  if (response.status >= 300 && response.status < 400) {
-    throw NextResponse.json({ error: 'Redirects are not allowed for imports' }, { status: 400 });
   }
 
   return await readLimited(response);
@@ -196,12 +186,7 @@ function isRedditUrl(url: URL): boolean {
 async function handleReddit(url: URL) {
   await assertHostnameAllowed(url);
   const jsonUrl = url.origin + url.pathname + '.json' + url.search;
-  const response = await fetch(jsonUrl, {
-    headers: {
-      'User-Agent': 'TextToSpeechApp/1.0 (+https://example.com)',
-      Accept: 'application/json',
-    },
-  });
+  const response = await fetchWithRedirects(new URL(jsonUrl), { accept: 'application/json' });
 
   if (!response.ok) {
     throw new Error(`Reddit response ${response.status}`);
@@ -264,4 +249,38 @@ export async function POST(request: Request) {
     console.error('Import failed', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Import failed' }, { status: 500 });
   }
+}
+
+interface FetchRedirectOptions {
+  remaining?: number;
+  accept?: string;
+}
+
+async function fetchWithRedirects(url: URL, options: FetchRedirectOptions = {}): Promise<Response> {
+  const { remaining = 3, accept = 'text/html,application/json' } = options;
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'User-Agent': 'TextToSpeechApp/1.0 (+https://example.com)',
+      Accept: accept,
+    },
+    redirect: 'manual',
+  });
+
+  if (response.status >= 300 && response.status < 400) {
+    if (remaining === 0) {
+      throw NextResponse.json({ error: 'Too many redirects during import' }, { status: 400 });
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      throw NextResponse.json({ error: 'Redirect missing location header' }, { status: 400 });
+    }
+
+    const nextUrl = new URL(location, url);
+    await assertHostnameAllowed(nextUrl);
+    return fetchWithRedirects(nextUrl, { remaining: remaining - 1, accept });
+  }
+
+  return response;
 }

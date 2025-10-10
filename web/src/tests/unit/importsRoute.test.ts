@@ -104,4 +104,31 @@ describe('/api/imports SSRF guard', () => {
     const response = await POST(request);
     expect(response.status).toBe(413);
   });
+
+  it('follows safe redirects on the same host', async () => {
+    const fetchMock = globalThis.fetch as unknown as vi.Mock;
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, {
+        status: 301,
+        headers: { location: 'https://example.com/final' },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response('<html><article>Redirected</article></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    );
+
+    const request = new Request('http://localhost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'http://example.com/start' }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain('Redirected');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
