@@ -1,51 +1,67 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+## Overview
 
-## Authentication & Data Laye....r
+The web workspace powers rapid iteration on the studio UI. It includes content imports, history management, pronunciation glossaries, batch queueing, and (now) configurable automation pipelines that chain Convex actions together.
 
-The web studio uses Clerk for authentication and Convex as the backing data store for account metadata.
+## Authentication & Data Layer
+
+The app uses Clerk for authentication and Convex (when configured) for persistent data. Without Convex the workspace falls back to JSON files or in-memory stores depending on the feature.
 
 Set the following environment variables before running the app:
 
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` – Clerk publishable key for client-side rendering.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` – Clerk publishable key for client rendering.
 - `CLERK_SECRET_KEY` – Clerk secret key used by server routes.
 - `CONVEX_URL` – Base URL of your Convex deployment (e.g. `https://flat-moon-123.convex.cloud`).
-- `CONVEX_DEPLOYMENT_KEY` or `CONVEX_ADMIN_KEY` – Token the app uses to call Convex HTTP actions.
+- `CONVEX_DEPLOYMENT_KEY` or `CONVEX_ADMIN_KEY` – Token used to call Convex HTTP actions.
+- `PIPELINES_DATA_PATH` – Optional path to a JSON file the server uses when Convex is unavailable; omit to keep pipeline definitions in memory for the current process.
 
-After updating `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
+After changing `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
 
-Signed-in users have their generation history synchronized to Convex automatically. Guests continue to use browser storage, and switching between guest and authenticated sessions resets the local history cache.
+Signed-in users have generation history and pipeline definitions synchronised through Convex. Guests continue to rely on browser storage.
 
-## Getting Started
+## Pipeline Automation
 
-First, run the development server:
+Automation pipelines let you chain multiple post-processing steps after an import (cleaning, summarising, translating, tone adjustments, chunking, and queue preparation). They can be saved, rerun, or triggered externally.
+
+### Managing Pipelines
+
+- Open the **Imports** panel and scroll to **Automation pipelines**.
+- Create or edit a pipeline by choosing steps from the editor. Each step exposes provider-specific options:
+  - **Clean & normalise** – toggles whitespace normalisation and bullet removal.
+  - **Summarise / Translate / Adjust tone** – uses OpenAI when configured, with graceful fallbacks.
+  - **Create segments** – defines chunking strategy and size.
+  - **Queue configuration** – selects the TTS provider, voice preference, and optional segment delay.
+- Attach a pipeline to an import entry via the selector and run it to push segments directly into the batch queue with voice recommendations derived from recent history.
+
+### Webhooks & Scheduling
+
+- Every pipeline owns a secret webhook URL surfaced in the details panel. POST JSON payloads to trigger a run remotely.
+- Provide `content`, `title`, and `summary` fields to override defaults, or omit them to use the pipeline’s configured source URL.
+- Rotate the webhook secret from the UI when needed; downstream callers must update to the new URL.
+- Combine the webhook with external schedulers (e.g., GitHub Actions, cron) to run pipelines automatically. Use the optional cron description field in the editor to document expected schedules.
+
+## Development
+
+Start the dev server with:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000) to load the studio. Hot reloading is enabled.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+The project uses Vitest. Run the suite with:
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+Notable new suites:
+- `src/tests/unit/pipelines/pipelineRunner.test.ts`
+- `src/tests/unit/pipelines/pipelineStore.test.ts`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+The workspace is a standard Next.js application. You can deploy using Vercel or any platform that supports Node.js 18+. Ensure required environment variables and Convex credentials are available in the target environment.

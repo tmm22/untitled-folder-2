@@ -5,6 +5,12 @@ import { useImportStore } from '@/modules/imports/store';
 import { importFromUrl, buildImportedEntry } from '@/modules/imports/service';
 import { useTTSStore } from '@/modules/tts/store';
 import { generateId } from '@/lib/utils/id';
+import { usePipelineStore } from '@/modules/pipelines/store';
+import { PipelineManager } from './PipelineManager';
+import { useQueueStore } from '@/modules/queue/store';
+import { useHistoryStore } from '@/modules/history/store';
+import { resolveVoiceForQueue } from '@/modules/pipelines/voice';
+import { providerRegistry } from '@/modules/tts/providerRegistry';
 
 export function ImportPanel() {
   const entries = useImportStore((state) => state.entries);
@@ -12,13 +18,29 @@ export function ImportPanel() {
   const { hydrate, record, remove } = useImportStore((state) => state.actions);
   const { setInputText } = useTTSStore((state) => state.actions);
 
+  const pipelines = usePipelineStore((state) => state.pipelines);
+  const pipelineError = usePipelineStore((state) => state.error);
+  const { run: runPipeline } = usePipelineStore((state) => state.actions);
+  const enqueueSegments = useQueueStore((state) => state.actions.enqueueSegments);
+  const historyHydrated = useHistoryStore((state) => state.hydrated);
+  const historyEntries = useHistoryStore((state) => state.entries);
+  const historyActions = useHistoryStore((state) => state.actions);
+
   const [url, setUrl] = useState('');
   const [manualContent, setManualContent] = useState('');
   const [status, setStatus] = useState<string | undefined>();
+  const [pipelineSelections, setPipelineSelections] = useState<Record<string, string>>({});
+  const [pipelineStatuses, setPipelineStatuses] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (pipelineError) {
+      setStatus(pipelineError);
+    }
+  }, [pipelineError]);
 
   const handleImport = async (event: FormEvent) => {
     event.preventDefault();
@@ -63,6 +85,76 @@ export function ImportPanel() {
   const handleUseEntry = (content: string) => {
     setInputText(content);
     setStatus('Imported content loaded into editor.');
+  };
+
+  const setEntryPipelineStatus = (entryId: string, message: string) => {
+    setPipelineStatuses((prev) => ({
+      ...prev,
+      [entryId]: message,
+    }));
+  };
+
+  const handleRunPipeline = async (entryId: string) => {
+    const entry = entries.find((item) => item.id === entryId);
+    if (!entry) {
+      return;
+    }
+    const selected = pipelineSelections[entryId] || pipelines[0]?.id;
+    if (!selected) {
+      setEntryPipelineStatus(entryId, 'Create a pipeline before running automation.');
+      return;
+    }
+    setEntryPipelineStatus(entryId, 'Running pipeline…');
+    const result = await runPipeline({
+      pipelineId: selected,
+      content: entry.content,
+      title: entry.title,
+      summary: entry.summary,
+      source: { type: 'import', identifier: entry.id },
+    });
+    if (!result) {
+      setEntryPipelineStatus(entryId, 'Pipeline failed.');
+      return;
+    }
+    if (!historyHydrated) {
+      try {
+        await historyActions.hydrate();
+      } catch (error) {
+        console.error('Failed to hydrate history before pipeline queue', error);
+      }
+    }
+    const segments = result.artifacts.segments;
+    const queueSpec = result.artifacts.queue;
+
+    if (!queueSpec) {
+      const warningMessage =
+        result.warnings.length > 0 ? ` Warnings: ${result.warnings.join('; ')}` : '';
+      setEntryPipelineStatus(
+        entryId,
+        `Pipeline completed without queue step (${segments.length} segment${
+          segments.length === 1 ? '' : 's'
+        }).${warningMessage}`,
+      );
+      return;
+    }
+
+    const currentHistoryEntries = useHistoryStore.getState().entries;
+
+    const voiceId =
+      resolveVoiceForQueue(queueSpec, currentHistoryEntries) ??
+      providerRegistry.get(queueSpec.provider).defaultVoiceId ??
+      'default';
+
+    enqueueSegments(segments, {
+      provider: queueSpec.provider,
+      voiceId,
+    });
+
+    const warningMessage = result.warnings.length > 0 ? ` Warnings: ${result.warnings.join('; ')}` : '';
+    setEntryPipelineStatus(
+      entryId,
+      `Queued ${segments.length} segment${segments.length === 1 ? '' : 's'} with ${queueSpec.provider} (${voiceId}).${warningMessage}`,
+    );
   };
 
   if (!hydrated) {
@@ -125,6 +217,33 @@ export function ImportPanel() {
               >
                 Load into editor
               </button>
+              <div className="flex items-center gap-2 text-xs">
+                <select
+                  className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
+                  value={pipelineSelections[entry.id] ?? ''}
+                  onChange={(event) =>
+                    setPipelineSelections((prev) => ({
+                      ...prev,
+                      [entry.id]: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">{pipelines.length === 0 ? 'No pipelines' : 'Select pipeline'}</option>
+                  {pipelines.map((pipeline) => (
+                    <option key={pipeline.id} value={pipeline.id}>
+                      {pipeline.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="rounded-md border border-sky-500/60 px-3 py-1 text-sky-300 disabled:opacity-40"
+                  onClick={() => void handleRunPipeline(entry.id)}
+                  disabled={pipelines.length === 0}
+                >
+                  Run pipeline
+                </button>
+              </div>
               <button
                 type="button"
                 className="rounded-md border border-rose-500/60 px-3 py-1 text-xs text-rose-300"
@@ -133,11 +252,18 @@ export function ImportPanel() {
                 Delete
               </button>
             </div>
+            {pipelineStatuses[entry.id] && (
+              <p className="text-xs text-slate-400">{pipelineStatuses[entry.id]}</p>
+            )}
           </div>
         ))}
       </div>
 
       {status && <p className="mt-4 text-sm text-slate-300">{status}</p>}
+
+      <div className="mt-6">
+        <PipelineManager />
+      </div>
     </section>
   );
 }
