@@ -1,8 +1,11 @@
 import { XChaCha20Poly1305 } from '@stablelib/xchacha20poly1305';
 import type { ManagedCredential } from '@/lib/providers/types';
-import type { PlanTier } from '@/lib/provisioning';
 import { getProvisioningOrchestrator } from '@/app/api/provisioning/context';
 import { resolveSessionSecret } from './sessionRegistry';
+import { resolveRequestIdentity } from '@/lib/auth/identity';
+import { getAccountRepository } from '@/app/api/account/context';
+import { hasProvisioningAccess } from '@/lib/provisioning/access';
+import type { AccountPayload } from '@/lib/account/types';
 
 function decodeBase64(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, 'base64'));
@@ -26,35 +29,25 @@ function decryptSessionPayload(payload: string, secret: Uint8Array): string | nu
   }
 }
 
-const PREMIUM_STATUSES = new Set(['trial', 'active']);
-
-const isPlanTier = (value: string | null): value is PlanTier => {
-  return value === 'trial' || value === 'starter' || value === 'pro' || value === 'enterprise';
-};
-
 async function resolveProvisionedCredential(
-  request: Request,
+  account: AccountPayload,
   provider: string,
 ): Promise<ManagedCredential | undefined> {
-  const accountId = request.headers.get('x-account-id');
-  const planTier = request.headers.get('x-plan-tier');
-  const planStatus = request.headers.get('x-plan-status');
-
-  if (!accountId || !isPlanTier(planTier) || !planStatus || !PREMIUM_STATUSES.has(planStatus)) {
+  if (!hasProvisioningAccess(account)) {
     return undefined;
   }
 
   const orchestrator = getProvisioningOrchestrator();
-  let resolved = await orchestrator.resolveActiveCredential(accountId, provider);
+  let resolved = await orchestrator.resolveActiveCredential(account.userId, provider);
   if (!resolved) {
     try {
       await orchestrator.issueCredential({
-        userId: accountId,
+        userId: account.userId,
         provider,
-        planTier,
-        metadata: { planStatus },
+        planTier: account.planTier,
+        metadata: { planStatus: account.billingStatus },
       });
-      resolved = await orchestrator.resolveActiveCredential(accountId, provider);
+      resolved = await orchestrator.resolveActiveCredential(account.userId, provider);
     } catch (error) {
       console.error('Provisioned credential issuance during request failed', error);
       return undefined;
@@ -100,9 +93,24 @@ export async function resolveProviderAuthorization(
     return { apiKey: legacyKey };
   }
 
-  const managedCredential = await resolveProvisionedCredential(request, provider);
-  if (managedCredential) {
-    return { managedCredential };
+  const identity = resolveRequestIdentity(request);
+  const accountId = identity.userId?.trim();
+  if (accountId) {
+    try {
+      const repository = getAccountRepository();
+      const account = await repository.getOrCreate(accountId);
+      const managedCredential = await resolveProvisionedCredential(account, provider);
+      if (managedCredential) {
+        return { managedCredential };
+      }
+    } catch (error) {
+      console.error('Failed to resolve managed credential for account', error);
+    }
+  }
+
+  return {};
+}
+*** End Patch
   }
 
   return {};

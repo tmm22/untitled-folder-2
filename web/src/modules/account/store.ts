@@ -22,7 +22,6 @@ interface AccountState {
     setPlanTier: (planTier: AccountPlanTier) => void;
     setBillingStatus: (status: BillingStatus) => void;
     setPremiumExpiry: (expiresAt: number | undefined) => void;
-    getProvisioningHeaders: () => Record<string, string>;
     refreshFromServer: () => Promise<void>;
     reset: () => void;
   };
@@ -181,23 +180,12 @@ export const useAccountStore = create<AccountState>(() => ({
         if (!state.userId) {
           return;
         }
-        const payload = await fetchAccount(state.userId);
+        const payload = await fetchAccount();
         useAccountStore.getState().actions.applyRemoteAccount(payload as AccountUpdatePayload);
         useAccountStore.setState((prev) => ({ ...prev, usageSummary: payload.usage ?? prev.usageSummary }));
       } catch (error) {
         console.error('Failed to refresh account', error);
       }
-    },
-    getProvisioningHeaders: () => {
-      const state = useAccountStore.getState();
-      const headers: Record<string, string> = {};
-      if (!state.userId || !state.hasProvisioningAccess) {
-        return headers;
-      }
-      headers['x-account-id'] = state.userId;
-      headers['x-plan-tier'] = state.planTier;
-      headers['x-plan-status'] = state.billingStatus;
-      return headers;
     },
     reset: () => {
       lastSyncedUserId = null;

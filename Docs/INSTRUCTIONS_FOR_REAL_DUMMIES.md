@@ -22,6 +22,16 @@ Environment files store secrets like API keys. In the `web/` folder we already c
    open -a "TextEdit" .env.local
    ```
 4. Do not add quotes. When you’re done, save the file.
+   The minimum required variables look like:
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   CLERK_SECRET_KEY=sk_test_...
+   CONVEX_URL=https://your.convex.cloud
+   CONVEX_DEPLOYMENT_KEY=your_deployment_key
+   ACCOUNT_ID_SECRET=<openssl rand -base64 48>   # must be ≥32 chars in production
+   ACCOUNT_UPDATE_SECRET=<another strong secret> # used for plan updates
+   ```
+   You can add provider keys (OpenAI, ElevenLabs, Google) and PayPal keys later if needed.
 
 > **Tip**: You can reopen and edit `.env.local` as often as you like. Restart the dev server after changes.
 
@@ -62,7 +72,7 @@ Convex stores provisioning credentials and account usage. You only need test mod
    After deployment, copy the **deployment URL** and **admin key** into `.env.local`:
    ```
    CONVEX_URL=https://your.convex.cloud
-  CONVEX_DEPLOYMENT_KEY=your_deployment_key
+   CONVEX_DEPLOYMENT_KEY=your_deployment_key
    ```
 7. Restart the dev server (Ctrl+C then `npm run dev`). The app now reads/writes through Convex.
 
@@ -111,6 +121,8 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
 | `npx convex deploy` says "No CONVEX_DEPLOYMENT set" | From `web/`, run `npx convex login` (if needed) then `npx convex dev --once` to select your deployment; retry `npx convex deploy`. |
 | PayPal error “client not configured” | Double-check `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` in `.env.local` and restart the dev server. |
 | PayPal approval link missing | Ensure `PAYPAL_PLAN_ID` is valid and the plan is in the same environment (sandbox vs live) as your credentials. |
+| Cookie errors about `ACCOUNT_ID_SECRET` | Generate a 32+ char secret (`openssl rand -base64 48`), put it in `.env.local`, restart the dev server. |
+| Account PATCH returns 401/500 | Ensure `ACCOUNT_UPDATE_SECRET` is present in `.env.local` and the caller includes `x-account-update-token`. |
 
 > If you’re stuck, grab the exact error message and share it. The app now logs helpful hints in the console
 > when Convex/PayPal aren’t configured.

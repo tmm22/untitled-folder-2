@@ -1,12 +1,12 @@
 import type { AccountPayload } from './types';
 
-export async function fetchAccount(userId?: string): Promise<AccountPayload> {
+export async function fetchAccount(): Promise<AccountPayload> {
   const response = await fetch('/api/account', {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      ...(userId ? { 'x-account-id': userId } : {}),
     },
+    credentials: 'include',
   });
 
   if (!response.ok) {

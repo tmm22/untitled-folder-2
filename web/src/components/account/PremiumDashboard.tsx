@@ -21,7 +21,6 @@ export function PremiumDashboard() {
   const usageSummary = useAccountStore((state) => state.usageSummary);
   const hasProvisioningAccess = useAccountStore((state) => state.hasProvisioningAccess);
   const applyRemoteAccount = useAccountStore((state) => state.actions.applyRemoteAccount);
-  const userId = useAccountStore((state) => state.userId);
 
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isProcessing, setProcessing] = useState(false);
@@ -42,8 +41,8 @@ export function PremiumDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(userId ? { 'x-account-id': userId } : {}),
         },
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Unable to start trial');
@@ -58,7 +57,7 @@ export function PremiumDashboard() {
     } finally {
       setProcessing(false);
     }
-  }, [applyRemoteAccount, userId]);
+  }, [applyRemoteAccount]);
 
   const handleOpenPortal = useCallback(async () => {
     setProcessing(true);
@@ -68,8 +67,8 @@ export function PremiumDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(userId ? { 'x-account-id': userId } : {}),
         },
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Unable to open billing portal');
@@ -86,7 +85,7 @@ export function PremiumDashboard() {
     } finally {
       setProcessing(false);
     }
-  }, [applyRemoteAccount, userId]);
+  }, [applyRemoteAccount]);
 
   return (
     <section className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-4">

@@ -8,10 +8,7 @@ interface ProvisioningResponse {
 const EXPIRY_SAFETY_MS = 30 * 1000;
 const cache = new Map<ProviderType, ProvisioningResponse>();
 
-export async function ensureProvisionedCredential(
-  provider: ProviderType,
-  headers: Record<string, string>,
-): Promise<void> {
+export async function ensureProvisionedCredential(provider: ProviderType): Promise<void> {
   const cached = cache.get(provider);
   const now = Date.now();
   if (cached && cached.expiresAt > now + EXPIRY_SAFETY_MS) {
@@ -22,8 +19,8 @@ export async function ensureProvisionedCredential(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...headers,
     },
+    credentials: 'include',
     body: JSON.stringify({ provider }),
   });
 

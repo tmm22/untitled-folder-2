@@ -171,19 +171,14 @@ export const useCredentialStore = create<CredentialsState>((set, get) => ({
           }
         }
 
-        const accountHeaders = useAccountStore
-          .getState()
-          .actions.getProvisioningHeaders();
-        if (Object.keys(accountHeaders).length > 0) {
+        const accountState = useAccountStore.getState();
+        if (accountState.hasProvisioningAccess) {
           try {
-            await ensureProvisionedCredential(provider, accountHeaders);
-            return accountHeaders;
+            await ensureProvisionedCredential(provider);
           } catch (error) {
             console.error('Provisioning token ensure failed', error);
-            return {};
           }
         }
-
         return {};
       } catch (error) {
         console.error('Failed to prepare auth headers', error);

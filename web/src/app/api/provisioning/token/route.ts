@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import type { PlanTier } from '@/lib/provisioning';
 import { getProvisioningOrchestrator } from '@/app/api/provisioning/context';
+import { resolveRequestIdentity } from '@/lib/auth/identity';
+import { getAccountRepository } from '@/app/api/account/context';
+import { hasProvisioningAccess } from '@/lib/provisioning/access';
 
 interface TokenRequestBody {
   provider: string;
@@ -8,26 +10,24 @@ interface TokenRequestBody {
   scopes?: string[];
 }
 
-const PREMIUM_STATUSES = new Set(['trial', 'active']);
-
-const isPlanTier = (value: unknown): value is PlanTier => {
-  return value === 'trial' || value === 'starter' || value === 'pro' || value === 'enterprise';
-};
-
 export async function POST(request: Request) {
-  const accountId = request.headers.get('x-account-id');
-  const planTier = request.headers.get('x-plan-tier');
-  const planStatus = request.headers.get('x-plan-status');
+  const identity = resolveRequestIdentity(request);
+  const accountId = identity.userId?.trim();
 
-  if (!accountId || !planTier || !planStatus) {
-    return NextResponse.json({ error: 'Missing account headers' }, { status: 400 });
+  if (!accountId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  if (!isPlanTier(planTier)) {
-    return NextResponse.json({ error: 'Plan tier does not allow provisioning' }, { status: 403 });
+  const repository = getAccountRepository();
+  let account;
+  try {
+    account = await repository.getOrCreate(accountId);
+  } catch (error) {
+    console.error('Provisioning token lookup failed', error);
+    return NextResponse.json({ error: 'Unable to resolve account' }, { status: 500 });
   }
 
-  if (!PREMIUM_STATUSES.has(planStatus)) {
+  if (!hasProvisioningAccess(account)) {
     return NextResponse.json({ error: 'Account is not eligible for provisioning' }, { status: 403 });
   }
 
@@ -41,13 +41,13 @@ export async function POST(request: Request) {
 
   try {
     const response = await orchestrator.issueCredential({
-      userId: accountId,
+      userId: account.userId,
       provider,
-      planTier,
+      planTier: account.planTier,
       ttlMs: body.ttlMs,
       scopes: body.scopes,
       metadata: {
-        planStatus,
+        planStatus: account.billingStatus,
       },
     });
 

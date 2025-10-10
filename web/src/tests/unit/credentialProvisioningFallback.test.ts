@@ -50,11 +50,9 @@ describe('Credential store provisioning fallback', () => {
     ensureProvisionedCredentialMock.mockClear();
   });
 
-  it('returns provisioning headers when no stored API key exists', async () => {
+  it('ensures provisioning token when no stored API key exists', async () => {
     const headers = await useCredentialStore.getState().actions.getAuthHeaders('openAI');
-    expect(headers['x-account-id']).toBe('user-test');
-    expect(headers['x-plan-tier']).toBe('starter');
-    expect(headers['x-plan-status']).toBe('active');
-    expect(ensureProvisionedCredentialMock).toHaveBeenCalledWith('openAI' satisfies ProviderType, headers);
+    expect(headers).toEqual({});
+    expect(ensureProvisionedCredentialMock).toHaveBeenCalledWith('openAI' satisfies ProviderType);
   });
 });

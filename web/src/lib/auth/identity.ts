@@ -1,22 +1,21 @@
 import { getAuth } from '@clerk/nextjs/server';
+import { ACCOUNT_COOKIE_NAME, verifyAccountCookie } from './accountCookie';
 
 interface RequestIdentity {
   userId: string | null;
   isVerified: boolean;
-  source: 'authorization' | 'header' | 'cookie' | 'generated' | 'clerk';
+  source: 'authorization' | 'cookie' | 'generated' | 'clerk';
 }
 
-const ACCOUNT_COOKIE = 'account_id';
-
-function parseCookie(header: string | null): string | null {
+function readCookieValue(header: string | null, name: string): string | null {
   if (!header) {
     return null;
   }
   const entry = header
     .split(';')
     .map((value) => value.trim())
-    .find((value) => value.startsWith(`${ACCOUNT_COOKIE}=`));
-  return entry ? entry.split('=')[1] ?? null : null;
+    .find((value) => value.startsWith(`${name}=`));
+  return entry ? entry.slice(name.length + 1) || null : null;
 }
 
 function resolveFromAuthorization(header: string | null): RequestIdentity | null {
@@ -30,11 +29,18 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
 
   const devPrefix = 'dev:';
   if (token.startsWith(devPrefix)) {
+    if (process.env.AUTH_DEV_TOKENS !== '1') {
+      return null;
+    }
     return {
       userId: token.slice(devPrefix.length) || null,
       isVerified: true,
       source: 'authorization',
     };
+  }
+
+  if (process.env.AUTH_ASSUME_TRUST !== '1') {
+    return null;
   }
 
   return {
@@ -76,12 +82,8 @@ export function resolveRequestIdentity(request: Request): RequestIdentity {
     return authorization;
   }
 
-  const headerId = request.headers.get('x-account-id')?.trim();
-  if (headerId) {
-    return { userId: headerId, isVerified: false, source: 'header' };
-  }
-
-  const cookieId = parseCookie(request.headers.get('cookie'));
+  const cookieValue = readCookieValue(request.headers.get('cookie'), ACCOUNT_COOKIE_NAME);
+  const cookieId = verifyAccountCookie(cookieValue);
   if (cookieId) {
     return { userId: cookieId, isVerified: false, source: 'cookie' };
   }

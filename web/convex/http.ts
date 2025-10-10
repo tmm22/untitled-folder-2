@@ -21,42 +21,52 @@ function parseAuthorization(request: Request) {
 }
 
 function requireAdmin(request: Request) {
-  const allowed = [process.env.CONVEX_DEPLOYMENT_KEY, process.env.CONVEX_ADMIN_KEY]
+  const allowedTokens = [process.env.CONVEX_DEPLOYMENT_KEY, process.env.CONVEX_ADMIN_KEY]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
 
-  const parsedAuth = parseAuthorization(request);
-  const fallbackToken = request.headers.get('x-convex-admin-key')?.trim();
-
-  if (allowed.length === 0) {
-    if (parsedAuth?.token || fallbackToken) {
-      console.warn(
-        '[Convex HTTP] No admin tokens configured; allowing request based on provided credentials',
-      );
-      return;
-    }
+  if (allowedTokens.length === 0) {
+    console.error('[Convex HTTP] Rejecting request: no CONVEX_DEPLOYMENT_KEY or CONVEX_ADMIN_KEY configured');
     throw new Response('Convex admin token not configured', { status: 500 });
   }
 
-  if (parsedAuth?.token) {
-    const expectedScheme = process.env.CONVEX_AUTH_SCHEME?.trim();
-    if (allowed.includes(parsedAuth.token)) {
-      if (!expectedScheme || !parsedAuth.scheme) {
-        return;
-      }
-      if (expectedScheme.toLowerCase() === parsedAuth.scheme.toLowerCase()) {
-        return;
-      }
-      if (!expectedScheme && (parsedAuth.scheme === 'Bearer' || parsedAuth.scheme === 'Deployment')) {
-        return;
-      }
-    }
-  }
+  const expectedScheme = process.env.CONVEX_AUTH_SCHEME?.trim()?.toLowerCase() ?? null;
 
-  if (fallbackToken && allowed.includes(fallbackToken)) {
+  const isTokenAuthorized = (token: string | undefined | null, scheme?: string | null): boolean => {
+    if (!token) {
+      return false;
+    }
+
+    if (!allowedTokens.includes(token)) {
+      return false;
+    }
+
+    if (!expectedScheme) {
+      // Default to accepting classic Bearer/Deployment schemes when none specified explicitly.
+      if (!scheme) {
+        return true;
+      }
+      const normalizedScheme = scheme.toLowerCase();
+      return normalizedScheme === 'bearer' || normalizedScheme === 'deployment';
+    }
+
+    if (!scheme) {
+      return false;
+    }
+    return scheme.toLowerCase() === expectedScheme;
+  };
+
+  const parsedAuth = parseAuthorization(request);
+  if (isTokenAuthorized(parsedAuth?.token, parsedAuth?.scheme)) {
     return;
   }
 
+  const fallbackToken = request.headers.get('x-convex-admin-key')?.trim();
+  if (isTokenAuthorized(fallbackToken)) {
+    return;
+  }
+
+  console.warn('[Convex HTTP] Unauthorized admin access attempt blocked');
   throw new Response('Unauthorized', { status: 401 });
 }
 
@@ -283,5 +293,9 @@ router.route({
     return json(result);
   }),
 });
+
+export const __test = {
+  requireAdmin,
+};
 
 export default router;

@@ -4,6 +4,7 @@ import { resolveProviderAdapter } from '@/lib/providers';
 import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
 import { getProvisioningStore } from '@/app/api/provisioning/context';
 import { getAccountRepository } from '@/app/api/account/context';
+import { resolveRequestIdentity } from '@/lib/auth/identity';
 
 type ProviderRouteContext = {
   params: Promise<{
@@ -41,6 +42,8 @@ export async function POST(request: Request, context: ProviderRouteContext) {
   }
 
   const authorization = await resolveProviderAuthorization(request, provider);
+  const identity = resolveRequestIdentity(request);
+  const accountId = identity.userId ?? null;
 
   try {
     const adapter = resolveProviderAdapter({
@@ -49,7 +52,6 @@ export async function POST(request: Request, context: ProviderRouteContext) {
       managedCredential: authorization.managedCredential,
     });
     const result = await adapter.synthesize(payload);
-    const accountId = request.headers.get('x-account-id');
     const tokensUsed = Math.max(0, Math.round(payload.text.length));
 
     if (accountId) {

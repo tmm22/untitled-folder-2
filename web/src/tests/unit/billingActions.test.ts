@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as checkout } from '@/app/api/billing/checkout/route';
 import { POST as portal } from '@/app/api/billing/portal/route';
+import { ACCOUNT_COOKIE_NAME, buildAccountCookieValue } from '@/lib/auth/accountCookie';
 
-function buildRequest(headers: Record<string, string>) {
+function buildRequest(accountId?: string) {
+  const headers = new Headers();
+  if (accountId) {
+    headers.set('cookie', `${ACCOUNT_COOKIE_NAME}=${buildAccountCookieValue(accountId)}`);
+  }
   return new Request('http://localhost', { method: 'POST', headers });
 }
 
@@ -43,7 +48,7 @@ describe('Billing actions API', () => {
   });
 
   it('returns checkout payload and updates account', async () => {
-    const response = await checkout(buildRequest({ 'x-account-id': 'acct-123' }));
+    const response = await checkout(buildRequest('acct-123'));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.account.planTier).toBe('starter');
@@ -52,7 +57,7 @@ describe('Billing actions API', () => {
   });
 
   it('returns portal payload', async () => {
-    const response = await portal(buildRequest({ 'x-account-id': 'acct-123' }));
+    const response = await portal(buildRequest('acct-123'));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.portalUrl).toContain('https://paypal.test/portal');
