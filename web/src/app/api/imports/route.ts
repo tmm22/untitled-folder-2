@@ -185,8 +185,12 @@ function isRedditUrl(url: URL): boolean {
 
 async function handleReddit(url: URL) {
   await assertHostnameAllowed(url);
-  const jsonUrl = url.origin + url.pathname + '.json' + url.search;
-  const response = await fetchWithRedirects(new URL(jsonUrl), { accept: 'application/json' });
+  const searchWithRaw = url.search ? `${url.search}&raw_json=1` : '?raw_json=1';
+  const jsonUrl = url.origin + url.pathname + '.json' + searchWithRaw;
+  const response = await fetchWithRedirects(new URL(jsonUrl), {
+    accept: 'application/json',
+    userAgent: DEFAULT_USER_AGENT,
+  });
 
   if (!response.ok) {
     throw new Error(`Reddit response ${response.status}`);
@@ -229,7 +233,7 @@ export async function POST(request: Request) {
   try {
     const { title, content } = isRedditUrl(parsedUrl)
       ? await handleReddit(parsedUrl)
-      : extractArticle(await fetchContent(parsedUrl.href));
+    : extractArticle(await fetchContent(parsedUrl.href));
 
     if (!content) {
       return NextResponse.json({ error: 'No readable content found' }, { status: 422 });
@@ -254,14 +258,17 @@ export async function POST(request: Request) {
 interface FetchRedirectOptions {
   remaining?: number;
   accept?: string;
+  userAgent?: string;
 }
 
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; TextToSpeechApp/1.0; +https://example.com)';
+
 async function fetchWithRedirects(url: URL, options: FetchRedirectOptions = {}): Promise<Response> {
-  const { remaining = 3, accept = 'text/html,application/json' } = options;
+  const { remaining = 3, accept = 'text/html,application/json', userAgent = DEFAULT_USER_AGENT } = options;
 
   const response = await fetch(url.toString(), {
     headers: {
-      'User-Agent': 'TextToSpeechApp/1.0 (+https://example.com)',
+      'User-Agent': userAgent,
       Accept: accept,
     },
     redirect: 'manual',
@@ -279,7 +286,7 @@ async function fetchWithRedirects(url: URL, options: FetchRedirectOptions = {}):
 
     const nextUrl = new URL(location, url);
     await assertHostnameAllowed(nextUrl);
-    return fetchWithRedirects(nextUrl, { remaining: remaining - 1, accept });
+    return fetchWithRedirects(nextUrl, { remaining: remaining - 1, accept, userAgent });
   }
 
   return response;
