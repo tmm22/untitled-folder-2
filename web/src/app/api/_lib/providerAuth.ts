@@ -110,8 +110,3 @@ export async function resolveProviderAuthorization(
 
   return {};
 }
-*** End Patch
-  }
-
-  return {};
-}
