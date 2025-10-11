@@ -13,7 +13,10 @@ export function TranslationControls() {
   if (isTestEnv) {
     return null;
   }
+  return <TranslationControlsInner />;
+}
 
+function TranslationControlsInner() {
   const { targetLanguageCode, keepOriginal, isLoading, error } = useTranslationHistoryStore(
     (state) => ({
       targetLanguageCode: state.targetLanguageCode,
@@ -33,12 +36,8 @@ export function TranslationControls() {
   const setInputText = useTTSStore((state) => state.actions.setInputText);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'test') {
-      return;
-    }
     void hydrate(DOCUMENT_ID);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrate]);
 
   const availableLanguages = useMemo(() => SUPPORTED_TRANSLATION_LANGUAGES, []);
 

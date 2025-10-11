@@ -6,7 +6,6 @@ import { useTranslationHistoryStore } from '@/modules/translations/store';
 import { useTTSStore } from '@/modules/tts/store';
 import { SUPPORTED_TRANSLATION_LANGUAGES } from '@/lib/translations/languages';
 
-const DOCUMENT_ID = 'main-editor';
 const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
 
 const languageLabel = (code: string) => {
@@ -18,7 +17,10 @@ export function TranslationHistoryPanel() {
   if (isTestEnv) {
     return null;
   }
+  return <TranslationHistoryPanelInner />;
+}
 
+function TranslationHistoryPanelInner() {
   const { history, activeTranslation, keepOriginal, nextCursor, isLoading } = useTranslationHistoryStore(
     (state) => ({
       history: state.history,
