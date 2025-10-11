@@ -1,3 +1,7 @@
+import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
+import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../convex/client';
 import type { HistoryEntryPayload } from './types';
 
 export interface HistoryRepository {
@@ -11,100 +15,76 @@ interface ConvexHistoryRepositoryOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
 }
-
-interface ConvexResponse<T> {
-  result: T;
-}
-
-const HISTORY_ENDPOINTS = {
-  list: ['history/list'],
-  record: ['history/record'],
-  remove: ['history/remove'],
-  clear: ['history/clear'],
-};
 
 export class ConvexHistoryRepository implements HistoryRepository {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexHistoryRepositoryOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
-  }
-
-  private buildUrl(path: string): string[] {
-    const suffixes = [`/api/${path}`, `/${path}`, `/api/http/${path}`, `/http/${path}`];
-    return suffixes.map((suffix) => {
-      try {
-        return new URL(suffix, this.baseUrl).toString();
-      } catch {
-        return `${this.baseUrl}${suffix}`;
-      }
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
     });
   }
 
-  private async execute<T>(pathCandidates: string[], body: unknown): Promise<T> {
-    const headers = new Headers({
-      Authorization: `${this.authScheme} ${this.authToken}`,
-      'Content-Type': 'application/json',
-    });
-
-    let lastError: Error | null = null;
-
-    for (const candidate of pathCandidates) {
-      for (const url of this.buildUrl(candidate)) {
-        try {
-          const response = await this.fetchImpl(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-          });
-
-          if (!response.ok) {
-            const errorBody = await response.text().catch(() => '');
-            throw new Error(`Convex history request failed (${response.status}): ${errorBody}`);
-          }
-
-          const payload = (await response.json()) as ConvexResponse<T> | T;
-          if (payload && typeof payload === 'object' && 'result' in payload) {
-            return (payload as ConvexResponse<T>).result;
-          }
-          return payload as T;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Unknown Convex history error');
-        }
-      }
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex history request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex history request failed: ${String(error)}`);
+  }
 
-    if (lastError) {
-      throw lastError;
+  private async query<TArgs extends DefaultFunctionArgs, TResult>(
+    reference: FunctionReference<'query', any, TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return (await fetchQuery(
+        reference as FunctionReference<'query', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
+    } catch (error) {
+      throw this.wrapError(error);
     }
-    throw new Error('Convex history request failed: no endpoints succeeded');
+  }
+
+  private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return (await fetchMutation(
+        reference as FunctionReference<'mutation', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
+    } catch (error) {
+      throw this.wrapError(error);
+    }
   }
 
   async list(userId: string, limit?: number): Promise<HistoryEntryPayload[]> {
-    return await this.execute<HistoryEntryPayload[]>(HISTORY_ENDPOINTS.list, {
+    const result = await this.query(api.history.list, {
       userId,
       limit,
     });
+    return (result ?? []) as HistoryEntryPayload[];
   }
 
   async record(entry: HistoryEntryPayload): Promise<void> {
-    await this.execute(HISTORY_ENDPOINTS.record, { entry });
+    await this.mutation(api.history.record, { entry });
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    await this.execute(HISTORY_ENDPOINTS.remove, { userId, id });
+    await this.mutation(api.history.remove, { userId, id });
   }
 
   async clear(userId: string): Promise<void> {
-    await this.execute(HISTORY_ENDPOINTS.clear, { userId });
+    await this.mutation(api.history.clear, { userId });
   }
 }
 

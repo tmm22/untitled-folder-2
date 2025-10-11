@@ -6,34 +6,36 @@ import {
   clearSession,
 } from '@/app/api/_lib/sessionRegistry';
 import { getSessionStoreKind, resetSessionStoreForTesting } from '@/lib/session';
+import { fetchMutation } from 'convex/nextjs';
+
+vi.mock('convex/nextjs', () => ({
+  fetchMutation: vi.fn(),
+  fetchQuery: vi.fn(),
+}));
 
 const BASE64_SECRET = Buffer.from('a'.repeat(32)).toString('base64');
 
 describe('sessionRegistry', () => {
   beforeEach(() => {
     resetSessionStoreForTesting();
-    process.env.CONVEX_URL = 'https://example.convex.site';
+    process.env.CONVEX_URL = 'https://example.convex.cloud';
     process.env.CONVEX_DEPLOYMENT_KEY = 'test-token';
+    (fetchMutation as unknown as vi.Mock).mockReset();
   });
 
   afterEach(() => {
     resetSessionStoreForTesting();
     delete process.env.CONVEX_URL;
     delete process.env.CONVEX_DEPLOYMENT_KEY;
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it('falls back to a local session store when Convex save fails', async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: false,
-      status: 404,
-      text: async () => 'No matching routes found',
-    }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    fetchMutationMock.mockRejectedValue(new Error('Convex session request failed: No matching routes found'));
 
     await registerSession('session-1', BASE64_SECRET);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMutationMock).toHaveBeenCalledTimes(1);
     expect(getSessionStoreKind()).toBe('memory');
 
     const secret = await resolveSessionSecret('session-1');

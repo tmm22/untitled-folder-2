@@ -1,73 +1,64 @@
+import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
+import { fetchMutation, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../../convex/client';
 import type { SessionRecord, SessionStore } from '../types';
 
 interface ConvexSessionStoreOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
-}
-
-interface ConvexResponse<T> {
-  result: T;
-}
-
-function buildHeaders(token: string, scheme: string): HeadersInit {
-  return {
-    Authorization: `${scheme} ${token}`,
-    'Content-Type': 'application/json',
-  };
 }
 
 export class ConvexSessionStore implements SessionStore {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexSessionStoreOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
+    });
   }
 
-  private async request<T>(path: string, body?: unknown): Promise<T> {
-    const response = await this.fetchImpl(`${this.baseUrl}/api/session/${path}`, {
-      method: 'POST',
-      headers: buildHeaders(this.authToken, this.authScheme),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      throw new Error(`Convex session request failed (${response.status}): ${errorBody}`);
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex session request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex session request failed: ${String(error)}`);
+  }
 
-    if (response.status === 204) {
-      return undefined as T;
+  private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return (await fetchMutation(
+        reference as FunctionReference<'mutation', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
+    } catch (error) {
+      throw this.wrapError(error);
     }
-
-    const payload = (await response.json().catch(() => ({}))) as ConvexResponse<T> | T;
-    if (payload && typeof payload === 'object' && 'result' in payload) {
-      return (payload as ConvexResponse<T>).result;
-    }
-    return payload as T;
   }
 
   async save(record: SessionRecord): Promise<void> {
-    await this.request('save', { record });
+    await this.mutation(api.session.save, { record });
   }
 
   async find(id: string): Promise<SessionRecord | null> {
-    const result = await this.request<{ session: SessionRecord | null }>('get', { sessionId: id });
-    return result.session;
+    const result = await this.mutation(api.session.get, { sessionId: id });
+    return result.session ?? null;
   }
 
   async delete(id: string): Promise<void> {
-    await this.request('delete', { sessionId: id });
+    await this.mutation(api.session.deleteSession, { sessionId: id });
   }
 
   async prune(now: number): Promise<void> {
-    await this.request('prune', { now });
+    await this.mutation(api.session.prune, { now });
   }
 }

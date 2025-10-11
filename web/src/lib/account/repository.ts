@@ -1,3 +1,7 @@
+import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
+import { fetchMutation, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../convex/client';
 import type { AccountPayload, AccountUsageSummary } from './types';
 
 export interface AccountRepository {
@@ -10,11 +14,6 @@ interface ConvexAccountRepositoryOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
-}
-
-interface ConvexResponse<T> {
-  result: T;
 }
 
 const DEFAULT_FREE_ALLOWANCE = 50_000;
@@ -31,115 +30,62 @@ const allowanceByTier: Record<string, number> = {
 const now = () => Date.now();
 
 export class ConvexAccountRepository implements AccountRepository {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexAccountRepositoryOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
-  }
-
-  private async executeRequest<T>(url: string, body: unknown): Promise<T> {
-    const response = await this.fetchImpl(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `${this.authScheme} ${this.authToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      throw new Error(`Convex account request failed (${response.status}): ${errorBody}`);
-    }
-
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    const payload = (await response.json().catch(() => ({}))) as ConvexResponse<T> | T;
-    if (payload && typeof payload === 'object' && 'result' in payload) {
-      return (payload as ConvexResponse<T>).result;
-    }
-    return payload as T;
-  }
-
-  private buildUrlCandidates(path: string): string[] {
-    const suffixes = [
-      `/api/account/${path}`,
-      `/account/${path}`,
-      `/api/http/account/${path}`,
-      `/http/account/${path}`,
-    ];
-
-    return suffixes.map((suffix) => {
-      try {
-        return new URL(suffix, this.baseUrl).toString();
-      } catch {
-        return `${this.baseUrl.replace(/\/$/, '')}${suffix}`;
-      }
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
     });
   }
 
-  private async requestWithFallback<T>(paths: string[], body: unknown): Promise<T> {
-    let notFoundError: Error | null = null;
-    for (const path of paths) {
-      for (const url of this.buildUrlCandidates(path)) {
-        try {
-          return await this.executeRequest<T>(url, body);
-        } catch (error) {
-          const sanitizedUrl = (() => {
-            try {
-              const candidate = new URL(url);
-              return `${candidate.origin}${candidate.pathname}`;
-            } catch {
-              return url;
-            }
-          })();
-          const isNotFoundError =
-            error instanceof Error && /Convex account request failed \(404\)/.test(error.message);
-          if (isNotFoundError) {
-            console.warn('[ConvexAccountRepository] HTTP 404 when calling', sanitizedUrl);
-            notFoundError = error;
-            continue;
-          }
-          console.error('[ConvexAccountRepository] Request failed for', sanitizedUrl, error);
-          throw error;
-        }
-      }
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex account request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex account request failed: ${String(error)}`);
+  }
 
-    if (notFoundError) {
-      throw notFoundError;
+  private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return (await fetchMutation(
+        reference as FunctionReference<'mutation', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
+    } catch (error) {
+      throw this.wrapError(error);
     }
-
-    throw new Error('Convex account request failed: no routes responded successfully');
   }
 
   async getOrCreate(userId: string): Promise<AccountPayload> {
-    const result = await this.requestWithFallback<{ account: AccountPayload }>(['getOrCreate'], { userId });
-    return result.account;
+    const result = await this.mutation(api.account.getOrCreate, { userId });
+    if (!result.account) {
+      throw new Error('Convex account request failed: empty account response');
+    }
+    return result.account as AccountPayload;
   }
 
   async updateAccount(payload: AccountPayload): Promise<AccountPayload> {
-    const result = await this.requestWithFallback<{ account: AccountPayload }>(['update', 'updateAccount'], {
-      payload,
-    });
-    return result.account;
+    const result = await this.mutation(api.account.updateAccount, { payload });
+    if (!result.account) {
+      throw new Error('Convex account request failed: empty account response');
+    }
+    return result.account as AccountPayload;
   }
 
   async recordUsage(userId: string, provider: string, tokensUsed: number): Promise<AccountPayload> {
-    const result = await this.requestWithFallback<{ account: AccountPayload }>(['recordUsage'], {
-      userId,
-      provider,
-      tokensUsed,
-    });
-    return result.account;
+    const result = await this.mutation(api.account.recordUsage, { userId, provider, tokensUsed });
+    if (!result.account) {
+      throw new Error('Convex account request failed: empty account response');
+    }
+    return result.account as AccountPayload;
   }
 }
 
