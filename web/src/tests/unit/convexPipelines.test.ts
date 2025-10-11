@@ -11,14 +11,17 @@ class FakeQueryBuilder {
 
   constructor(private readonly source: FakeDb) {}
 
-  withIndex(_name: string, apply: (builder: { eq: (field: string, value: unknown) => unknown }) => void) {
+  withIndex(
+    _name: string,
+    apply?: (builder: { eq: (field: string, value: unknown) => unknown }) => void,
+  ) {
     const builder = {
       eq: (field: string, value: unknown) => {
         this.eqConditions.push({ field, value });
         return builder;
       },
     };
-    apply(builder);
+    apply?.(builder);
     return this;
   }
 

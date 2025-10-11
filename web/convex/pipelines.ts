@@ -1,4 +1,4 @@
-import { query, mutation, type MutationCtx, type QueryCtx } from './_generated/server';
+import { query, mutation, type DatabaseReader } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -30,16 +30,18 @@ function mapPipeline(doc: PipelineDoc) {
   };
 }
 
-async function loadPipelineById(ctx: MutationCtx | QueryCtx, id: string): Promise<PipelineDoc | null> {
-  return await ctx.db
+async function loadPipelineById(db: DatabaseReader, id: string): Promise<PipelineDoc | null> {
+  return await db
     .query('pipelines')
+    .withIndex('by_id')
     .filter((q) => q.eq(q.field('id'), id))
     .first();
 }
 
-async function loadPipelineBySecret(ctx: MutationCtx | QueryCtx, secret: string): Promise<PipelineDoc | null> {
-  return await ctx.db
+async function loadPipelineBySecret(db: DatabaseReader, secret: string): Promise<PipelineDoc | null> {
+  return await db
     .query('pipelines')
+    .withIndex('by_webhook_secret')
     .filter((q) => q.eq(q.field('webhookSecret'), secret))
     .first();
 }
@@ -66,7 +68,7 @@ export const list = query({
 export const get = query({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    const pipeline = await loadPipelineById(ctx, id);
+    const pipeline = await loadPipelineById(ctx.db, id);
     return { pipeline: pipeline ? mapPipeline(pipeline) : null };
   },
 });
@@ -74,7 +76,7 @@ export const get = query({
 export const findByWebhookSecret = query({
   args: { secret: v.string() },
   handler: async (ctx, { secret }) => {
-    const pipeline = await loadPipelineBySecret(ctx, secret);
+    const pipeline = await loadPipelineBySecret(ctx.db, secret);
     return { pipeline: pipeline ? mapPipeline(pipeline) : null };
   },
 });
@@ -126,7 +128,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, { id, input }) => {
-    const existing = await loadPipelineById(ctx, id);
+    const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {
       return { pipeline: null };
     }
@@ -163,7 +165,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    const existing = await loadPipelineById(ctx, id);
+    const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {
       return { result: false };
     }
@@ -178,7 +180,7 @@ export const recordRun = mutation({
     completedAt: v.string(),
   },
   handler: async (ctx, { id, completedAt }) => {
-    const existing = await loadPipelineById(ctx, id);
+    const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {
       return { pipeline: null };
     }

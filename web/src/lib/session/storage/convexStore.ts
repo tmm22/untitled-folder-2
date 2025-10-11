@@ -1,5 +1,5 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
-import { fetchMutation, type NextjsOptions } from 'convex/nextjs';
+import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
 import { api } from '../../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../../convex/client';
 import type { SessionRecord, SessionStore } from '../types';
@@ -30,6 +30,21 @@ export class ConvexSessionStore implements SessionStore {
     return new Error(`Convex session request failed: ${String(error)}`);
   }
 
+  private async query<TArgs extends DefaultFunctionArgs, TResult>(
+    reference: FunctionReference<'query', any, TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return (await fetchQuery(
+        reference as FunctionReference<'query', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
+    } catch (error) {
+      throw this.wrapError(error);
+    }
+  }
+
   private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
     reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
@@ -50,7 +65,7 @@ export class ConvexSessionStore implements SessionStore {
   }
 
   async find(id: string): Promise<SessionRecord | null> {
-    const result = await this.mutation(api.session.get, { sessionId: id });
+    const result = await this.query(api.session.get, { sessionId: id });
     return result.session ?? null;
   }
 
