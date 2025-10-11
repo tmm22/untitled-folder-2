@@ -97,6 +97,17 @@ describe('useTranslationHistoryStore', () => {
     expect(fetchTranslations).toHaveBeenCalledWith('doc-1');
   });
 
+  it('treats unauthorized responses as empty history', async () => {
+    vi.mocked(fetchTranslations).mockResolvedValue({ items: [] });
+
+    await useTranslationHistoryStore.getState().actions.hydrate('doc-1');
+
+    const state = useTranslationHistoryStore.getState();
+    expect(state.history).toHaveLength(0);
+    expect(state.error).toBeUndefined();
+    expect(state.isHydrated).toBe(true);
+  });
+
   it('loads more translations and merges with existing history', async () => {
     const initial = buildTranslation({ id: 't-1', sequenceIndex: 3 });
     useTranslationHistoryStore.setState({
