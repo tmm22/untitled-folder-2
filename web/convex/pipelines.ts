@@ -33,14 +33,14 @@ function mapPipeline(doc: PipelineDoc) {
 async function loadPipelineById(ctx: MutationCtx | QueryCtx, id: string): Promise<PipelineDoc | null> {
   return await ctx.db
     .query('pipelines')
-    .filter((q) => q.eq(q.field('id'), id))
+    .withIndex('by_id', (q) => q.eq('id', id))
     .first();
 }
 
 async function loadPipelineBySecret(ctx: MutationCtx | QueryCtx, secret: string): Promise<PipelineDoc | null> {
   return await ctx.db
     .query('pipelines')
-    .filter((q) => q.eq(q.field('webhookSecret'), secret))
+    .withIndex('by_webhook_secret', (q) => q.eq('webhookSecret', secret))
     .first();
 }
 

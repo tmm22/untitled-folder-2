@@ -1,4 +1,4 @@
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 
 export const save = mutation({
@@ -25,7 +25,7 @@ export const save = mutation({
   },
 });
 
-export const get = mutation({
+export const get = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db

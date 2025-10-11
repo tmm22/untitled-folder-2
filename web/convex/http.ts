@@ -345,7 +345,7 @@ router.route({
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
     const body = (await request.json()) as any;
-    const result = await executeWithLogging('/session/get', () => ctx.runMutation(api.session.get, body));
+    const result = await executeWithLogging('/session/get', () => ctx.runQuery(api.session.get, body));
     return json(result);
   }),
 });
