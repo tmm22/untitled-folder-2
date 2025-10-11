@@ -16,7 +16,7 @@ const DEFAULT_PROVIDER = 'openai';
 const sortBySequence = (items: TranslationRecord[]): TranslationRecord[] =>
   [...items].sort((a, b) => b.sequenceIndex - a.sequenceIndex);
 
-interface TranslationHistoryState {
+export interface TranslationHistoryState {
   documentId: string | null;
   history: TranslationRecord[];
   activeTranslation: TranslationRecord | null;
@@ -158,16 +158,17 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           throw new Error('Translation creation failed');
         }
 
+        const created = result.translation;
         let nextHistory = sortBySequence([
-          result.translation,
-          ...history.filter((item) => item.id !== result.translation.id),
+          created,
+          ...history.filter((item) => item.id !== created.id),
         ]);
         let nextCursorValue = nextCursor;
         let activeTranslation = nextHistory[0] ?? null;
 
         if (!keepOriginal) {
           try {
-            const adoptResult = await markTranslationAdopted(documentId, result.translation.id, true);
+            const adoptResult = await markTranslationAdopted(documentId, created.id, true);
             nextHistory = adoptResult.translation ? [adoptResult.translation] : [];
             activeTranslation = nextHistory[0] ?? null;
             nextCursorValue = undefined;
@@ -183,7 +184,7 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           isLoading: false,
           nextCursor: nextCursorValue,
         });
-        return activeTranslation ?? result.translation;
+        return activeTranslation ?? created;
       } catch (error) {
         console.error('Failed to create translation', error);
         set({ isLoading: false, error: 'Unable to save translation' });
@@ -205,9 +206,10 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           return null;
         }
 
+        const promoted = result.translation;
         const nextHistory = sortBySequence([
-          result.translation,
-          ...history.filter((item) => item.id !== result.translation.id),
+          promoted,
+          ...history.filter((item) => item.id !== promoted.id),
         ]);
 
         set({
@@ -215,7 +217,7 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           activeTranslation: nextHistory[0] ?? null,
           isLoading: false,
         });
-        return result.translation;
+        return promoted;
       } catch (error) {
         console.error('Failed to promote translation', error);
         set({ isLoading: false, error: 'Unable to promote translation' });
@@ -237,8 +239,9 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           return null;
         }
 
-        const base = collapseHistory ? [] : history.filter((item) => item.id !== result.translation.id);
-        const nextHistory = sortBySequence([result.translation, ...base]);
+        const adopted = result.translation;
+        const base = collapseHistory ? [] : history.filter((item) => item.id !== adopted.id);
+        const nextHistory = sortBySequence([adopted, ...base]);
 
         set({
           history: nextHistory,
@@ -247,7 +250,7 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
           nextCursor: collapseHistory ? undefined : nextCursor,
         });
 
-        return result.translation;
+        return adopted;
       } catch (error) {
         console.error('Failed to adopt translation', error);
         set({ isLoading: false, error: 'Unable to adopt translation' });

@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { shallow } from 'zustand/shallow';
 import { useTranslationHistoryStore } from '@/modules/translations/store';
+import type { TranslationHistoryState } from '@/modules/translations/store';
+import type { TranslationRecord } from '@/lib/translations/types';
 import { useTTSStore } from '@/modules/tts/store';
 import { SUPPORTED_TRANSLATION_LANGUAGES } from '@/lib/translations/languages';
 
@@ -13,6 +14,22 @@ const languageLabel = (code: string) => {
   return match ? match.label : code.toUpperCase();
 };
 
+const selectHistoryState = (state: TranslationHistoryState) => ({
+  history: state.history,
+  activeTranslation: state.activeTranslation,
+  keepOriginal: state.keepOriginal,
+  nextCursor: state.nextCursor,
+  isLoading: state.isLoading,
+});
+
+const selectHistoryActions = (state: TranslationHistoryState) => ({
+  loadMore: state.actions.loadMore,
+  promote: state.actions.promote,
+  markAdopted: state.actions.markAdopted,
+  clear: state.actions.clear,
+  setKeepOriginal: state.actions.setKeepOriginal,
+});
+
 export function TranslationHistoryPanel() {
   if (isTestEnv) {
     return null;
@@ -22,21 +39,12 @@ export function TranslationHistoryPanel() {
 
 function TranslationHistoryPanelInner() {
   const { history, activeTranslation, keepOriginal, nextCursor, isLoading } = useTranslationHistoryStore(
-    (state) => ({
-      history: state.history,
-      activeTranslation: state.activeTranslation,
-      keepOriginal: state.keepOriginal,
-      nextCursor: state.nextCursor,
-      isLoading: state.isLoading,
-    }),
-    shallow,
+    selectHistoryState,
   );
 
-  const loadMore = useTranslationHistoryStore((state) => state.actions.loadMore);
-  const promote = useTranslationHistoryStore((state) => state.actions.promote);
-  const markAdopted = useTranslationHistoryStore((state) => state.actions.markAdopted);
-  const clear = useTranslationHistoryStore((state) => state.actions.clear);
-  const setKeepOriginal = useTranslationHistoryStore((state) => state.actions.setKeepOriginal);
+  const { loadMore, promote, markAdopted, clear, setKeepOriginal } = useTranslationHistoryStore(
+    selectHistoryActions,
+  );
 
   const setInputText = useTTSStore((state) => state.actions.setInputText);
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, FormEvent } from 'react';
-import { shallow } from 'zustand/shallow';
 import { useTranslationHistoryStore } from '@/modules/translations/store';
+import type { TranslationHistoryState } from '@/modules/translations/store';
 import { useTTSStore } from '@/modules/tts/store';
 import { SUPPORTED_TRANSLATION_LANGUAGES } from '@/lib/translations/languages';
 
@@ -16,21 +16,28 @@ export function TranslationControls() {
   return <TranslationControlsInner />;
 }
 
+const selectControlState = (state: TranslationHistoryState) => ({
+  targetLanguageCode: state.targetLanguageCode,
+  keepOriginal: state.keepOriginal,
+  isLoading: state.isLoading,
+  error: state.error,
+});
+
+const selectControlActions = (state: TranslationHistoryState) => ({
+  hydrate: state.actions.hydrate,
+  setTargetLanguageCode: state.actions.setTargetLanguageCode,
+  setKeepOriginal: state.actions.setKeepOriginal,
+  translate: state.actions.translate,
+});
+
 function TranslationControlsInner() {
   const { targetLanguageCode, keepOriginal, isLoading, error } = useTranslationHistoryStore(
-    (state) => ({
-      targetLanguageCode: state.targetLanguageCode,
-      keepOriginal: state.keepOriginal,
-      isLoading: state.isLoading,
-      error: state.error,
-    }),
-    shallow,
+    selectControlState,
   );
 
-  const hydrate = useTranslationHistoryStore((state) => state.actions.hydrate);
-  const setTargetLanguageCode = useTranslationHistoryStore((state) => state.actions.setTargetLanguageCode);
-  const setKeepOriginal = useTranslationHistoryStore((state) => state.actions.setKeepOriginal);
-  const translate = useTranslationHistoryStore((state) => state.actions.translate);
+  const { hydrate, setTargetLanguageCode, setKeepOriginal, translate } = useTranslationHistoryStore(
+    selectControlActions,
+  );
 
   const inputText = useTTSStore((state) => state.inputText);
   const setInputText = useTTSStore((state) => state.actions.setInputText);
