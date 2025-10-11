@@ -12,11 +12,13 @@ Set the following environment variables before running the app:
 - `CLERK_SECRET_KEY` – Clerk secret key used by server routes.
 - `CONVEX_URL` – Base URL of your Convex deployment (e.g. `https://flat-moon-123.convex.cloud`).
 - `CONVEX_DEPLOYMENT_KEY` or `CONVEX_ADMIN_KEY` – Token used to call Convex HTTP actions.
+- `CONVEX_AUTH_SCHEME` – Optional override for the Authorization scheme (`Bearer`, `Deployment`, etc.); defaults intelligently based on the provided key.
 - `PIPELINES_DATA_PATH` – Optional path to a JSON file the server uses when Convex is unavailable; omit to keep pipeline definitions in memory for the current process.
+- `SESSION_DATA_PATH` – Optional JSON file path used when Convex session storage is disabled or unreachable; keeps encrypted session handshakes persistent between restarts.
 
 After changing `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
 
-Signed-in users have generation history and pipeline definitions synchronised through Convex. Guests continue to rely on browser storage.
+Signed-in users have generation history, managed provisioning state, and pipeline definitions synchronised through Convex. Guests continue to rely on browser storage, falling back to encrypted IndexedDB for history/snippets and in-memory stores for provisioning/session data. When Convex is unavailable, pipelines gracefully fall back to JSON or in-memory storage.
 
 ## Pipeline Automation
 

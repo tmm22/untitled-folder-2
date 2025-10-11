@@ -61,7 +61,7 @@ web/
 ```
 
 ## Local Persistence Modules
-- **HistoryStore** (`modules/history/store.ts`): captures serialized generation metadata, transcript pointers, and supports transcript/audio export helpers in the UI.
+- **HistoryStore** (`modules/history/store.ts`): captures serialized generation metadata, transcript pointers, and supports transcript/audio export helpers in the UI. Signed-in users sync entries via Convex; guests fall back to encrypted IndexedDB only.
 - **SnippetStore** (`modules/snippets/store.ts`): keeps reusable text blocks with append/replace helpers surfaced via `SnippetPanel`.
 - **PronunciationStore** (`modules/pronunciation/store.ts`): persists regex/literal overrides and hydrates `useTTSStore` before each generation.
 - **ImportStore** (`modules/imports/store.ts`): records URL or manual imports with summaries for later injection into the editor.
@@ -78,7 +78,7 @@ web/
 | Queue & batch processing | `queueStore` manages an ordered list of `QueueItem`; background worker processes items sequentially with pause/cancel. |
 | Pronunciation glossary per provider | `pronunciationStore` persists rules in IndexedDB; applied before synthesis via `applyPronunciationRules`. |
 | Smart import (articles, Reddit, summaries) | `imports` module orchestrates article fetch, DOM sanitization via JSDOM (server side), optional OpenAI summarization. |
-| History & snippets | Stored locally with encrypted IndexedDB collections (`historyStore`, `snippetStore`). Export endpoints produce transcripts + audio. |
+| History & snippets | Stored locally with encrypted IndexedDB collections (`historyStore`, `snippetStore`) with Convex sync for authenticated accounts. Export endpoints produce transcripts + audio. |
 | API key management | `LocalVault` prompts users for a passphrase, encrypts provider keys locally. Keys injected into API calls through `Authorization` header override when user chooses personal credentials. |
 | Notifications | Web Notifications API with graceful fallback; requires user permission. |
 | Transcript export (SRT/VTT) | `transcriptService` builds formats client-side from generation metadata. |
@@ -88,7 +88,7 @@ web/
 - **LocalVault (client)**: Prompts the user for a passphrase, derives a symmetric key with PBKDF2 (salted, 250k iterations), and encrypts provider API keys using AES-GCM before persisting them in IndexedDB. Vault metadata holds a version + KDF parameters so future migrations stay compatible.
 - **SessionLocker (client)**: On unlock, derives an ephemeral session key (HKDF over the decrypted vault key + monotonic counter) retained in-memory only; this key encrypts credentials sent to the server for the lifetime of the tab.
 - **Request Envelope (client → server)**: API routes receive `{ header: 'x-ttsauth': base64(nonce || ciphertext) }` plus a `x-ttsauth-key` carrying the session public token. Route handlers verify the token with `SessionRegistry` before decryption.
-- **SessionRegistry (server)**: Persists short-lived session tokens and shared secrets via a pluggable store (Convex when `CONVEX_URL` plus `CONVEX_DEPLOYMENT_KEY`/`CONVEX_ADMIN_KEY` are set, JSON file for local dev, in-memory as a final fallback). Secrets expire after 15 minutes of inactivity and the registry still falls back to environment credentials when no session token is provided.
+- **SessionRegistry (server)**: Persists short-lived session tokens and shared secrets via a pluggable store (Convex when `CONVEX_URL` plus `CONVEX_DEPLOYMENT_KEY`/`CONVEX_ADMIN_KEY` are set, JSON file when `SESSION_DATA_PATH` is provided, in-memory as a final fallback). Secrets expire after 15 minutes of inactivity and the registry still falls back to environment credentials when no session token is provided.
 - **Decryption & Proxy (server)**: Handlers decrypt incoming payloads using XChaCha20-Poly1305 (via `@stablelib/xchacha20poly1305`), hydrate provider adapters with the recovered key, and forward requests with `secureFetch`. The decrypted key never leaves memory and is zeroed after the request completes.
 - **Graceful Fallback**: When user keys are absent or the vault is locked, adapters default to server-side env vars (`OPENAI_API_KEY`, etc.) or the local mock synthesizer when neither is present.
 

@@ -90,4 +90,20 @@ export default defineSchema({
     secret: v.string(),
     expiresAt: v.number(),
   }).index('by_session_id', ['id']),
+
+  pipelines: defineTable({
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    steps: v.array(v.any()),
+    schedule: v.optional(v.any()),
+    defaultSource: v.optional(v.any()),
+    webhookSecret: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    lastRunAt: v.optional(v.string()),
+  })
+    .index('by_id', ['id'])
+    .index('by_name', ['name'])
+    .index('by_webhook_secret', ['webhookSecret']),
 });

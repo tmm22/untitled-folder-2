@@ -20,3 +20,8 @@
 ## Notes
 - Update the status column (Pending → In Progress → Completed) as each step moves forward.
 - Capture any deviations or follow-up work immediately below the relevant table entry.
+
+## Convex Persistence Status
+- Pipeline definitions now persist through Convex when `CONVEX_URL` + admin tokens are configured (`web/convex/schema.ts`, `web/convex/pipelines.ts`, `web/convex/http.ts`).
+- The app still supports `JsonFilePipelineRepository`/`InMemoryPipelineRepository` fallbacks when Convex is offline or misconfigured, with warning logs emitted from `web/src/app/api/pipelines/context.ts`.
+- Detailed schema/action design and future enhancements live in [`Docs/pipeline-convex-design.md`](pipeline-convex-design.md).
