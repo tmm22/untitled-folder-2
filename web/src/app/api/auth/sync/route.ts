@@ -31,6 +31,28 @@ function normaliseEmail(email: string | null | undefined): string | undefined {
   return value ? value.toLowerCase() : undefined;
 }
 
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function isConvexMissingFunctionError(error: unknown): boolean {
+  const message = extractErrorMessage(error);
+  if (/Could not find public function/i.test(message)) {
+    return true;
+  }
+  if (error instanceof Error && error.cause) {
+    return isConvexMissingFunctionError(error.cause);
+  }
+  return false;
+}
+
 type ClerkRequest = Parameters<typeof getAuth>[0];
 
 export async function POST(request: Request) {
@@ -69,6 +91,11 @@ export async function POST(request: Request) {
     );
     return NextResponse.json(response ?? { user: null });
   } catch (error) {
+    if (isConvexMissingFunctionError(error)) {
+      console.warn('Convex ensureUser function not available; skipping sync');
+      return NextResponse.json({ user: null, skipped: true });
+    }
+
     const wrapped =
       error instanceof Error ? new Error(`Convex ensureUser request failed: ${error.message}`) : error;
     if (wrapped instanceof Error) {
