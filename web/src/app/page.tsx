@@ -1,6 +1,8 @@
 import { ProviderSelector } from '@/components/settings/ProviderSelector';
 import { TextEditor } from '@/components/editor/TextEditor';
 import { GenerateButton } from '@/components/editor/GenerateButton';
+import { TranslationControls } from '@/components/translations/TranslationControls';
+import { TranslationHistoryPanel } from '@/components/translations/TranslationHistoryPanel';
 import { PlaybackControls } from '@/components/playback/PlaybackControls';
 import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
 import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
@@ -36,6 +38,8 @@ export default function Home() {
       <div className="flex flex-col gap-8">
         <ProviderSelector />
         <TextEditor />
+        <TranslationControls />
+        <TranslationHistoryPanel />
         <GenerateButton />
         <PlaybackControls />
         <ThemePanel />

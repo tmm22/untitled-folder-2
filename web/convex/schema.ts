@@ -66,6 +66,25 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_user_entry', ['userId', 'id']),
 
+  translations: defineTable({
+    accountId: v.string(),
+    documentId: v.string(),
+    translationId: v.string(),
+    sequenceIndex: v.number(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    sourceText: v.string(),
+    sourceLanguageCode: v.string(),
+    targetLanguageCode: v.string(),
+    translatedText: v.string(),
+    keepOriginalApplied: v.boolean(),
+    adoptedAt: v.optional(v.string()),
+    provider: v.string(),
+    metadata: v.optional(v.any()),
+  })
+    .index('by_account_document_seq', ['accountId', 'documentId', 'sequenceIndex'])
+    .index('by_account_translation', ['accountId', 'translationId']),
+
   sessions: defineTable({
     id: v.string(),
     secret: v.string(),
