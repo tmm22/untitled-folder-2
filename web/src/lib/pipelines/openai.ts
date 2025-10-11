@@ -3,6 +3,12 @@ interface ChatMessage {
   content: string;
 }
 
+interface ChatCompletionOptions {
+  maxTokens?: number;
+  temperature?: number;
+  apiKey?: string | null;
+}
+
 const OPENAI_CHAT_URL = process.env.OPENAI_CHAT_COMPLETIONS_URL?.trim() || 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL = process.env.OPENAI_PIPELINE_MODEL?.trim() || 'gpt-4o-mini';
 
@@ -21,8 +27,8 @@ export function isOpenAIConfigured(): boolean {
   return Boolean(getApiKey());
 }
 
-async function callChatCompletion(messages: ChatMessage[], options?: { maxTokens?: number; temperature?: number }): Promise<string | null> {
-  const apiKey = getApiKey();
+async function callChatCompletion(messages: ChatMessage[], options: ChatCompletionOptions = {}): Promise<string | null> {
+  const apiKey = options.apiKey?.trim() || getApiKey();
   if (!apiKey) {
     throw new OpenAIUnavailableError('OpenAI API key is not configured');
   }
@@ -103,6 +109,7 @@ export async function summariseText(text: string, options: SummariseOptions = {}
 export interface TranslateOptions {
   targetLanguage: string;
   keepOriginal?: boolean;
+  apiKey?: string | null;
 }
 
 export async function translateText(text: string, options: TranslateOptions): Promise<string> {
@@ -118,7 +125,7 @@ export async function translateText(text: string, options: TranslateOptions): Pr
           content: text,
         },
       ],
-      { maxTokens: Math.min(2000, Math.round(text.length * 1.2)) },
+      { maxTokens: Math.min(2000, Math.round(text.length * 1.2)), apiKey: options.apiKey ?? undefined },
     );
 
     if (!result) {
@@ -159,7 +166,10 @@ export async function adjustTone(text: string, options: ToneOptions): Promise<st
           content: text,
         },
       ],
-      { maxTokens: Math.min(2000, Math.round(text.length * 1.1)), temperature: 0.5 },
+      {
+        maxTokens: Math.min(2000, Math.round(text.length * 1.1)),
+        temperature: 0.5,
+      },
     );
 
     if (!result) {
