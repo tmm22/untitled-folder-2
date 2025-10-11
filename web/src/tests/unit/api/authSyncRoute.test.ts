@@ -82,4 +82,34 @@ describe('POST /api/auth/sync', () => {
       }),
     );
   });
+
+  it('skips when Convex ensureUser function is missing', async () => {
+    __setMockServerAuthState({
+      userId: 'user_789',
+      user: {
+        primaryEmailAddress: { emailAddress: 'user2@example.com' },
+        firstName: 'Missing',
+        lastName: 'Function',
+        imageUrl: 'https://example.com/avatar2.png',
+        emailAddresses: [{ emailAddress: 'user2@example.com' }],
+      },
+    });
+
+    process.env.CONVEX_URL = 'https://convex.example.com';
+    resolveConvexAuthConfigSpy.mockReturnValue({ token: 'secret', scheme: 'Deployment' });
+
+    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    fetchMutationMock.mockRejectedValueOnce(
+      new Error(
+        "Convex ensureUser request failed: [Request ID: 123] Server Error\nCould not find public function for 'users:ensureUser'. Did you forget to run `npx convex dev` or `npx convex deploy`?",
+      ),
+    );
+
+    const request = new Request('https://example.com/api/auth/sync', { method: 'POST' });
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toEqual({ user: null, skipped: true });
+    expect(fetchMutationMock).toHaveBeenCalledTimes(1);
+  });
 });
