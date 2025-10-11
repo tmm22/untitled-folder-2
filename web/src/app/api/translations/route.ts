@@ -3,6 +3,8 @@ import { resolveRequestIdentity } from '@/lib/auth/identity';
 import { getTranslationRepository } from './context';
 import type { TranslateTextRequest } from '@/lib/translations/types';
 import { translateDocumentText } from '@/lib/translations/service';
+import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
+import { OpenAIUnavailableError } from '@/lib/pipelines/openai';
 
 const MAX_PAGE_SIZE = 50;
 
@@ -175,7 +177,19 @@ export async function POST(request: Request) {
           return badRequest('No text to translate');
         }
 
-        const translatedText = await translateDocumentText(trimmedText, action.payload.targetLanguageCode);
+        const authorization = await resolveProviderAuthorization(request, action.payload.provider);
+        const apiKeyOverride = authorization.apiKey ?? authorization.managedCredential?.token ?? undefined;
+        let translatedText: string;
+        try {
+          translatedText = await translateDocumentText(trimmedText, action.payload.targetLanguageCode, {
+            apiKey: apiKeyOverride,
+          });
+        } catch (error) {
+          if (error instanceof OpenAIUnavailableError) {
+            return NextResponse.json({ error: 'Translation provider is not configured' }, { status: 503 });
+          }
+          throw error;
+        }
 
         const result = await repository.create(identity.userId, action.documentId, {
           translationId: action.payload.translationId,
