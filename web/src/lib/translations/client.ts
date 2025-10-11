@@ -51,6 +51,9 @@ export async function fetchTranslations(
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
   });
+  if (response.status === 401) {
+    return { items: [] };
+  }
   return (await ensureOk(response).json()) as TranslationListResult;
 }
 
