@@ -35,7 +35,7 @@ export class ConvexProvisioningStore implements ProvisioningStore {
   }
 
   private async query<TArgs extends object, TResult>(
-    reference: FunctionReference<'query', TArgs, TResult>,
+    reference: FunctionReference<'query', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
@@ -46,7 +46,7 @@ export class ConvexProvisioningStore implements ProvisioningStore {
   }
 
   private async mutation<TArgs extends object, TResult>(
-    reference: FunctionReference<'mutation', TArgs, TResult>,
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {

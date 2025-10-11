@@ -259,7 +259,7 @@ export class ConvexPipelineRepository implements PipelineRepository {
   }
 
   private async query<TArgs extends object, TResult>(
-    reference: FunctionReference<'query', TArgs, TResult>,
+    reference: FunctionReference<'query', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
@@ -270,7 +270,7 @@ export class ConvexPipelineRepository implements PipelineRepository {
   }
 
   private async mutation<TArgs extends object, TResult>(
-    reference: FunctionReference<'mutation', TArgs, TResult>,
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {

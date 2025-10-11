@@ -31,7 +31,7 @@ export class ConvexSessionStore implements SessionStore {
   }
 
   private async mutation<TArgs extends object, TResult>(
-    reference: FunctionReference<'mutation', TArgs, TResult>,
+    reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
