@@ -14,22 +14,6 @@ const languageLabel = (code: string) => {
   return match ? match.label : code.toUpperCase();
 };
 
-const selectHistoryState = (state: TranslationHistoryState) => ({
-  history: state.history,
-  activeTranslation: state.activeTranslation,
-  keepOriginal: state.keepOriginal,
-  nextCursor: state.nextCursor,
-  isLoading: state.isLoading,
-});
-
-const selectHistoryActions = (state: TranslationHistoryState) => ({
-  loadMore: state.actions.loadMore,
-  promote: state.actions.promote,
-  markAdopted: state.actions.markAdopted,
-  clear: state.actions.clear,
-  setKeepOriginal: state.actions.setKeepOriginal,
-});
-
 export function TranslationHistoryPanel() {
   if (isTestEnv) {
     return null;
@@ -38,13 +22,13 @@ export function TranslationHistoryPanel() {
 }
 
 function TranslationHistoryPanelInner() {
-  const { history, activeTranslation, keepOriginal, nextCursor, isLoading } = useTranslationHistoryStore(
-    selectHistoryState,
-  );
-
-  const { loadMore, promote, markAdopted, clear, setKeepOriginal } = useTranslationHistoryStore(
-    selectHistoryActions,
-  );
+  const history = useTranslationHistoryStore((state: TranslationHistoryState) => state.history);
+  const activeTranslation = useTranslationHistoryStore((state: TranslationHistoryState) => state.activeTranslation);
+  const keepOriginal = useTranslationHistoryStore((state: TranslationHistoryState) => state.keepOriginal);
+  const nextCursor = useTranslationHistoryStore((state: TranslationHistoryState) => state.nextCursor);
+  const isLoading = useTranslationHistoryStore((state: TranslationHistoryState) => state.isLoading);
+  const actions = useTranslationHistoryStore((state: TranslationHistoryState) => state.actions);
+  const { loadMore, promote, markAdopted, clear, setKeepOriginal } = actions;
 
   const setInputText = useTTSStore((state) => state.actions.setInputText);
 

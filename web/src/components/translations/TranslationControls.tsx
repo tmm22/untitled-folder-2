@@ -16,28 +16,13 @@ export function TranslationControls() {
   return <TranslationControlsInner />;
 }
 
-const selectControlState = (state: TranslationHistoryState) => ({
-  targetLanguageCode: state.targetLanguageCode,
-  keepOriginal: state.keepOriginal,
-  isLoading: state.isLoading,
-  error: state.error,
-});
-
-const selectControlActions = (state: TranslationHistoryState) => ({
-  hydrate: state.actions.hydrate,
-  setTargetLanguageCode: state.actions.setTargetLanguageCode,
-  setKeepOriginal: state.actions.setKeepOriginal,
-  translate: state.actions.translate,
-});
-
 function TranslationControlsInner() {
-  const { targetLanguageCode, keepOriginal, isLoading, error } = useTranslationHistoryStore(
-    selectControlState,
-  );
-
-  const { hydrate, setTargetLanguageCode, setKeepOriginal, translate } = useTranslationHistoryStore(
-    selectControlActions,
-  );
+  const targetLanguageCode = useTranslationHistoryStore((state: TranslationHistoryState) => state.targetLanguageCode);
+  const keepOriginal = useTranslationHistoryStore((state: TranslationHistoryState) => state.keepOriginal);
+  const isLoading = useTranslationHistoryStore((state: TranslationHistoryState) => state.isLoading);
+  const error = useTranslationHistoryStore((state: TranslationHistoryState) => state.error);
+  const actions = useTranslationHistoryStore((state: TranslationHistoryState) => state.actions);
+  const { hydrate, setTargetLanguageCode, setKeepOriginal, translate } = actions;
 
   const inputText = useTTSStore((state) => state.inputText);
   const setInputText = useTTSStore((state) => state.actions.setInputText);
