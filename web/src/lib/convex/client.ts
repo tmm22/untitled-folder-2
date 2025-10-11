@@ -61,6 +61,6 @@ export function buildConvexClientOptions(config: ConvexClientConfig): NextjsOpti
     return options;
   }
 
-  options.adminToken = authToken;
+  (options as NextjsOptions & { adminToken?: string }).adminToken = authToken;
   return options;
 }

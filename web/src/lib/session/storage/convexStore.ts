@@ -1,4 +1,4 @@
-import type { FunctionReference } from 'convex/server';
+import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, type NextjsOptions } from 'convex/nextjs';
 import { api } from '../../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../../convex/client';
@@ -30,12 +30,16 @@ export class ConvexSessionStore implements SessionStore {
     return new Error(`Convex session request failed: ${String(error)}`);
   }
 
-  private async mutation<TArgs extends object, TResult>(
+  private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
     reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
-      return await fetchMutation(reference, args, this.clientOptions);
+      return (await fetchMutation(
+        reference as FunctionReference<'mutation', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
     } catch (error) {
       throw this.wrapError(error);
     }

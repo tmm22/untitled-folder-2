@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { FunctionReference } from 'convex/server';
+import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
 import { api } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
@@ -58,23 +58,31 @@ export class ConvexTranslationRepository implements TranslationRepository {
     return new Error(`Convex translations request failed: ${String(error)}`);
   }
 
-  private async query<TArgs extends object, TResult>(
+  private async query<TArgs extends DefaultFunctionArgs, TResult>(
     reference: FunctionReference<'query', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
-      return await fetchQuery(reference, args, this.clientOptions);
+      return (await fetchQuery(
+        reference as FunctionReference<'query', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
     } catch (error) {
       throw this.wrapError(error);
     }
   }
 
-  private async mutation<TArgs extends object, TResult>(
+  private async mutation<TArgs extends DefaultFunctionArgs, TResult>(
     reference: FunctionReference<'mutation', any, TArgs, TResult>,
     args: TArgs,
   ): Promise<TResult> {
     try {
-      return await fetchMutation(reference, args, this.clientOptions);
+      return (await fetchMutation(
+        reference as FunctionReference<'mutation', any, DefaultFunctionArgs, TResult>,
+        args as DefaultFunctionArgs,
+        this.clientOptions,
+      )) as TResult;
     } catch (error) {
       throw this.wrapError(error);
     }
