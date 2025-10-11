@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
+import type { FunctionReference } from 'convex/server';
+import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../convex/client';
 import type {
   PipelineCreateInput,
   PipelineDefinition,
@@ -232,109 +236,86 @@ interface ConvexPipelineRepositoryOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
 }
-
-interface ConvexResponse<T> {
-  result: T;
-}
-
-const PIPELINE_ENDPOINTS = {
-  list: ['pipelines/list'],
-  get: ['pipelines/get'],
-  findByWebhookSecret: ['pipelines/findByWebhookSecret'],
-  create: ['pipelines/create'],
-  update: ['pipelines/update'],
-  delete: ['pipelines/delete'],
-  recordRun: ['pipelines/recordRun'],
-};
 
 export class ConvexPipelineRepository implements PipelineRepository {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexPipelineRepositoryOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
-  }
-
-  private buildUrl(path: string): string[] {
-    const suffixes = [`/api/${path}`, `/${path}`, `/api/http/${path}`, `/http/${path}`];
-    return suffixes.map((suffix) => {
-      try {
-        return new URL(suffix, this.baseUrl).toString();
-      } catch {
-        return `${this.baseUrl}${suffix}`;
-      }
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
     });
   }
 
-  private async execute<T>(pathCandidates: string[], body: unknown): Promise<T> {
-    const headers = new Headers({
-      Authorization: `${this.authScheme} ${this.authToken}`,
-      'Content-Type': 'application/json',
-    });
-
-    let lastError: Error | null = null;
-
-    for (const candidate of pathCandidates) {
-      for (const url of this.buildUrl(candidate)) {
-        try {
-          const response = await this.fetchImpl(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-          });
-          if (!response.ok) {
-            const errorBody = await response.text().catch(() => '');
-            throw new Error(`Convex pipelines request failed (${response.status}): ${errorBody}`);
-          }
-          const payload = (await response.json()) as ConvexResponse<T> | T;
-          if (payload && typeof payload === 'object' && 'result' in payload) {
-            return (payload as ConvexResponse<T>).result;
-          }
-          return payload as T;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Unknown Convex pipelines error');
-        }
-      }
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex pipelines request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex pipelines request failed: ${String(error)}`);
+  }
 
-    if (lastError) {
-      throw lastError;
+  private async query<TArgs extends object, TResult>(
+    reference: FunctionReference<'query', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchQuery(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
     }
-    throw new Error('Convex pipelines request failed: no endpoints succeeded');
+  }
+
+  private async mutation<TArgs extends object, TResult>(
+    reference: FunctionReference<'mutation', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchMutation(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
+    }
   }
 
   async list(): Promise<PipelineListItem[]> {
-    return await this.execute<PipelineListItem[]>(PIPELINE_ENDPOINTS.list, {});
+    const result = await this.query(api.pipelines.list, {});
+    return result.pipelines ?? [];
   }
 
   async get(id: string): Promise<PipelineDefinition | null> {
-    return await this.execute<PipelineDefinition | null>(PIPELINE_ENDPOINTS.get, { id });
+    const result = await this.query(api.pipelines.get, { id });
+    return result.pipeline ?? null;
   }
 
   async findByWebhookSecret(secret: string): Promise<PipelineDefinition | null> {
-    return await this.execute<PipelineDefinition | null>(PIPELINE_ENDPOINTS.findByWebhookSecret, { secret });
+    const result = await this.query(api.pipelines.findByWebhookSecret, { secret });
+    return result.pipeline ?? null;
   }
 
   async create(input: PipelineCreateInput): Promise<PipelineDefinition> {
-    return await this.execute<PipelineDefinition>(PIPELINE_ENDPOINTS.create, { input });
+    const result = await this.mutation(api.pipelines.create, { input });
+    if (!result.pipeline) {
+      throw new Error('Convex pipelines request failed: empty pipeline response');
+    }
+    return result.pipeline;
   }
 
   async update(id: string, input: PipelineUpdateInput): Promise<PipelineDefinition> {
-    return await this.execute<PipelineDefinition>(PIPELINE_ENDPOINTS.update, { id, input });
+    const result = await this.mutation(api.pipelines.update, { id, input });
+    if (!result.pipeline) {
+      throw new Error('Convex pipelines request failed: pipeline not found');
+    }
+    return result.pipeline;
   }
 
   async delete(id: string): Promise<void> {
-    await this.execute(PIPELINE_ENDPOINTS.delete, { id });
+    await this.mutation(api.pipelines.remove, { id });
   }
 
   async recordRun(id: string, completedAt: string): Promise<void> {
-    await this.execute(PIPELINE_ENDPOINTS.recordRun, { id, completedAt });
+    await this.mutation(api.pipelines.recordRun, { id, completedAt });
   }
 }

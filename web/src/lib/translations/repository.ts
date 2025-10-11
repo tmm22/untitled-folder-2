@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import type { FunctionReference } from 'convex/server';
+import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../convex/client';
 import type {
   CreateTranslationInput,
   MarkAdoptedResult,
@@ -32,80 +36,48 @@ interface ConvexTranslationRepositoryOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
 }
-
-interface ConvexResponse<T> {
-  result: T;
-}
-
-const TRANSLATION_ENDPOINTS = {
-  list: ['translations/list'],
-  create: ['translations/create'],
-  promote: ['translations/promote'],
-  clear: ['translations/clear'],
-  markAdopted: ['translations/markAdopted'],
-};
 
 export class ConvexTranslationRepository implements TranslationRepository {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexTranslationRepositoryOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
-  }
-
-  private buildUrl(path: string): string[] {
-    const suffixes = [`/api/${path}`, `/${path}`, `/api/http/${path}`, `/http/${path}`];
-    return suffixes.map((suffix) => {
-      try {
-        return new URL(suffix, this.baseUrl).toString();
-      } catch {
-        return `${this.baseUrl}${suffix}`;
-      }
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
     });
   }
 
-  private async execute<T>(pathCandidates: string[], body: unknown): Promise<T> {
-    const headers = new Headers({
-      Authorization: `${this.authScheme} ${this.authToken}`,
-      'Content-Type': 'application/json',
-    });
-
-    let lastError: Error | null = null;
-
-    for (const candidate of pathCandidates) {
-      for (const url of this.buildUrl(candidate)) {
-        try {
-          const response = await this.fetchImpl(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-          });
-          if (!response.ok) {
-            const errorBody = await response.text().catch(() => '');
-            throw new Error(`Convex translations request failed (${response.status}): ${errorBody}`);
-          }
-          const payload = (await response.json()) as ConvexResponse<T> | T;
-          if (payload && typeof payload === 'object' && 'result' in payload) {
-            return (payload as ConvexResponse<T>).result;
-          }
-          return payload as T;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Unknown Convex translations error');
-        }
-      }
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex translations request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex translations request failed: ${String(error)}`);
+  }
 
-    if (lastError) {
-      throw lastError;
+  private async query<TArgs extends object, TResult>(
+    reference: FunctionReference<'query', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchQuery(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
     }
-    throw new Error('Convex translations request failed: no endpoints succeeded');
+  }
+
+  private async mutation<TArgs extends object, TResult>(
+    reference: FunctionReference<'mutation', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchMutation(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
+    }
   }
 
   async list(
@@ -113,12 +85,16 @@ export class ConvexTranslationRepository implements TranslationRepository {
     documentId: string,
     options?: { cursor?: string; limit?: number },
   ): Promise<TranslationListResult> {
-    return await this.execute<TranslationListResult>(TRANSLATION_ENDPOINTS.list, {
+    const result = await this.query(api.translations.list, {
       accountId,
       documentId,
       cursor: options?.cursor,
       limit: options?.limit,
     });
+    return {
+      items: result.items ?? [],
+      nextCursor: result.nextCursor,
+    };
   }
 
   async create(
@@ -126,15 +102,19 @@ export class ConvexTranslationRepository implements TranslationRepository {
     documentId: string,
     input: CreateTranslationInput,
   ): Promise<{ translation: TranslationRecord | null; historySize: number }> {
-    return await this.execute(TRANSLATION_ENDPOINTS.create, {
+    const result = await this.mutation(api.translations.create, {
       accountId,
       documentId,
       payload: input,
     });
+    return {
+      translation: result.translation ?? null,
+      historySize: result.historySize ?? 0,
+    };
   }
 
   async promote(accountId: string, documentId: string, translationId: string): Promise<PromoteResult> {
-    return await this.execute(TRANSLATION_ENDPOINTS.promote, {
+    return await this.mutation(api.translations.promote, {
       accountId,
       documentId,
       translationId,
@@ -142,7 +122,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
   }
 
   async clear(accountId: string, documentId: string, options?: { keepLatest?: boolean }): Promise<number> {
-    const result = await this.execute<{ deletedCount: number }>(TRANSLATION_ENDPOINTS.clear, {
+    const result = await this.mutation(api.translations.clear, {
       accountId,
       documentId,
       keepLatest: options?.keepLatest,
@@ -156,7 +136,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
     translationId: string,
     collapseHistory?: boolean,
   ): Promise<MarkAdoptedResult> {
-    return await this.execute(TRANSLATION_ENDPOINTS.markAdopted, {
+    return await this.mutation(api.translations.markAdopted, {
       accountId,
       documentId,
       translationId,

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuth, currentUser } from '@clerk/nextjs/server';
+import { fetchMutation } from 'convex/nextjs';
+import { api } from '../../../../../convex/_generated/api';
+import { buildConvexClientOptions } from '@/lib/convex/client';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
 
 interface EnsureUserPayload {
@@ -26,60 +29,6 @@ interface EnsureUserResponse {
 function normaliseEmail(email: string | null | undefined): string | undefined {
   const value = email?.trim();
   return value ? value.toLowerCase() : undefined;
-}
-
-function buildConvexUrlCandidates(baseUrl: string, path: string): string[] {
-  const suffixes = [
-    `/api/users/${path}`,
-    `/users/${path}`,
-    `/api/http/users/${path}`,
-    `/http/users/${path}`,
-  ];
-
-  return suffixes.map((suffix) => {
-    try {
-      return new URL(suffix, baseUrl).toString();
-    } catch {
-      return `${baseUrl.replace(/\/$/, '')}${suffix}`;
-    }
-  });
-}
-
-async function callConvexEnsureUser(
-  baseUrl: string,
-  authScheme: string,
-  authToken: string,
-  payload: EnsureUserPayload,
-): Promise<EnsureUserResponse | null> {
-  const candidates = buildConvexUrlCandidates(baseUrl, 'ensure');
-  let lastError: Error | null = null;
-
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `${authScheme} ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text().catch(() => '');
-        throw new Error(`Convex ensureUser request failed (${response.status}): ${errorBody}`);
-      }
-
-      return (await response.json()) as EnsureUserResponse;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error ensuring user with Convex');
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-  return null;
 }
 
 type ClerkRequest = Parameters<typeof getAuth>[0];
@@ -109,10 +58,25 @@ export async function POST(request: Request) {
   };
 
   try {
-    const response = await callConvexEnsureUser(convexUrl, convexAuth.scheme, convexAuth.token, payload);
+    const response = await fetchMutation(
+      api.users.ensureUser,
+      payload,
+      buildConvexClientOptions({
+        baseUrl: convexUrl,
+        authToken: convexAuth.token,
+        authScheme: convexAuth.scheme,
+      }),
+    );
     return NextResponse.json(response ?? { user: null });
   } catch (error) {
-    console.error('Failed to ensure user in Convex', error);
+    const wrapped =
+      error instanceof Error ? new Error(`Convex ensureUser request failed: ${error.message}`) : error;
+    if (wrapped instanceof Error) {
+      (wrapped as Error & { cause?: unknown }).cause = error instanceof Error ? error : undefined;
+      console.error('Failed to ensure user in Convex', wrapped);
+    } else {
+      console.error('Failed to ensure user in Convex', wrapped);
+    }
     return NextResponse.json({ error: 'Unable to sync account' }, { status: 502 });
   }
 }

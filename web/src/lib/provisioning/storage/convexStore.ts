@@ -1,3 +1,7 @@
+import type { FunctionReference } from 'convex/server';
+import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
+import { api } from '../../../../convex/_generated/api';
+import { buildConvexClientOptions } from '../../convex/client';
 import type {
   ProvisionedCredentialRecord,
   ProvisioningStore,
@@ -8,63 +12,56 @@ interface ConvexProvisioningStoreOptions {
   baseUrl: string;
   authToken: string;
   authScheme?: string;
-  fetchImpl?: typeof fetch;
-}
-
-interface ConvexResponse<T> {
-  result: T;
-}
-
-function buildHeaders(token: string, scheme: string, initHeaders?: HeadersInit): HeadersInit {
-  return {
-    Authorization: `${scheme} ${token}`,
-    'Content-Type': 'application/json',
-    ...initHeaders,
-  };
 }
 
 export class ConvexProvisioningStore implements ProvisioningStore {
-  private readonly baseUrl: string;
-  private readonly authToken: string;
-  private readonly authScheme: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly clientOptions: NextjsOptions;
 
   constructor(options: ConvexProvisioningStoreOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.authToken = options.authToken;
-    this.authScheme = options.authScheme ?? 'Bearer';
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.clientOptions = buildConvexClientOptions({
+      baseUrl: options.baseUrl,
+      authToken: options.authToken,
+      authScheme: options.authScheme,
+    });
   }
 
-  private async request<T>(path: string, body?: unknown): Promise<T> {
-    const response = await this.fetchImpl(`${this.baseUrl}/api/provisioning/${path}`, {
-      method: 'POST',
-      headers: buildHeaders(this.authToken, this.authScheme),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      throw new Error(`Convex provisioning request failed (${response.status}): ${errorBody}`);
+  private wrapError(error: unknown): Error {
+    if (error instanceof Error) {
+      const wrapped = new Error(`Convex provisioning request failed: ${error.message}`);
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      return wrapped;
     }
+    return new Error(`Convex provisioning request failed: ${String(error)}`);
+  }
 
-    if (response.status === 204) {
-      return undefined as T;
+  private async query<TArgs extends object, TResult>(
+    reference: FunctionReference<'query', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchQuery(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
     }
+  }
 
-    const payload = (await response.json().catch(() => ({}))) as ConvexResponse<T> | T;
-    if (payload && typeof payload === 'object' && 'result' in payload) {
-      return (payload as ConvexResponse<T>).result;
+  private async mutation<TArgs extends object, TResult>(
+    reference: FunctionReference<'mutation', TArgs, TResult>,
+    args: TArgs,
+  ): Promise<TResult> {
+    try {
+      return await fetchMutation(reference, args, this.clientOptions);
+    } catch (error) {
+      throw this.wrapError(error);
     }
-    return payload as T;
   }
 
   async save(record: ProvisionedCredentialRecord): Promise<void> {
-    await this.request('saveCredential', { record });
+    await this.mutation(api.provisioning.saveCredential, { record });
   }
 
   async findActive(userId: string, provider: string): Promise<ProvisionedCredentialRecord | null> {
-    const result = await this.request<{ credential: ProvisionedCredentialRecord | null }>('findActiveCredential', {
+    const result = await this.query(api.provisioning.findActiveCredential, {
       userId,
       provider,
     });
@@ -72,21 +69,21 @@ export class ConvexProvisioningStore implements ProvisioningStore {
   }
 
   async markRevoked(credentialId: string): Promise<void> {
-    await this.request('markCredentialRevoked', { credentialId });
+    await this.mutation(api.provisioning.markCredentialRevoked, { credentialId });
   }
 
   async list(): Promise<ProvisionedCredentialRecord[]> {
-    const result = await this.request<{ credentials: ProvisionedCredentialRecord[] }>('listCredentials');
-    return result.credentials;
+    const result = await this.query(api.provisioning.listCredentials, {});
+    return result.credentials ?? [];
   }
 
   async recordUsage(entry: Omit<UsageRecord, 'id'> & { id?: string }): Promise<UsageRecord> {
-    const result = await this.request<{ usage: UsageRecord }>('recordUsage', { entry });
+    const result = await this.mutation(api.provisioning.recordUsage, { entry });
     return result.usage;
   }
 
   async listUsage(userId: string): Promise<UsageRecord[]> {
-    const result = await this.request<{ usage: UsageRecord[] }>('listUsage', { userId });
-    return result.usage;
+    const result = await this.query(api.provisioning.listUsage, { userId });
+    return result.usage ?? [];
   }
 }
