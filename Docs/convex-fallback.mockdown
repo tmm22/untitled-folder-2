@@ -1,0 +1,51 @@
+# Convex Fallback Update – Mockdown
+
+## Context
+- Audit task: tighten documentation for Convex configuration, record pipeline persistence decision, and add regression coverage for fallback logic.
+- Date: 2025-?? (update when publishing). Author: (fill reviewer).
+
+## Step 1 — Documentation Refresh
+- Updated `web/README.md` with `CONVEX_AUTH_SCHEME`, `SESSION_DATA_PATH`, and clarified Convex-backed history/provisioning vs. pipeline fallback.
+- Expanded root `README.md` managed provisioning section with new environment variables and history sync notes.
+- Adjusted `Docs/WEB_ARCHITECTURE.md` to describe Convex-backed history and session JSON fallback.
+- Checklist entries in `Docs/convex-feature-audit-plan.md` flipped to ✅ for the above points.
+
+## Step 2 — Pipeline Persistence Decision
+- Recorded current fallback-first posture in `Docs/pipeline-automation-plan.md` (Convex functions pending).
+- Noted outstanding schema + HTTP action work in `Docs/convex-feature-audit-plan.md` section 5.
+- Updated `web/README.md` wording so we no longer imply pipeline definitions already sync through Convex.
+
+## Step 3 — Regression Coverage
+- Added `web/src/tests/unit/historyRepositoryFallback.test.ts` to prove `getHistoryRepository()` degrades to the in-memory store if Convex initialisation fails.
+- Test run: `npx vitest run historyRepositoryFallback` ✓
+- Logged result in audit checklist (`Docs/convex-feature-audit-plan.md` §4 and §9).
+
+## Step 4 — Pipeline Schema Blueprint
+- Authored `Docs/pipeline-convex-design.md` detailing Convex tables, queries/mutations, and HTTP mappings for pipeline persistence.
+- Linked the design from `Docs/pipeline-automation-plan.md` and updated the audit checklist (§5) to point to the blueprint.
+
+## Step 5 — Fallback Coverage Expansion
+- Added new Vitest suites:
+  - `web/src/tests/unit/provisioningStoreFallback.test.ts`
+  - `web/src/tests/unit/pipelineRepositoryFallback.test.ts`
+  - `web/src/tests/unit/translationRepositoryFallback.test.ts`
+- Verified with `npx vitest run historyRepositoryFallback provisioningStoreFallback pipelineRepositoryFallback translationRepositoryFallback`.
+- Updated `Docs/convex-feature-audit-plan.md` (§2, §5, §6, §9) to reflect the expanded coverage.
+
+## Step 6 — Onboarding & Route Documentation
+- Extended `Docs/INSTRUCTIONS_FOR_REAL_DUMMIES.md` with `/api/auth/sync` guidance so new environments seed Convex user records.
+- Published `Docs/convex-http-routes.md`, cataloguing all Convex HTTP endpoints (and flagging planned pipeline routes).
+- Updated the audit checklist (§7, §8) to mark the documentation gaps as resolved.
+
+## Step 7 — Convex Pipeline Implementation
+- Added `pipelines` table to `web/convex/schema.ts` and implemented mutations/queries in `web/convex/pipelines.ts`.
+- Wired new HTTP actions in `web/convex/http.ts` and documented them in `Docs/convex-http-routes.md`.
+- Created `web/src/tests/unit/convexPipelines.test.ts` to verify CRUD, secret rotation, and run tracking behaviours.
+
+## Step 8 — Structured Logging & Monitoring
+- Introduced `logHttpEvent` JSON logging for every Convex HTTP action (`web/convex/http.ts`).
+- Documented monitoring/alert thresholds in `Docs/convex-http-routes.md` and flipped the audit checklist tasks in §8/§9.
+
+## Follow-up Items
+- Harden webhook secret storage (hashing + reveal flow) and add multi-tenant scoping when requirements land.
+- Document operational runbooks for Convex downtime and add structured logging/metrics where needed (audit plan §9).

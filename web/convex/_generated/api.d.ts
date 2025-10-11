@@ -16,6 +16,7 @@ import type {
 import type * as account from "../account.js";
 import type * as history from "../history.js";
 import type * as http from "../http.js";
+import type * as pipelines from "../pipelines.js";
 import type * as provisioning from "../provisioning.js";
 import type * as session from "../session.js";
 import type * as translations from "../translations.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   account: typeof account;
   history: typeof history;
   http: typeof http;
+  pipelines: typeof pipelines;
   provisioning: typeof provisioning;
   session: typeof session;
   translations: typeof translations;

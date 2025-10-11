@@ -103,6 +103,7 @@ npm run test
 
 ### Managed Provisioning Configuration
 - `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
+- `CONVEX_AUTH_SCHEME` lets you force the Authorization scheme used against Convex HTTP actions (defaults to `Deployment` when a deployment key is provided, otherwise `Bearer`).
 - `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
 - `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: enable the managed workspace billing routes to authenticate with PayPal.
@@ -110,13 +111,14 @@ npm run test
 - `PAYPAL_SUCCESS_URL`, `PAYPAL_CANCEL_URL`: optional overrides for the PayPal approval return/cancel URLs.
 - `PAYPAL_PORTAL_URL`: optional URL or template (supports `{customerId}` token) for directing users to manage their subscription; defaults to PayPal’s autopay dashboard.
 - `PAYPAL_ENVIRONMENT`: set to `live` when ready to accept production payments; defaults to `sandbox`.
+- `SESSION_DATA_PATH`: optional path for persisting encrypted session payloads when Convex is unavailable, keeping the in-browser vault functional across deploys.
 
 See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at the module layout, security approach, and parity roadmap.
 
 Key areas in the current build:
-- Credentials vault for encrypted provider API keys and secure session hand-off
+- Credentials vault for encrypted provider API keys and secure session hand-off (Convex-backed when configured, JSON/memory fallback otherwise)
 - Batch queue panel for multi-segment scripts with progress and downloads
-- History panel with audio/transcript exports and rehydrate actions
+- History panel with audio/transcript exports and rehydrate actions (syncs through Convex for signed-in users, IndexedDB fallback for guests)
 - Snippet library for reusable text
 - Pronunciation glossary (regex or literal)
 - Import shelf for URL/manual entries plus optional article summaries

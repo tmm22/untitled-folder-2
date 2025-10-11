@@ -4,11 +4,12 @@ import {
   InMemoryProvisioningTokenCache,
   OpenAIProvisioningProvider,
   JsonFileProvisioningStore,
+  type ProvisioningStore,
 } from '@/lib/provisioning';
 import { ConvexProvisioningStore } from '@/lib/provisioning/storage/convexStore';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
 
-function createStore() {
+function createStore(): ProvisioningStore {
   const convexUrl = process.env.CONVEX_URL?.trim();
   const auth = resolveConvexAuthConfig();
   if (convexUrl && auth) {
@@ -31,22 +32,49 @@ function createStore() {
   return new InMemoryProvisioningStore();
 }
 
-const store = createStore();
-const tokenCache = new InMemoryProvisioningTokenCache();
-const orchestrator = new ProvisioningOrchestrator({
-  providers: [new OpenAIProvisioningProvider()],
-  store,
-  tokenCache,
-});
+let store: ProvisioningStore | null = null;
+let tokenCache: InMemoryProvisioningTokenCache | null = null;
+let orchestrator: ProvisioningOrchestrator | null = null;
 
-export function getProvisioningOrchestrator(): ProvisioningOrchestrator {
-  return orchestrator;
-}
-
-export function getProvisioningStore() {
+function resolveStore(): ProvisioningStore {
+  if (!store) {
+    store = createStore();
+  }
   return store;
 }
 
-export function getProvisioningTokenCache() {
+function resolveTokenCache(): InMemoryProvisioningTokenCache {
+  if (!tokenCache) {
+    tokenCache = new InMemoryProvisioningTokenCache();
+  }
   return tokenCache;
+}
+
+function resolveOrchestrator(): ProvisioningOrchestrator {
+  if (!orchestrator) {
+    orchestrator = new ProvisioningOrchestrator({
+      providers: [new OpenAIProvisioningProvider()],
+      store: resolveStore(),
+      tokenCache: resolveTokenCache(),
+    });
+  }
+  return orchestrator;
+}
+
+export function getProvisioningOrchestrator(): ProvisioningOrchestrator {
+  return resolveOrchestrator();
+}
+
+export function getProvisioningStore() {
+  return resolveStore();
+}
+
+export function getProvisioningTokenCache() {
+  return resolveTokenCache();
+}
+
+export function resetProvisioningContextForTesting(): void {
+  store = null;
+  tokenCache = null;
+  orchestrator = null;
 }

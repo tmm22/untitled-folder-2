@@ -76,6 +76,11 @@ Convex stores provisioning credentials and account usage. You only need test mod
    ```
 7. Restart the dev server (Ctrl+C then `npm run dev`). The app now reads/writes through Convex.
 
+8. **Sync your Clerk user into Convex**:
+   - Sign in to the web workspace at <http://localhost:3000>.
+   - In the same browser session, open <http://localhost:3000/api/auth/sync>. You should receive a JSON payload confirming the sync (or `{ "skipped": true }` if Convex is disabled).
+   - Verify the user record under **Convex Dashboard → Data → users** to ensure the entry exists.
+
 ---
 
 ## 3. Optional: PayPal Billing
