@@ -45,4 +45,13 @@ describe('buildConvexClientOptions', () => {
       }),
     );
   });
+
+  it('canonicalises convex site domains to convex cloud', () => {
+    const options = buildConvexClientOptions({
+      baseUrl: 'https://cheery-chihuahua-877.convex.site',
+      authToken: 'token',
+    });
+
+    expect(options.url).toBe('https://cheery-chihuahua-877.convex.cloud');
+  });
 });

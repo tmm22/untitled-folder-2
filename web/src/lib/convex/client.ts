@@ -6,8 +6,24 @@ export interface ConvexClientConfig {
   authScheme?: string;
 }
 
+function canonicaliseDeploymentUrl(url: string): string {
+  const trimmed = url.trim();
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname.endsWith('.convex.site')) {
+      parsed.hostname = parsed.hostname.replace(/\.convex\.site$/, '.convex.cloud');
+    }
+    return parsed.toString();
+  } catch {
+    if (trimmed.endsWith('.convex.site')) {
+      return trimmed.replace(/\.convex\.site(?=[/?#]|$)/, '.convex.cloud');
+    }
+    return trimmed;
+  }
+}
+
 function normaliseBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '');
+  return canonicaliseDeploymentUrl(url).replace(/\/+$/, '');
 }
 
 function resolveAuthKind(scheme?: string): 'admin' | 'user' | null {
