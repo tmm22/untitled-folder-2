@@ -24,7 +24,7 @@
 | `lastRunAt` | `optional string` | Last completed run. |
 
 Indexes:
-- `by_id` (`id`)
+- `by_pipeline_id` (`id`)
 - `by_name` (`name`)
 - `by_webhook_secret` (`webhookSecret`)
 

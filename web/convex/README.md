@@ -51,7 +51,7 @@ export const markCredentialRevoked = mutation({
   handler: async (ctx, { credentialId }) => {
     const credential = await ctx.db
       .query('provisioning_credentials')
-      .withIndex('by_id', (q) => q.eq('id', credentialId))
+      .withIndex('by_credential_id', (q) => q.eq('id', credentialId))
       .first();
     if (!credential) return { result: false };
     await ctx.db.patch(credential._id, { status: 'revoked' });
@@ -208,7 +208,7 @@ export const save = mutation({
   handler: async (ctx, { record }) => {
     const existing = await ctx.db
       .query('sessions')
-      .withIndex('by_id', (q) => q.eq('id', record.id))
+      .withIndex('by_session_id', (q) => q.eq('id', record.id))
       .first();
     if (existing) {
       await ctx.db.patch(existing._id, record);
@@ -224,7 +224,7 @@ export const get = mutation({
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
       .query('sessions')
-      .withIndex('by_id', (q) => q.eq('id', sessionId))
+      .withIndex('by_session_id', (q) => q.eq('id', sessionId))
       .first();
     return { session: session ?? null };
   },
@@ -235,7 +235,7 @@ export const deleteSession = mutation({
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
       .query('sessions')
-      .withIndex('by_id', (q) => q.eq('id', sessionId))
+      .withIndex('by_session_id', (q) => q.eq('id', sessionId))
       .first();
     if (session) {
       await ctx.db.delete(session._id);

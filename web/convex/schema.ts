@@ -103,7 +103,7 @@ export default defineSchema({
     updatedAt: v.string(),
     lastRunAt: v.optional(v.string()),
   })
-    .index('by_id', ['id'])
+    .index('by_pipeline_id', ['id'])
     .index('by_name', ['name'])
     .index('by_webhook_secret', ['webhookSecret']),
 });
