@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAccountRepository } from '@/app/api/account/context';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
-import { createCheckoutSession } from '@/lib/billing/paypal';
+import { createCheckoutSession } from '@/lib/billing';
 
 export async function POST(request: Request) {
   const identity = resolveRequestIdentity(request);

@@ -35,6 +35,19 @@ export default defineSchema({
     planTier: v.string(),
     billingStatus: v.string(),
     premiumExpiresAt: v.optional(v.number()),
+    polarCustomerId: v.optional(v.string()),
+    polarSubscriptionId: v.optional(v.string()),
+    polarPlanId: v.optional(v.string()),
+    polarCurrentPeriodEnd: v.optional(v.number()),
+    polarLastEventId: v.optional(v.string()),
+    polarBenefits: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.optional(v.string()),
+        }),
+      ),
+    ),
     usage: v.object({
       monthTokensUsed: v.number(),
       monthlyAllowance: v.number(),

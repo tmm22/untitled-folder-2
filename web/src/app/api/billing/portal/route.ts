@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAccountRepository } from '@/app/api/account/context';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
-import { createBillingPortalSession } from '@/lib/billing/paypal';
+import { createBillingPortalSession } from '@/lib/billing';
 
 export async function POST(request: Request) {
   const identity = resolveRequestIdentity(request);

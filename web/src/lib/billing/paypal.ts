@@ -4,12 +4,12 @@ import type {
   PayPalSubscriptionResponse,
 } from '@/app/api/_lib/paypalClient';
 
-interface CheckoutRequest {
+export interface CheckoutRequest {
   userId: string;
   planTier: string;
 }
 
-interface BillingResult {
+export interface BillingResult {
   ok: boolean;
   url?: string | null;
   message?: string;

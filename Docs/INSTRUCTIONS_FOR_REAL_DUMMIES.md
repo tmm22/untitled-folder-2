@@ -83,9 +83,34 @@ Convex stores provisioning credentials and account usage. You only need test mod
 
 ---
 
-## 3. Optional: PayPal Billing
+## 3. Configure Billing Provider
 
-Skip this if you’re happy with the built-in trial messaging. Otherwise:
+The workspace supports both Polar and PayPal. Set `BILLING_PROVIDER` in `.env.local` to one of:
+
+- `polar` – recommended if you want Polar’s merchant-of-record, tax handling, and hosted portal.
+- `paypal` – use the existing PayPal flow.
+
+If you leave it unset, the app defaults to PayPal. After editing `.env.local`, restart `npm run dev`.
+
+### 3a. Polar Setup (`BILLING_PROVIDER=polar`)
+
+1. **Create a Polar account** at <https://polar.sh/> (the dashboard exposes API keys, org slug, products, and webhooks).
+2. **Generate an access token** (Dashboard → Developers → API Tokens) and copy it into `.env.local` as `POLAR_ACCESS_TOKEN`.
+3. **Grab your organization ID** (found under Settings → Organization) and set `POLAR_ORGANIZATION_ID`.
+4. **Decide on products/plans**:
+   - Copy the product IDs you want to sell. Map them via `POLAR_PLAN_ID_<TIER>` (e.g., `POLAR_PLAN_ID_STARTER=prod_123`).
+   - You can set a fallback `POLAR_PLAN_ID` if you only sell one tier.
+5. **Configure checkout success redirect** (optional):
+   ```
+   POLAR_CHECKOUT_SUCCESS_URL=http://localhost:3000/billing/success
+   POLAR_CUSTOMER_PORTAL_URL=https://polar.sh/your-org/portal
+   ```
+6. **Create a webhook endpoint** in Polar (Dashboard → Developers → Webhooks) pointing to
+   `https://your-domain.com/api/billing/polar/events`. Set the generated secret as `POLAR_WEBHOOK_SECRET`.
+7. Leave `POLAR_ENVIRONMENT` as `sandbox` for testing; switch to `production` when ready to charge real customers.
+8. Restart `npm run dev` and exercise the “Start free trial” button. You should receive a hosted Polar checkout URL.
+
+### 3b. PayPal Setup (`BILLING_PROVIDER=paypal`)
 
 1. **Create a PayPal developer account** (<https://developer.paypal.com/>) and log into the Dashboard.
 2. **Create a sandbox app** under My Apps & Credentials → REST API apps. Copy the **Client ID** and **Secret**
@@ -124,6 +149,8 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
 | `.env.local` changes not picked up | Stop `npm run dev`, rerun it. |
 | Convex request fails | Ensure HTTP actions verify admin token and return JSON; confirm `CONVEX_*` env vars. |
 | `npx convex deploy` says "No CONVEX_DEPLOYMENT set" | From `web/`, run `npx convex login` (if needed) then `npx convex dev --once` to select your deployment; retry `npx convex deploy`. |
+| Polar webhook returning 401 | Confirm `POLAR_WEBHOOK_SECRET` matches the secret shown in Polar’s dashboard. |
+| Polar checkout missing plan mapping | Ensure the product ID is set in `POLAR_PLAN_ID`/`POLAR_PLAN_ID_<TIER>` or add `metadata.planTier` in Polar. |
 | PayPal error “client not configured” | Double-check `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` in `.env.local` and restart the dev server. |
 | PayPal approval link missing | Ensure `PAYPAL_PLAN_ID` is valid and the plan is in the same environment (sandbox vs live) as your credentials. |
 | Cookie errors about `ACCOUNT_ID_SECRET` | Generate a 32+ char secret (`openssl rand -base64 48`), put it in `.env.local`, restart the dev server. |
@@ -136,9 +163,9 @@ Skip this if you’re happy with the built-in trial messaging. Otherwise:
 
 ## Summary Checklist
 
-- Copy `.env.local.example` → `.env.local`; fill Convex + (optionally) PayPal keys.
+- Copy `.env.local.example` → `.env.local`; fill Convex + billing keys (`BILLING_PROVIDER`, Polar/PayPal secrets).
 - Run Convex CLI: `npx convex dev`, implement `convex/provisioning.ts` & `convex/account.ts`, then `npx convex deploy`.
 - Restart `npm run dev`—premium provisioning uses your Convex backend immediately.
-- Optional PayPal: add keys, set plan IDs + URLs, and restart.
+- Pick a billing provider (Polar or PayPal) and populate the corresponding environment variables.
 
 You’re done! 🥳

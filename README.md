@@ -83,7 +83,7 @@ The repository now includes a browser-based workspace under `web/` that will rea
 cd web
 npm install
 
-# Copy environment template and fill in Convex/PayPal keys
+# Copy environment template and fill in Convex + billing keys
 cp .env.local.example .env.local
 # then edit .env.local with your deployment details
 
@@ -106,11 +106,20 @@ npm run test
 - `CONVEX_AUTH_SCHEME` lets you force the Authorization scheme used against Convex HTTP actions (defaults to `Deployment` when a deployment key is provided, otherwise `Bearer`).
 - `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
 - `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
-- `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: enable the managed workspace billing routes to authenticate with PayPal.
-- `PAYPAL_PLAN_ID` (or tier-specific `PAYPAL_PLAN_ID_STARTER`, `PAYPAL_PLAN_ID_PRO`, etc.): maps subscription checkouts to PayPal billing plans.
-- `PAYPAL_SUCCESS_URL`, `PAYPAL_CANCEL_URL`: optional overrides for the PayPal approval return/cancel URLs.
-- `PAYPAL_PORTAL_URL`: optional URL or template (supports `{customerId}` token) for directing users to manage their subscription; defaults to PayPal’s autopay dashboard.
-- `PAYPAL_ENVIRONMENT`: set to `live` when ready to accept production payments; defaults to `sandbox`.
+- `BILLING_PROVIDER`: choose `polar` to enable the Polar integration (default `paypal`).
+- **Polar billing (`BILLING_PROVIDER=polar`)**
+  - `POLAR_ACCESS_TOKEN`, `POLAR_ORGANIZATION_ID`: authenticate with the Polar API.
+  - `POLAR_ENVIRONMENT`: `sandbox` or `production` (defaults to `sandbox`).
+  - `POLAR_PLAN_ID` or tier-specific `POLAR_PLAN_ID_STARTER`, `POLAR_PLAN_ID_PRO`, etc.: map Polar products to internal tiers.
+  - `POLAR_CHECKOUT_SUCCESS_URL`: optional redirect override for checkout completion.
+  - `POLAR_CUSTOMER_PORTAL_URL`: optional fallback link to the hosted Polar portal (`https://polar.sh/<org>/portal`).
+  - `POLAR_WEBHOOK_SECRET`: signature secret used to verify `/api/billing/polar/events`.
+- **PayPal billing (`BILLING_PROVIDER=paypal`)**
+  - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: authenticate with PayPal REST APIs.
+  - `PAYPAL_PLAN_ID` (or tier-specific variants): maps subscriptions to billing plans.
+  - `PAYPAL_SUCCESS_URL`, `PAYPAL_CANCEL_URL`: optional overrides for the hosted approval flow.
+  - `PAYPAL_PORTAL_URL`: optional billing portal link/template.
+  - `PAYPAL_ENVIRONMENT`: set to `live` for production (defaults to `sandbox`).
 - `SESSION_DATA_PATH`: optional path for persisting encrypted session payloads when Convex is unavailable, keeping the in-browser vault functional across deploys.
 
 See [`Docs/WEB_ARCHITECTURE.md`](Docs/WEB_ARCHITECTURE.md) for a deeper look at the module layout, security approach, and parity roadmap.

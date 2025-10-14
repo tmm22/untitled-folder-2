@@ -28,6 +28,12 @@ function buildDefaultAccount(userId: string): AccountInsert {
     planTier: 'free',
     billingStatus: 'free',
     premiumExpiresAt: undefined,
+    polarCustomerId: undefined,
+    polarSubscriptionId: undefined,
+    polarPlanId: undefined,
+    polarCurrentPeriodEnd: undefined,
+    polarLastEventId: undefined,
+    polarBenefits: undefined,
     usage: {
       monthTokensUsed: 0,
       monthlyAllowance: DEFAULT_FREE_ALLOWANCE,
@@ -64,6 +70,22 @@ export const updateAccount = mutation({
       planTier: v.string(),
       billingStatus: v.string(),
       premiumExpiresAt: v.optional(v.number()),
+      polarCustomerId: v.optional(v.union(v.string(), v.null())),
+      polarSubscriptionId: v.optional(v.union(v.string(), v.null())),
+      polarPlanId: v.optional(v.union(v.string(), v.null())),
+      polarCurrentPeriodEnd: v.optional(v.union(v.number(), v.null())),
+      polarLastEventId: v.optional(v.union(v.string(), v.null())),
+      polarBenefits: v.optional(
+        v.union(
+          v.null(),
+          v.array(
+            v.object({
+              id: v.string(),
+              name: v.optional(v.string()),
+            }),
+          ),
+        ),
+      ),
     }),
   },
   handler: async (ctx, { payload }) => {
@@ -74,11 +96,27 @@ export const updateAccount = mutation({
       lastUpdated: now(),
     };
 
+    const normalizedPayload = {
+      polarCustomerId: payload.polarCustomerId ?? undefined,
+      polarSubscriptionId: payload.polarSubscriptionId ?? undefined,
+      polarPlanId: payload.polarPlanId ?? undefined,
+      polarCurrentPeriodEnd: payload.polarCurrentPeriodEnd ?? undefined,
+      polarLastEventId: payload.polarLastEventId ?? undefined,
+      polarBenefits: payload.polarBenefits ?? undefined,
+    };
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         planTier: payload.planTier,
         billingStatus: payload.billingStatus,
         premiumExpiresAt: payload.premiumExpiresAt ?? undefined,
+        polarCustomerId: normalizedPayload.polarCustomerId ?? existing.polarCustomerId ?? undefined,
+        polarSubscriptionId: normalizedPayload.polarSubscriptionId ?? existing.polarSubscriptionId ?? undefined,
+        polarPlanId: normalizedPayload.polarPlanId ?? existing.polarPlanId ?? undefined,
+        polarCurrentPeriodEnd:
+          normalizedPayload.polarCurrentPeriodEnd ?? existing.polarCurrentPeriodEnd ?? undefined,
+        polarLastEventId: normalizedPayload.polarLastEventId ?? existing.polarLastEventId ?? undefined,
+        polarBenefits: normalizedPayload.polarBenefits ?? existing.polarBenefits ?? undefined,
         usage,
       });
       const updated = await findAccount(ctx, payload.userId);
@@ -90,6 +128,12 @@ export const updateAccount = mutation({
       planTier: payload.planTier,
       billingStatus: payload.billingStatus,
       premiumExpiresAt: payload.premiumExpiresAt ?? undefined,
+      polarCustomerId: normalizedPayload.polarCustomerId,
+      polarSubscriptionId: normalizedPayload.polarSubscriptionId,
+      polarPlanId: normalizedPayload.polarPlanId,
+      polarCurrentPeriodEnd: normalizedPayload.polarCurrentPeriodEnd,
+      polarLastEventId: normalizedPayload.polarLastEventId,
+      polarBenefits: normalizedPayload.polarBenefits,
       usage,
     };
     await ctx.db.insert('accounts', account);

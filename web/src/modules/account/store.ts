@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { PlanTier } from '@/lib/provisioning';
 import { fetchAccount } from '@/lib/account/client';
-import type { AccountUsageSummary } from '@/lib/account/types';
+import type { AccountBenefitSummary, AccountUsageSummary } from '@/lib/account/types';
 
 export type BillingStatus = 'free' | 'trial' | 'active' | 'past_due' | 'canceled';
 export type AccountPlanTier = PlanTier | 'free';
@@ -15,6 +15,11 @@ interface AccountState {
   premiumExpiresAt?: number;
   hasProvisioningAccess: boolean;
   usageSummary?: AccountUsageSummary;
+  polarCustomerId?: string;
+  polarSubscriptionId?: string;
+  polarPlanId?: string;
+  polarCurrentPeriodEnd?: number;
+  polarBenefits?: AccountBenefitSummary[];
   sessionKind: 'guest' | 'authenticated';
   actions: {
     initialize: (preferredUserId?: string) => Promise<void>;
@@ -33,6 +38,11 @@ export interface AccountUpdatePayload {
   billingStatus: BillingStatus;
   premiumExpiresAt?: number;
   usage?: AccountUsageSummary;
+  polarCustomerId?: string;
+  polarSubscriptionId?: string;
+  polarPlanId?: string;
+  polarCurrentPeriodEnd?: number;
+  polarBenefits?: AccountBenefitSummary[];
 }
 
 const computeProvisioningAccess = (
@@ -69,6 +79,11 @@ const baseState = {
   premiumExpiresAt: undefined as number | undefined,
   hasProvisioningAccess: false,
   usageSummary: undefined as AccountUsageSummary | undefined,
+  polarCustomerId: undefined as string | undefined,
+  polarSubscriptionId: undefined as string | undefined,
+  polarPlanId: undefined as string | undefined,
+  polarCurrentPeriodEnd: undefined as number | undefined,
+  polarBenefits: undefined as AccountBenefitSummary[] | undefined,
   sessionKind: 'guest' as 'guest' | 'authenticated',
 };
 
@@ -85,6 +100,11 @@ export const useAccountStore = create<AccountState>(() => ({
         let nextBillingStatus = prev.billingStatus;
         let nextPremiumExpiresAt = prev.premiumExpiresAt;
         let nextUsageSummary = prev.usageSummary;
+        let nextPolarCustomerId = prev.polarCustomerId;
+        let nextPolarSubscriptionId = prev.polarSubscriptionId;
+        let nextPolarPlanId = prev.polarPlanId;
+        let nextPolarCurrentPeriodEnd = prev.polarCurrentPeriodEnd;
+        let nextPolarBenefits = prev.polarBenefits;
         let nextSessionKind: 'guest' | 'authenticated' = prev.sessionKind;
 
         if (normalizedPreferred) {
@@ -94,6 +114,11 @@ export const useAccountStore = create<AccountState>(() => ({
             nextBillingStatus = 'free';
             nextPremiumExpiresAt = undefined;
             nextUsageSummary = undefined;
+            nextPolarCustomerId = undefined;
+            nextPolarSubscriptionId = undefined;
+            nextPolarPlanId = undefined;
+            nextPolarCurrentPeriodEnd = undefined;
+            nextPolarBenefits = undefined;
             userIdChanged = true;
           }
           nextSessionKind = 'authenticated';
@@ -105,6 +130,11 @@ export const useAccountStore = create<AccountState>(() => ({
             nextBillingStatus = 'free';
             nextPremiumExpiresAt = undefined;
             nextUsageSummary = undefined;
+            nextPolarCustomerId = undefined;
+            nextPolarSubscriptionId = undefined;
+            nextPolarPlanId = undefined;
+            nextPolarCurrentPeriodEnd = undefined;
+            nextPolarBenefits = undefined;
             userIdChanged = true;
           }
           nextSessionKind = 'guest';
@@ -117,6 +147,11 @@ export const useAccountStore = create<AccountState>(() => ({
           billingStatus: nextBillingStatus,
           premiumExpiresAt: nextPremiumExpiresAt,
           usageSummary: nextUsageSummary,
+          polarCustomerId: nextPolarCustomerId,
+          polarSubscriptionId: nextPolarSubscriptionId,
+          polarPlanId: nextPolarPlanId,
+          polarCurrentPeriodEnd: nextPolarCurrentPeriodEnd,
+          polarBenefits: nextPolarBenefits,
           hasProvisioningAccess: computeProvisioningAccess(nextPlanTier, nextBillingStatus, nextPremiumExpiresAt),
           sessionKind: nextSessionKind,
         };
@@ -139,6 +174,11 @@ export const useAccountStore = create<AccountState>(() => ({
         const billingStatus = payload.billingStatus ?? prev.billingStatus;
         const premiumExpiresAt = payload.premiumExpiresAt ?? prev.premiumExpiresAt;
         const userId = payload.userId?.trim() || prev.userId || generateUserId();
+        const polarCustomerId = payload.polarCustomerId ?? prev.polarCustomerId;
+        const polarSubscriptionId = payload.polarSubscriptionId ?? prev.polarSubscriptionId;
+        const polarPlanId = payload.polarPlanId ?? prev.polarPlanId;
+        const polarCurrentPeriodEnd = payload.polarCurrentPeriodEnd ?? prev.polarCurrentPeriodEnd;
+        const polarBenefits = payload.polarBenefits ?? prev.polarBenefits;
 
         lastSyncedUserId = userId;
 
@@ -150,6 +190,11 @@ export const useAccountStore = create<AccountState>(() => ({
           premiumExpiresAt,
           hasProvisioningAccess: computeProvisioningAccess(planTier, billingStatus, premiumExpiresAt),
           usageSummary: payload.usage ?? prev.usageSummary,
+          polarCustomerId,
+          polarSubscriptionId,
+          polarPlanId,
+          polarCurrentPeriodEnd,
+          polarBenefits,
         };
       });
     },

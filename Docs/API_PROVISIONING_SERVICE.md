@@ -21,7 +21,7 @@
 
 ## High-Level Architecture
 - **Identity & Account Service**: Managed auth provider (Auth0, Supabase, Clerk) issues JWTs and stores profile metadata, MFA settings, and plan tier.
-- **Billing Service**: PayPal subscriptions with hosted approval flow and account management links; webhook handler updates account status, trial periods, and payment failures.
+- **Billing Service**: Polar (preferred) or PayPal integrations manage subscriptions, hosted checkout, and customer portal links; webhook handlers update account status, trial periods, and payment failures.
 - **Provisioning Orchestrator**: Secure backend service that pulls master provider keys from the vault, mints scoped credentials, and persists hashed tokens.
 - **Secure Proxy/API Gateway**: Server component that signs LLM requests on behalf of users; enforces rate limits, logs usage, and injects provisioned credentials.
 - **Usage Pipeline**: Message queue (Redis Streams, SQS, or PostgreSQL logical queue) plus worker that aggregates usage by user/plan for analytics and billing reconciliation.
@@ -122,7 +122,7 @@
 
 ## Prototype Snapshot (January 2025)
 - **Convex Integration (optional)**: When `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or legacy `CONVEX_ADMIN_KEY`) are provided, the orchestrator and account repository delegate reads/writes to Convex functions (`/api/provisioning/*`, `/api/account/*`). Ship Convex mutations that mirror the JSON payloads documented here.
-- **Environment Setup**: Copy `web/.env.local.example` to `.env.local` and populate at minimum `CONVEX_URL` + `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) and the PayPal variables so Next.js loads the configuration automatically.
+- **Environment Setup**: Copy `web/.env.local.example` to `.env.local` and populate at minimum `CONVEX_URL` + `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`), choose `BILLING_PROVIDER`, then fill the matching Polar or PayPal variables so Next.js loads the configuration automatically.
 - **Fallback Persistence**: Without Convex configuration, the orchestrator uses `JsonFileProvisioningStore` when `PROVISIONING_DATA_PATH` is set, or the in-memory store for local development.
 - **Token Cache**: `InMemoryProvisioningTokenCache` keeps short-lived tokens resident in memory for reuse across requests.
 - **Provider Adapter**: `OpenAIProvisioningProvider` derives scoped pseudo tokens from the root OpenAI key while real vault-backed issuance is under design.
