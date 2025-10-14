@@ -9,9 +9,44 @@ import {
   clearTranslations,
   markTranslationAdopted,
 } from '@/lib/translations/client';
+import { useCredentialStore } from '@/modules/credentials/store';
+import type { ProviderType } from '@/modules/tts/types';
 
 const DEFAULT_TARGET_LANGUAGE = 'en';
 const DEFAULT_PROVIDER = 'openai';
+
+const PROVIDER_ALIASES: Record<string, ProviderType> = {
+  openai: 'openAI',
+  elevenlabs: 'elevenLabs',
+  google: 'google',
+  tightass: 'tightAss',
+};
+
+const resolveProviderType = (providerId: string): ProviderType | undefined => {
+  const normalized = providerId.trim().toLowerCase();
+  if (normalized in PROVIDER_ALIASES) {
+    return PROVIDER_ALIASES[normalized as keyof typeof PROVIDER_ALIASES];
+  }
+  return undefined;
+};
+
+const buildAuthHeaders = async (providerId: string): Promise<Record<string, string>> => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  const providerType = resolveProviderType(providerId);
+  if (!providerType) {
+    return {};
+  }
+
+  try {
+    return await useCredentialStore.getState().actions.getAuthHeaders(providerType);
+  } catch (error) {
+    console.error('Failed to resolve translation auth headers', error);
+    return {};
+  }
+};
 
 const sortBySequence = (items: TranslationRecord[]): TranslationRecord[] =>
   [...items].sort((a, b) => b.sequenceIndex - a.sequenceIndex);
@@ -148,12 +183,17 @@ export const useTranslationHistoryStore = create<TranslationHistoryState>((set, 
 
       set({ isLoading: true, error: undefined });
       try {
-        const result = await createTranslation(documentId, {
-          text: trimmed,
-          targetLanguageCode,
-          keepOriginalApplied: keepOriginal,
-          provider: DEFAULT_PROVIDER,
-        });
+        const authHeaders = await buildAuthHeaders(DEFAULT_PROVIDER);
+        const result = await createTranslation(
+          documentId,
+          {
+            text: trimmed,
+            targetLanguageCode,
+            keepOriginalApplied: keepOriginal,
+            provider: DEFAULT_PROVIDER,
+          },
+          Object.keys(authHeaders).length > 0 ? { headers: authHeaders } : undefined,
+        );
         if (!result.translation) {
           throw new Error('Translation creation failed');
         }
