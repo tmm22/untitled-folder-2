@@ -33,7 +33,7 @@ function mapPipeline(doc: PipelineDoc) {
 async function loadPipelineById(db: DatabaseReader, id: string): Promise<PipelineDoc | null> {
   return await db
     .query('pipelines')
-    .withIndex('by_id')
+    .withIndex('by_pipeline_id')
     .filter((q) => q.eq(q.field('id'), id))
     .first();
 }
