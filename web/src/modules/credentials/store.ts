@@ -164,10 +164,35 @@ export const useCredentialStore = create<CredentialsState>((set, get) => ({
       try {
         const rawKey = getRawMasterKey();
         if (rawKey) {
-          await ensureSession(rawKey);
-          const apiKey = await getProviderKey(provider);
-          if (apiKey) {
-            return getSessionHeaders(apiKey);
+          const secureSessionError =
+            'Unable to establish secure session; provider key was not transmitted. Reload and try again.';
+
+          let sessionReady = true;
+          try {
+            await ensureSession(rawKey);
+          } catch (error) {
+            console.error('Failed to establish secure session for provider headers', error);
+            sessionReady = false;
+            set((prev) => ({
+              ...prev,
+              error: secureSessionError,
+            }));
+          }
+
+          if (sessionReady) {
+            const apiKey = await getProviderKey(provider);
+            if (apiKey) {
+              const sessionHeaders = getSessionHeaders(apiKey);
+              if (Object.keys(sessionHeaders).length > 0) {
+                return sessionHeaders;
+              }
+
+              console.warn('Secure session handshake produced no headers; withholding provider key.');
+              set((prev) => ({
+                ...prev,
+                error: secureSessionError,
+              }));
+            }
           }
         }
 
