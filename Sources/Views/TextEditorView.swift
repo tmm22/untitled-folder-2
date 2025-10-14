@@ -19,29 +19,28 @@ struct TextEditorView: View {
                             lineWidth: isFocused ? (viewModel.isMinimalistMode ? 1.5 : 2) : 1
                         )
                 )
+                .allowsHitTesting(false)
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
                 .animation(.easeInOut(duration: 0.1), value: isHovering)
             
             // Text Editor
-            ScrollView {
-                TextEditor(text: $viewModel.inputText)
-                    .font(.system(size: 14, weight: .regular, design: .default))
-                    .focused($isFocused)
-                    .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260)
-                    .padding(viewModel.isMinimalistMode ? 6 : 8)
-                    .background(Color.clear)
-                    .scrollContentBackground(.hidden)
-                    .onChange(of: viewModel.inputText) { newValue in
-                        let limit = viewModel.currentCharacterLimit
-                        guard newValue.count > limit else { return }
+            TextEditor(text: $viewModel.inputText)
+                .font(.system(size: 14, weight: .regular, design: .default))
+                .focused($isFocused)
+                .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260)
+                .padding(viewModel.isMinimalistMode ? 6 : 8)
+                .background(Color.clear)
+                .scrollContentBackground(.hidden)
+                .onChange(of: viewModel.inputText) { _, newValue in
+                    let limit = viewModel.currentCharacterLimit
+                    guard newValue.count > limit else { return }
 
-                        if viewModel.shouldAllowCharacterOverflow(for: newValue) {
-                            return
-                        }
-
-                        viewModel.inputText = String(newValue.prefix(limit))
+                    if viewModel.shouldAllowCharacterOverflow(for: newValue) {
+                        return
                     }
-            }
+
+                    viewModel.inputText = String(newValue.prefix(limit))
+                }
             
             // Placeholder text
             if viewModel.inputText.isEmpty {

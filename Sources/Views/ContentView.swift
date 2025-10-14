@@ -337,7 +337,7 @@ private struct CommandStripView: View {
                         .tag(provider)
                 }
             }
-            .onChange(of: viewModel.selectedProvider) { _ in
+            .onChange(of: viewModel.selectedProvider) {
                 viewModel.updateAvailableVoices()
             }
             .frame(minWidth: 160)

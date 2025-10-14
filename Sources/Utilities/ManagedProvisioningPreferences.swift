@@ -47,3 +47,5 @@ final class ManagedProvisioningPreferences {
         isEnabled = false
     }
 }
+
+extension ManagedProvisioningPreferences: @unchecked Sendable {}

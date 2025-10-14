@@ -152,7 +152,7 @@ struct PlaybackControlsView: View {
                                     }
                                     .pickerStyle(MenuPickerStyle())
                                     .frame(width: 80)
-                                    .onChange(of: viewModel.playbackSpeed) { _ in
+                                    .onChange(of: viewModel.playbackSpeed) {
                                         viewModel.applyPlaybackSpeed(save: true)
                                     }
                                     
@@ -198,7 +198,7 @@ struct PlaybackControlsView: View {
                                             viewModel.applyPlaybackVolume(save: true)
                                         }
                                     }
-                                    .onChange(of: viewModel.volume) { _ in
+                                    .onChange(of: viewModel.volume) {
                                         viewModel.applyPlaybackVolume()
                                     }
                                     .frame(width: 150)

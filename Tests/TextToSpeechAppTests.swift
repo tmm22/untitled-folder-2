@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import TextToSpeechApp
 
+@MainActor
 final class TextToSpeechAppTests: XCTestCase {
     private func resetPersistedSettings() {
         let defaults = UserDefaults.standard

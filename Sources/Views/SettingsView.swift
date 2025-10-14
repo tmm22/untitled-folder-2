@@ -101,10 +101,10 @@ struct SettingsView: View {
             loadAPIKeys()
             loadManagedProvisioning()
         }
-        .onChange(of: viewModel.managedProvisioningConfiguration) { _ in
+        .onChange(of: viewModel.managedProvisioningConfiguration) {
             loadManagedProvisioning()
         }
-        .onChange(of: viewModel.managedProvisioningEnabled) { _ in
+        .onChange(of: viewModel.managedProvisioningEnabled) {
             loadManagedProvisioning()
         }
         .alert("Settings Saved", isPresented: $showingSaveAlert) {
@@ -311,7 +311,7 @@ struct SettingsView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .frame(width: 100)
-                        .onChange(of: viewModel.playbackSpeed) { _ in
+                        .onChange(of: viewModel.playbackSpeed) {
                             viewModel.applyPlaybackSpeed(save: true)
                         }
                         Spacer()
@@ -320,7 +320,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Default Volume:")
                         Slider(value: $viewModel.volume, in: 0...1)
-                            .onChange(of: viewModel.volume) { _ in
+                            .onChange(of: viewModel.volume) {
                                 viewModel.applyPlaybackVolume(save: true)
                             }
                             .frame(width: 200)
@@ -381,7 +381,7 @@ struct SettingsView: View {
                     Toggle(isOn: $viewModel.isMinimalistMode) {
                         Text("Minimalist layout (Compact)")
                     }
-                    .onChange(of: viewModel.isMinimalistMode) { _ in
+                    .onChange(of: viewModel.isMinimalistMode) {
                         viewModel.saveSettings()
                     }
                     .accessibilityLabel("Minimalist layout (Compact)")

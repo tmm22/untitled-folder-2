@@ -1,6 +1,7 @@
 import Foundation
 
 // MARK: - TTS Provider Protocol
+@MainActor
 protocol TTSProvider {
     var name: String { get }
     var availableVoices: [Voice] { get }

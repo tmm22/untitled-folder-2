@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class OpenAIService: TTSProvider {
     // MARK: - Properties
     var name: String { "OpenAI" }

@@ -1,9 +1,11 @@
 import Foundation
 
+@MainActor
 protocol URLContentLoading {
     func fetchPlainText(from url: URL) async throws -> String
 }
 
+@MainActor
 struct URLContentService: URLContentLoading {
     private let session: URLSession
     private static let redditUserAgent = "TextToSpeechApp/1.0 (+https://example.com)"

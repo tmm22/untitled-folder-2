@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 
+@MainActor
 final class LocalTTSService: NSObject, TTSProvider {
     // MARK: - Properties
     private let voices: [Voice]

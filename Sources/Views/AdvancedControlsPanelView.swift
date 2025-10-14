@@ -38,7 +38,7 @@ struct AdvancedControlsPanelView: View {
                     }
                     .pickerStyle(MenuPickerStyle())
                     .frame(width: 80)
-                    .onChange(of: viewModel.playbackSpeed) { _ in
+                    .onChange(of: viewModel.playbackSpeed) {
                         viewModel.applyPlaybackSpeed(save: true)
                     }
                     
@@ -67,7 +67,7 @@ struct AdvancedControlsPanelView: View {
                             viewModel.applyPlaybackVolume(save: true)
                         }
                     }
-                    .onChange(of: viewModel.volume) { _ in
+                    .onChange(of: viewModel.volume) {
                         viewModel.applyPlaybackVolume()
                     }
                     .frame(width: 150)
@@ -102,7 +102,7 @@ struct AdvancedControlsPanelView: View {
                         .font(.subheadline)
                 }
                 .toggleStyle(.switch)
-                .onChange(of: viewModel.isLoopEnabled) { _ in
+                .onChange(of: viewModel.isLoopEnabled) {
                     viewModel.saveSettings()
                 }
             }

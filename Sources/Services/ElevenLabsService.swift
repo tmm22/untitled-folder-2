@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class ElevenLabsService: TTSProvider {
     // MARK: - Properties
     var name: String { "ElevenLabs" }

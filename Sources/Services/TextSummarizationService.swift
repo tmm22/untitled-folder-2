@@ -5,6 +5,7 @@ struct SummarizationResult: Equatable {
     let summary: String
 }
 
+@MainActor
 protocol TextSummarizationService {
     func hasCredentials() -> Bool
     func summarize(text: String, sourceURL: URL?) async throws -> SummarizationResult

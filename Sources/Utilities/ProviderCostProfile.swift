@@ -25,10 +25,10 @@ struct ProviderCostProfile {
         let freeTier = freeTierChars ?? 0
         let billableCharacters = max(characters - freeTier, 0)
         let cost = Double(billableCharacters) * rate / 1_000_000.0
-        let formattedCost = ProviderCostProfile.currencyFormatter.string(from: NSNumber(value: cost)) ?? "$0.00"
+        let formattedCost = ProviderCostProfile.formattedCurrency(cost)
 
         if billableCharacters == 0, freeTier > 0 {
-            let freeText = ProviderCostProfile.countFormatter.string(from: NSNumber(value: freeTier)) ?? "\(freeTier)"
+            let freeText = ProviderCostProfile.formattedCount(freeTier)
             return CostEstimate(
                 summary: "≈$0.00 (within \(freeText) character free tier)",
                 detail: trimmedDetail
@@ -37,7 +37,7 @@ struct ProviderCostProfile {
 
         if cost < 0.005 {
             return CostEstimate(
-                summary: "< \(ProviderCostProfile.currencyFormatter.string(from: 0.01) ?? "$0.01") estimated for this generation",
+                summary: "< \(ProviderCostProfile.formattedCurrency(0.01)) estimated for this generation",
                 detail: ProviderCostProfile.billableDetail(characters: billableCharacters, baseDetail: trimmedDetail, freeTier: freeTier)
             )
         }
@@ -49,7 +49,7 @@ struct ProviderCostProfile {
     }
 
     private static func billableDetail(characters: Int, baseDetail: String, freeTier: Int) -> String? {
-        let formattedCharacters = countFormatter.string(from: NSNumber(value: characters)) ?? "\(characters)"
+        let formattedCharacters = formattedCount(characters)
         guard characters > 0 else { return baseDetail }
 
         if freeTier > 0 {
@@ -94,26 +94,20 @@ extension ProviderCostProfile {
         }
     }
 
-    static var currencyFormatter: NumberFormatter = {
+    private static func formattedCurrency(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.locale = Locale(identifier: "en_US")
         formatter.maximumFractionDigits = 2
         formatter.minimumFractionDigits = 2
-        return formatter
-    }()
+        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+    }
 
-    static var countFormatter: NumberFormatter = {
+    private static func formattedCount(_ value: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = ","
         formatter.maximumFractionDigits = 0
-        return formatter
-    }()
-}
-
-private extension NumberFormatter {
-    func string(from value: Double) -> String? {
-        return string(from: NSNumber(value: value))
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 }

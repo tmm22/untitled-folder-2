@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class OpenAITranslationService: TextTranslationService {
     private let session: URLSession
     private let keychain: KeychainManager

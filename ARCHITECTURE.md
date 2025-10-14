@@ -4,8 +4,8 @@
 A native macOS application built with SwiftUI that provides text-to-speech functionality using multiple TTS providers (ElevenLabs, OpenAI, Google Cloud TTS, plus a local-on-device mode) with comprehensive playback controls.
 
 ## Technology Stack
-- **Platform**: macOS 13.0+
-- **Language**: Swift 5.9
+- **Platform**: macOS 15.0+
+- **Language**: Swift 6
 - **UI Framework**: SwiftUI
 - **Audio Framework**: AVFoundation
 - **Networking**: URLSession
@@ -289,7 +289,7 @@ Providers return `styleControls` to advertise emotion/style sliders. The view mo
 - Auto-update mechanism (Sparkle framework)
 
 ### System Requirements
-- macOS 13.0 (Ventura) or later
+- macOS 15.0 (Sequoia) or later
 - Apple Silicon or Intel processor
 - 100 MB disk space
 - Internet connection for API calls

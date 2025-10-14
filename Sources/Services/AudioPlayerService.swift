@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 
 @MainActor
@@ -142,9 +142,10 @@ class AudioPlayerService: NSObject, ObservableObject {
     
     // MARK: - Cleanup
     deinit {
-        // Clean up timer and audio player
-        timer?.invalidate()
-        audioPlayer?.stop()
+        MainActor.assumeIsolated {
+            timer?.invalidate()
+            audioPlayer?.stop()
+        }
     }
 }
 

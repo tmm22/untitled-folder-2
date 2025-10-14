@@ -2,8 +2,8 @@
 
 A powerful native macOS application that converts text to speech using multiple AI-powered TTS providers including ElevenLabs, OpenAI, Google Cloud Text-to-Speech, plus a local “Tight Ass Mode” that never leaves your machine.
 
-![macOS 13.0+](https://img.shields.io/badge/macOS-13.0%2B-blue)
-![Swift 5.9](https://img.shields.io/badge/Swift-5.9-orange)
+![macOS 15.0+](https://img.shields.io/badge/macOS-15.0%2B-blue)
+![Swift 6](https://img.shields.io/badge/Swift-6-orange)
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-Framework-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
@@ -182,7 +182,7 @@ Tip: Use the slider.horizontal.3 button in the header to open the Advanced Contr
 ## Installation
 
 ### Prerequisites
-- macOS 13.0 (Ventura) or later
+- macOS 15.0 (Sequoia) or later
 - Xcode 15.0 (or the matching Command Line Tools)
 - Apple Developer account only if you plan to ship notarized builds
 
@@ -416,7 +416,7 @@ Use SSML markup for advanced control:
 - Reduce text length for faster processing
 
 #### App Won't Open
-- Ensure macOS 13.0 or later is installed
+- Ensure macOS 15.0 or later is installed
 - Check Security & Privacy settings
 - Right-click the app and select "Open"
 

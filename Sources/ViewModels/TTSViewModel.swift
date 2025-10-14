@@ -1637,8 +1637,9 @@ class TTSViewModel: ObservableObject {
 
         notificationCenter?.getNotificationSettings { [weak self] settings in
             guard let self = self else { return }
+            let authorizationStatus = settings.authorizationStatus
             Task { @MainActor in
-                if settings.authorizationStatus != .authorized && self.notificationsEnabled {
+                if authorizationStatus != .authorized && self.notificationsEnabled {
                     self.notificationsEnabled = false
                     self.saveSettings()
                 }
@@ -2125,23 +2126,12 @@ private extension TTSViewModel {
             throw TTSError.apiError("Unable to export combined audio.")
         }
 
-        exporter.outputURL = outputURL
-        exporter.outputFileType = exportFormat
-
-        exporter.exportAsynchronously {}
-
-        exportLoop: while true {
-            switch exporter.status {
-            case .completed:
-                break exportLoop
-            case .failed, .cancelled:
-                let error = exporter.error ?? TTSError.apiError("Audio export failed")
-                throw error
-            case .unknown, .waiting, .exporting:
-                try await Task.sleep(nanoseconds: 50_000_000)
-            @unknown default:
-                try await Task.sleep(nanoseconds: 50_000_000)
-            }
+        do {
+            try await exporter.export(to: outputURL, as: exportFormat)
+        } catch let cancelError as CancellationError {
+            throw cancelError
+        } catch {
+            throw TTSError.apiError(error.localizedDescription)
         }
 
         let data = try Data(contentsOf: outputURL)

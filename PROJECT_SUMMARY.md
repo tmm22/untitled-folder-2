@@ -118,9 +118,9 @@ TextToSpeechApp/
 ## 🚀 How to Build and Run
 
 ### Prerequisites
-- macOS 13.0 (Ventura) or later
-- Xcode 15.0 or later
-- Swift 5.9 or later
+- macOS 15.0 (Sequoia) or later
+- Xcode 16.0 or later
+- Swift 6.0 or later
 
 ### Build Options
 

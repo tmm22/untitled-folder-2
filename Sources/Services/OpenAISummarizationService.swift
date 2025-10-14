@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class OpenAISummarizationService: TextSummarizationService {
     private let session: URLSession
     private let keychain: KeychainManager

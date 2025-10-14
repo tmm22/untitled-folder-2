@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class GoogleTTSService: TTSProvider {
     // MARK: - Properties
     var name: String { "Google Cloud TTS" }

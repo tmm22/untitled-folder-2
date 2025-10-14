@@ -130,3 +130,5 @@ final class ManagedProvisioningClient {
         }
     }
 }
+
+extension ManagedProvisioningClient: @unchecked Sendable {}
