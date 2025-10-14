@@ -33,10 +33,17 @@ function buildUrl(documentId: string, params?: { cursor?: string; limit?: number
   return query ? `${BASE_URL}?${query}` : BASE_URL;
 }
 
-async function postAction<T>(payload: Record<string, unknown>): Promise<T> {
+interface PostActionOptions {
+  headers?: Record<string, string>;
+}
+
+async function postAction<T>(payload: Record<string, unknown>, options?: PostActionOptions): Promise<T> {
   const response = await fetch(BASE_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers ?? {}),
+    },
     body: JSON.stringify(payload),
   });
   return (await ensureOk(response).json()) as T;
@@ -60,12 +67,16 @@ export async function fetchTranslations(
 export async function createTranslation(
   documentId: string,
   payload: TranslateTextRequest,
+  options?: PostActionOptions,
 ): Promise<TranslateResponse> {
-  return await postAction<TranslateResponse>({
-    action: 'translate',
-    documentId,
-    payload,
-  });
+  return await postAction<TranslateResponse>(
+    {
+      action: 'translate',
+      documentId,
+      payload,
+    },
+    options,
+  );
 }
 
 export async function promoteTranslation(

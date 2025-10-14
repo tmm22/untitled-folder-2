@@ -17,6 +17,18 @@ vi.mock('@/lib/translations/client', () => ({
   markTranslationAdopted: vi.fn(),
 }));
 
+const getAuthHeadersMock = vi.fn(async () => ({}));
+
+vi.mock('@/modules/credentials/store', () => ({
+  useCredentialStore: {
+    getState: () => ({
+      actions: {
+        getAuthHeaders: getAuthHeadersMock,
+      },
+    }),
+  },
+}));
+
 const buildTranslation = (overrides: Partial<TranslationRecord> = {}): TranslationRecord => ({
   id: overrides.id ?? 'translation-1',
   sequenceIndex: overrides.sequenceIndex ?? 1,
@@ -37,8 +49,16 @@ const resetStore = () => {
 };
 
 describe('useTranslationHistoryStore', () => {
+  const originalWindow = globalThis.window;
+
   beforeEach(() => {
     vi.resetAllMocks();
+    getAuthHeadersMock.mockResolvedValue({});
+    if (typeof originalWindow === 'undefined') {
+      (globalThis as any).window = {} as Window & typeof globalThis;
+    } else {
+      (globalThis as any).window = originalWindow;
+    }
     resetStore();
   });
 
@@ -77,6 +97,11 @@ describe('useTranslationHistoryStore', () => {
 
   afterEach(() => {
     resetStore();
+    if (typeof originalWindow === 'undefined') {
+      delete (globalThis as any).window;
+    } else {
+      (globalThis as any).window = originalWindow;
+    }
   });
 
   it('hydrates translations for a document', async () => {
@@ -162,6 +187,47 @@ describe('useTranslationHistoryStore', () => {
     expect(createTranslation).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ text: 'Hello world', targetLanguageCode: 'fr', keepOriginalApplied: true }),
+      undefined,
+    );
+  });
+
+  it('includes provider auth headers when available', async () => {
+    useTranslationHistoryStore.setState({
+      documentId: 'doc-1',
+      history: [],
+      activeTranslation: null,
+      nextCursor: undefined,
+      isHydrated: true,
+      isLoading: false,
+      error: undefined,
+    });
+
+    const translation = buildTranslation({ id: 't-9', sequenceIndex: 1, targetLanguageCode: 'es' });
+    vi.mocked(createTranslation).mockResolvedValue({
+      translation,
+      historySize: 1,
+    });
+
+    getAuthHeadersMock.mockResolvedValueOnce({
+      'x-ttsauth-id': 'session',
+      'x-ttsauth': 'payload',
+    });
+
+    await useTranslationHistoryStore.getState().actions.translate('Hola mundo');
+
+    expect(createTranslation).toHaveBeenCalledWith(
+      'doc-1',
+      expect.objectContaining({
+        text: 'Hola mundo',
+        targetLanguageCode: 'en',
+        keepOriginalApplied: true,
+      }),
+      {
+        headers: {
+          'x-ttsauth-id': 'session',
+          'x-ttsauth': 'payload',
+        },
+      },
     );
   });
 
