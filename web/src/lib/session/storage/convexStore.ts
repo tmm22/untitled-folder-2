@@ -66,7 +66,11 @@ export class ConvexSessionStore implements SessionStore {
 
   async find(id: string): Promise<SessionRecord | null> {
     const result = await this.query(api.session.get, { sessionId: id });
-    return result.session ?? null;
+    if (!result.session) {
+      return null;
+    }
+    const { id: sessionId, secret, expiresAt } = result.session;
+    return { id: sessionId, secret, expiresAt };
   }
 
   async delete(id: string): Promise<void> {

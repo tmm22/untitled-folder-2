@@ -1,5 +1,20 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
+import type { Doc } from './_generated/dataModel';
+
+interface SessionRecord {
+  id: string;
+  secret: string;
+  expiresAt: number;
+}
+
+function mapSession(doc: Doc<'sessions'>): SessionRecord {
+  return {
+    id: doc.id,
+    secret: doc.secret,
+    expiresAt: doc.expiresAt,
+  };
+}
 
 export const save = mutation({
   args: {
@@ -33,7 +48,7 @@ export const get = query({
       .withIndex('by_session_id', (q) => q.eq('id', sessionId))
       .first();
 
-    return { session: session ?? null };
+    return { session: session ? mapSession(session) : null };
   },
 });
 

@@ -194,8 +194,17 @@ For full details see the Convex docs: https://docs.convex.dev/functions/http-act
 Persist the encrypted session secrets that power the browser vault so stateless deploys (e.g. Vercel) can decrypt API keys between requests.
 
 ```ts
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
+import type { Doc } from './_generated/dataModel';
+
+function mapSession(doc: Doc<'sessions'>) {
+  return {
+    id: doc.id,
+    secret: doc.secret,
+    expiresAt: doc.expiresAt,
+  };
+}
 
 export const save = mutation({
   args: {
@@ -219,14 +228,14 @@ export const save = mutation({
   },
 });
 
-export const get = mutation({
+export const get = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
       .query('sessions')
       .withIndex('by_session_id', (q) => q.eq('id', sessionId))
       .first();
-    return { session: session ?? null };
+    return { session: session ? mapSession(session) : null };
   },
 });
 
