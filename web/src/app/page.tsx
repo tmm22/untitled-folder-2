@@ -38,6 +38,10 @@ export default function Home() {
       <div className="flex flex-col gap-8">
         <ProviderSelector />
         <TextEditor />
+        <section className="flex flex-col gap-6">
+          <TranslationControls />
+          <TranslationHistoryPanel />
+        </section>
         <GenerateButton />
         <PlaybackControls />
         <ThemePanel />
@@ -51,10 +55,6 @@ export default function Home() {
           <PronunciationPanel />
           <ImportPanel />
         </div>
-        <section className="flex flex-col gap-6">
-          <TranslationControls />
-          <TranslationHistoryPanel />
-        </section>
       </div>
     </main>
   );
