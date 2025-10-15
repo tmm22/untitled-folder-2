@@ -67,3 +67,9 @@ Notable new suites:
 ## Deployment
 
 The workspace is a standard Next.js application. You can deploy using Vercel or any platform that supports Node.js 18+. Ensure required environment variables and Convex credentials are available in the target environment.
+
+## Versioning
+
+- The web workspace follows semantic versioning; bump `web/package.json` with `npm version`.
+- Build metadata appends the short git commit hash and is available through the footer badge.
+- Refer to `Docs/WEB_VERSIONING.md` for the full scheme and release workflow.

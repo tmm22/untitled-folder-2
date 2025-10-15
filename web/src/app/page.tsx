@@ -16,6 +16,7 @@ import { BatchPanel } from '@/components/queue/BatchPanel';
 import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { PremiumDashboard } from '@/components/account/PremiumDashboard';
 import { AuthPanel } from '@/components/account/AuthPanel';
+import { AppVersionBadge } from '@/components/shared/AppVersionBadge';
 
 export default function Home() {
   return (
@@ -56,6 +57,7 @@ export default function Home() {
           <ImportPanel />
         </div>
       </div>
+      <AppVersionBadge />
     </main>
   );
 }
