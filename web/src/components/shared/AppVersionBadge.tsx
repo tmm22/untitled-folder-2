@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { formatAppVersion, getAppVersionInfo } from '@/lib/utils/version';
 
