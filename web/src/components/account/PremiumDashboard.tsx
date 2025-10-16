@@ -47,9 +47,17 @@ export function PremiumDashboard() {
       if (!response.ok) {
         throw new Error('Unable to activate subscription');
       }
-      const payload = await response.json();
+      const payload = (await response.json()) as {
+        account?: Parameters<typeof applyRemoteAccount>[0];
+        checkoutUrl?: string;
+        message?: string;
+      };
       if (payload.account) {
         applyRemoteAccount(payload.account);
+      }
+      if (payload.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
       }
       setActionMessage(payload.message ?? 'Subscription activated.');
     } catch (error) {
