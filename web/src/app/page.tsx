@@ -50,17 +50,17 @@ export default function Home() {
         <NotificationPanel />
         <CredentialsPanel />
         <BatchPanel />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <HistoryPanel />
-          <SnippetPanel />
-          <PronunciationPanel />
-          <ImportPanel />
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <HistoryPanel />
+        <SnippetPanel />
+        <PronunciationPanel />
+        <ImportPanel />
       </div>
-      <AppVersionBadge />
-      <footer className="mt-16 text-center text-xs text-charcoal-400">
-        Copyright Mangan Distributions Pty Ltd.  This is a free service bought to you by the Wheelie Mods team with optional paid extras.
-      </footer>
-    </main>
-  );
+    </div>
+    <footer className="mt-16 text-center text-xs text-charcoal-400">
+      Copyright Mangan Distributions Pty Ltd.  This is a free service bought to you by the Wheelie Mods team with optional paid extras.
+    </footer>
+    <AppVersionBadge />
+  </main>
+);
 }
