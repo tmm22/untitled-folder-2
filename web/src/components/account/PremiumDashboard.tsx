@@ -67,33 +67,45 @@ export function PremiumDashboard() {
     }
   }, [applyRemoteAccount]);
 
-  const handleOpenPortal = useCallback(async () => {
-    setProcessing(true);
-    setActionMessage(null);
-    try {
-      const response = await fetch('/api/billing/portal', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error('Unable to open billing portal');
+  type PortalIntent = 'manage' | 'cancel';
+
+  const openBillingPortal = useCallback(
+    async (intent: PortalIntent) => {
+      setProcessing(true);
+      setActionMessage(null);
+      try {
+        const response = await fetch('/api/billing/portal', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          throw new Error('Unable to open billing portal');
+        }
+        const payload = await response.json();
+        if (payload.account) {
+          applyRemoteAccount(payload.account);
+        }
+        if (payload.portalUrl) {
+          window.open(payload.portalUrl, '_blank', 'noopener,noreferrer');
+          setActionMessage(
+            intent === 'cancel'
+              ? 'Billing portal opened. Complete cancellation from the new tab.'
+              : 'Billing portal opened in a new tab.',
+          );
+          return;
+        }
+        setActionMessage(payload.message ?? 'Billing portal is temporarily unavailable.');
+      } catch (error) {
+        setActionMessage(error instanceof Error ? error.message : 'Unable to open billing portal');
+      } finally {
+        setProcessing(false);
       }
-      const payload = await response.json();
-      if (payload.account) {
-        applyRemoteAccount(payload.account);
-      }
-      if (payload.portalUrl) {
-        setActionMessage(`Open billing portal: ${payload.portalUrl}`);
-      }
-    } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : 'Unable to open billing portal');
-    } finally {
-      setProcessing(false);
-    }
-  }, [applyRemoteAccount]);
+    },
+    [applyRemoteAccount],
+  );
 
   return (
     <section className="panel">
@@ -138,7 +150,7 @@ export function PremiumDashboard() {
               <button
                 type="button"
                 className="action-button action-button--accent text-xs uppercase tracking-wide"
-                onClick={handleOpenPortal}
+                onClick={() => openBillingPortal('manage')}
                 disabled={isProcessing}
               >
                 View billing portal
@@ -146,7 +158,8 @@ export function PremiumDashboard() {
               <button
                 type="button"
                 className="pill-button border-rose-300 text-rose-700 uppercase tracking-wide"
-                disabled
+                onClick={() => openBillingPortal('cancel')}
+                disabled={isProcessing}
               >
                 Cancel plan
               </button>
