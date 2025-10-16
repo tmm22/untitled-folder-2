@@ -58,6 +58,9 @@ export default function Home() {
         </div>
       </div>
       <AppVersionBadge />
+      <footer className="mt-16 text-center text-xs text-charcoal-400">
+        Copyright Mangan Distributions Pty Ltd.  This is a free service bought to you by the Wheelie Mods team with optional paid extras.
+      </footer>
     </main>
   );
 }
