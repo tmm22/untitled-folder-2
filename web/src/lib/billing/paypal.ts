@@ -3,17 +3,7 @@ import type {
   PayPalCreateSubscriptionRequest,
   PayPalSubscriptionResponse,
 } from '@/app/api/_lib/paypalClient';
-
-export interface CheckoutRequest {
-  userId: string;
-  planTier: string;
-}
-
-export interface BillingResult {
-  ok: boolean;
-  url?: string | null;
-  message?: string;
-}
+import type { BillingPortalRequest, BillingResult, CheckoutRequest } from './types';
 
 const DEFAULT_SUCCESS_MESSAGE = 'Subscription updated.';
 
@@ -59,10 +49,19 @@ export async function createCheckoutSession(request: CheckoutRequest): Promise<B
   }
 }
 
-export async function createBillingPortalSession(customerId: string): Promise<BillingResult> {
+export async function createBillingPortalSession(request: BillingPortalRequest): Promise<BillingResult> {
   const client = getPayPalClient();
   if (!client) {
     return { ok: false, url: null, message: 'PayPal not configured; using application default portal flow.' };
+  }
+
+  const customerId =
+    request.customerId?.trim() ??
+    request.externalCustomerId?.trim() ??
+    request.providerCustomerId?.trim() ??
+    null;
+  if (!customerId) {
+    return { ok: false, url: null, message: 'PayPal customer reference is unavailable for this account.' };
   }
 
   try {

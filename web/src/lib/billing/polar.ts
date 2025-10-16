@@ -1,5 +1,5 @@
 import { getPolarClient } from '@/app/api/_lib/polarClient';
-import type { BillingResult, CheckoutRequest } from './paypal';
+import type { BillingPortalRequest, BillingResult, CheckoutRequest } from './types';
 
 const DEFAULT_SUCCESS_MESSAGE = 'Subscription updated.';
 
@@ -71,7 +71,7 @@ export async function createCheckoutSession(request: CheckoutRequest): Promise<B
   }
 }
 
-export async function createBillingPortalSession(customerExternalId: string): Promise<BillingResult> {
+export async function createBillingPortalSession(request: BillingPortalRequest): Promise<BillingResult> {
   const configuration = getPolarClient();
   if (!configuration) {
     return {
@@ -81,9 +81,18 @@ export async function createBillingPortalSession(customerExternalId: string): Pr
     };
   }
 
+  const customerId = request.providerCustomerId?.trim();
+  if (!customerId) {
+    return {
+      ok: false,
+      url: null,
+      message: 'Polar customer not linked to this account yet. Complete checkout and retry in a moment.',
+    };
+  }
+
   try {
     const session = await configuration.client.customerSessions.create({
-      externalCustomerId: customerExternalId,
+      customerId,
     });
 
     const portalUrl = session.customerPortalUrl ?? resolveCustomerPortalFallback();

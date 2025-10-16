@@ -12,11 +12,16 @@ export async function POST(request: Request) {
 
   const repository = getAccountRepository();
   const account = await repository.getOrCreate(userId);
-  const portal = await createBillingPortalSession(account.userId);
+  const portal = await createBillingPortalSession({
+    customerId: account.userId,
+    externalCustomerId: account.userId,
+    providerCustomerId: account.polarCustomerId,
+  });
 
   return NextResponse.json({
     account,
     portalUrl: portal.url,
     message: portal.message,
+    ok: portal.ok,
   });
 }

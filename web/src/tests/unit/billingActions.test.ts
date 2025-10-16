@@ -28,6 +28,32 @@ vi.mock('@/app/api/_lib/paypalClient', () => ({
   getPayPalClient: getPayPalClientMock,
 }));
 
+const {
+  getPolarClientMock,
+  polarCheckoutCreateMock,
+  polarPortalSessionMock,
+} = vi.hoisted(() => {
+  const checkoutFn = vi.fn(async () => ({ url: 'https://polar.test/checkout' }));
+  const portalFn = vi.fn(async () => ({ customerPortalUrl: 'https://polar.test/portal' }));
+  const getClient = vi.fn(() => ({
+    client: {
+      checkouts: { create: checkoutFn },
+      customerSessions: { create: portalFn },
+    },
+    organizationId: 'org_test',
+    environment: 'sandbox',
+  }));
+  return {
+    getPolarClientMock: getClient,
+    polarCheckoutCreateMock: checkoutFn,
+    polarPortalSessionMock: portalFn,
+  };
+});
+
+vi.mock('@/app/api/_lib/polarClient', () => ({
+  getPolarClient: getPolarClientMock,
+}));
+
 describe('Billing actions API', () => {
   beforeEach(() => {
     createSubscriptionMock.mockClear();
@@ -36,10 +62,17 @@ describe('Billing actions API', () => {
       createSubscription: createSubscriptionMock,
       createPortalSession: createPortalMock,
     });
+    polarCheckoutCreateMock.mockClear();
+    polarPortalSessionMock.mockClear();
+    getPolarClientMock.mockReset();
+    getPolarClientMock.mockReturnValue(null);
+    delete process.env.BILLING_PROVIDER;
   });
 
   afterEach(() => {
     getPayPalClientMock.mockReset();
+    getPolarClientMock.mockReset();
+    delete process.env.BILLING_PROVIDER;
   });
 
   it('rejects calls without account id', async () => {
@@ -62,5 +95,25 @@ describe('Billing actions API', () => {
     const body = await response.json();
     expect(body.portalUrl).toContain('https://paypal.test/portal');
     expect(createPortalMock).toHaveBeenCalled();
+  });
+
+  it('returns informative message when Polar customer is missing', async () => {
+    process.env.BILLING_PROVIDER = 'polar';
+    getPolarClientMock.mockReturnValue({
+      client: {
+        checkouts: { create: polarCheckoutCreateMock },
+        customerSessions: { create: polarPortalSessionMock },
+      },
+      organizationId: 'org_test',
+      environment: 'sandbox',
+    });
+
+    const response = await portal(buildRequest('acct-123'));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.ok).toBe(false);
+    expect(body.portalUrl).toBeNull();
+    expect(body.message).toMatch(/polar customer not linked/i);
+    expect(polarPortalSessionMock).not.toHaveBeenCalled();
   });
 });
