@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import packageJson from '../../../package.json';
+
 import { formatAppVersion, getAppVersionInfo } from '@/lib/utils/version';
+
+const PACKAGE_VERSION = packageJson.version ?? '0.0.0';
 
 describe('getAppVersionInfo', () => {
   it('extracts semantic version and commit hash when env is provided', () => {
@@ -24,8 +28,8 @@ describe('getAppVersionInfo', () => {
 
     const info = getAppVersionInfo(env);
 
-    expect(info.version).toBe('0.0.0');
-    expect(info.build).toBe('0.0.0+dev.local');
+    expect(info.version).toBe(PACKAGE_VERSION);
+    expect(info.build).toBe(`${PACKAGE_VERSION}+dev.local`);
     expect(info.commitHash).toBeUndefined();
     expect(info.isFallback).toBe(true);
   });

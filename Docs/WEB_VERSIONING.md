@@ -16,7 +16,7 @@
 ## Build Metadata
 - Each build augments the semantic version with short commit metadata: `MAJOR.MINOR.PATCH+commit.<hash>`.
 - When `VERCEL_GIT_COMMIT_SHA`, `GITHUB_SHA`, or `COMMIT_SHA` is present the first 7 characters are used.
-- Local development falls back to `+dev.local`.
+- Local development falls back to `+dev.local` while still displaying the semantic version from `package.json`.
 - The combined identifier is exposed to the client as `NEXT_PUBLIC_APP_BUILD`.
 
 ## Bump Workflow
