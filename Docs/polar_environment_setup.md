@@ -24,7 +24,7 @@ Use this checklist to configure the web workspace to use Polar as the billing en
   POLAR_PLAN_ID_STARTER=prod_starter   # tier-specific overrides
   POLAR_PLAN_ID_PRO=prod_pro
   ```
-- Optional redirect customization:
+- Optional redirect customization (the app now includes `/billing/success` for the post-checkout landing page):
   ```
   POLAR_CHECKOUT_SUCCESS_URL=http://localhost:3000/billing/success
   POLAR_CUSTOMER_PORTAL_URL=https://polar.sh/<org-slug>/portal
