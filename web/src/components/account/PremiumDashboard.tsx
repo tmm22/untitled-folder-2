@@ -59,7 +59,7 @@ export function PremiumDashboard() {
         window.location.assign(payload.checkoutUrl);
         return;
       }
-      setActionMessage(payload.message ?? 'Subscription activated.');
+      setActionMessage(payload.message ?? 'Complete checkout to activate your subscription.');
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : 'Unable to activate subscription');
     } finally {

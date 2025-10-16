@@ -22,7 +22,8 @@ describe('PremiumDashboard', () => {
       ok: true,
       json: async () => ({
         checkoutUrl: 'https://billing.example/checkout',
-        account: { userId: 'user-1', planTier: 'starter', billingStatus: 'active' },
+        account: { userId: 'user-1', planTier: 'free', billingStatus: 'free' },
+        targetPlanTier: 'starter',
       }),
     })) as unknown as typeof fetch;
 

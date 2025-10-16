@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as checkout } from '@/app/api/billing/checkout/route';
 import { POST as portal } from '@/app/api/billing/portal/route';
 import { ACCOUNT_COOKIE_NAME, buildAccountCookieValue } from '@/lib/auth/accountCookie';
+import { resetAccountRepositoryForTesting } from '@/app/api/account/context';
 
 function buildRequest(accountId?: string) {
   const headers = new Headers();
@@ -56,6 +57,7 @@ vi.mock('@/app/api/_lib/polarClient', () => ({
 
 describe('Billing actions API', () => {
   beforeEach(() => {
+    resetAccountRepositoryForTesting();
     createSubscriptionMock.mockClear();
     createPortalMock.mockClear();
     getPayPalClientMock.mockReturnValue({
@@ -80,11 +82,12 @@ describe('Billing actions API', () => {
     expect(response.status).toBe(400);
   });
 
-  it('returns checkout payload and updates account', async () => {
+  it('returns checkout payload without upgrading account prematurely', async () => {
     const response = await checkout(buildRequest('acct-123'));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.account.planTier).toBe('starter');
+    expect(body.account.planTier).toBe('free');
+    expect(body.targetPlanTier).toBe('starter');
     expect(body.checkoutUrl).toContain('https://paypal.test/checkout');
     expect(createSubscriptionMock).toHaveBeenCalled();
   });

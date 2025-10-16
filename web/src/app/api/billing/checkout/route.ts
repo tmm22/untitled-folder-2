@@ -11,21 +11,18 @@ export async function POST(request: Request) {
   }
 
   const repository = getAccountRepository();
-  const payload = await repository.updateAccount({
-    userId,
-    planTier: 'starter',
-    billingStatus: 'active',
-    premiumExpiresAt: undefined,
-  });
+  const account = await repository.getOrCreate(userId);
+  const planTier = 'starter';
 
   const checkout = await createCheckoutSession({
     userId,
-    planTier: 'starter',
+    planTier,
   });
 
   return NextResponse.json({
-    account: payload,
+    account,
+    targetPlanTier: planTier,
     checkoutUrl: checkout.url,
-    message: checkout.message ?? 'Subscription active',
+    message: checkout.message ?? 'Complete checkout to activate your subscription.',
   });
 }
