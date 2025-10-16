@@ -39,8 +39,8 @@ describe('Polar mapping helpers', () => {
 
   describe('resolveBillingStatusFromPolar', () => {
     it.each([
-      ['trial', 'trial'],
-      ['trialing', 'trial'],
+      ['trial', 'active'],
+      ['trialing', 'active'],
       ['active', 'active'],
       ['past_due', 'past_due'],
       ['incomplete', 'past_due'],
@@ -53,16 +53,16 @@ describe('Polar mapping helpers', () => {
   });
 
   describe('resolvePremiumExpiryFromPolar', () => {
-    it('uses trial end for trial status', () => {
+    it('prefers trial end when available', () => {
       const now = new Date();
-      const expires = resolvePremiumExpiryFromPolar({ trialEnd: now.toISOString() }, 'trial');
+      const expires = resolvePremiumExpiryFromPolar({ trialEnd: now.toISOString() });
       expect(expires).toBeTypeOf('number');
       expect(expires).toBeCloseTo(now.getTime(), -2);
     });
 
     it('falls back to current period end', () => {
       const future = Date.now() + 86400000;
-      const expires = resolvePremiumExpiryFromPolar({ currentPeriodEnd: future }, 'active');
+      const expires = resolvePremiumExpiryFromPolar({ currentPeriodEnd: future });
       expect(expires).toBe(future);
     });
   });

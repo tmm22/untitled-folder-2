@@ -22,7 +22,7 @@
 - [ ] Adjust `build.sh` / deployment scripts to validate presence of Polar secrets and fail fast when they are missing.
 
 ### 2. Account Lifecycle & Plan Mapping
-- [ ] Define a mapping layer translating Polar product/price IDs to internal `planTier` values (`starter`, `pro`, `enterprise`, etc.) and billing states (`trial`, `active`, `past_due`, `canceled`).
+- [ ] Define a mapping layer translating Polar product/price IDs to internal `planTier` values (`starter`, `pro`, `enterprise`, etc.) and billing states (`active`, `past_due`, `canceled`).
 - [ ] Extend Convex account schema (`web/convex/account.ts`, `schema.ts`) to persist Polar identifiers (customer ID, subscription ID, next renewal) and benefit metadata if needed.
 - [ ] Update `web/src/lib/account/repository.ts` plus Convex mutations so updates triggered by Polar webhooks correctly adjust `planTier`, `billingStatus`, and `premiumExpiresAt`.
 - [ ] Ensure `ProvisioningOrchestrator` consumers continue to receive accurate `planTier` / `planStatus` metadata when Polar changes occur (issue/revoke credentials as part of status transitions).
@@ -43,7 +43,7 @@
 
 ### 5. Testing & QA
 - [ ] Replace PayPal mocks with Polar-focused fixtures in unit tests (`web/src/tests/unit/billingActions.test.ts`, account repository tests, provisioning orchestrator tests).
-- [ ] Add webhook contract tests to validate lifecycle transitions (`trial → active`, `active → past_due`, `past_due → active/canceled`) and ensure provisioning access toggles.
+- [ ] Add webhook contract tests to validate lifecycle transitions (`active` → `past_due`, `past_due` → `active/canceled`) and ensure provisioning access toggles.
 - [ ] Write integration tests or e2e scenarios (Vitest/Playwright) simulating Polar checkout + webhook callbacks, asserting the UI reflects updates and provisioning access is granted.
 - [ ] Update Convex tests (if present) to cover schema changes and webhook-driven updates.
 - [ ] Document manual QA steps: sandbox checkout, webhook replay, provisioning credential issuance/revocation timing, portal access confirmation.

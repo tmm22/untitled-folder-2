@@ -1,5 +1,5 @@
-export type AccountBillingStatus = 'free' | 'trial' | 'active' | 'past_due' | 'canceled';
-export type AccountPlanTier = 'free' | 'trial' | 'starter' | 'pro' | 'enterprise';
+export type AccountBillingStatus = 'free' | 'active' | 'past_due' | 'canceled';
+export type AccountPlanTier = 'free' | 'starter' | 'pro' | 'enterprise';
 
 export interface AccountUsageSummary {
   monthTokensUsed: number;

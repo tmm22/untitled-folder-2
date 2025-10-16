@@ -11,13 +11,11 @@ export async function POST(request: Request) {
   }
 
   const repository = getAccountRepository();
-  const now = Date.now();
-  const trialDays = Number(process.env.PREMIUM_TRIAL_DAYS ?? '14');
   const payload = await repository.updateAccount({
     userId,
     planTier: 'starter',
-    billingStatus: trialDays > 0 ? 'trial' : 'active',
-    premiumExpiresAt: trialDays > 0 ? now + trialDays * 24 * 60 * 60 * 1000 : undefined,
+    billingStatus: 'active',
+    premiumExpiresAt: undefined,
   });
 
   const checkout = await createCheckoutSession({
@@ -28,10 +26,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     account: payload,
     checkoutUrl: checkout.url,
-    message:
-      checkout.message ??
-      (trialDays > 0
-        ? `Trial active until ${new Date(payload.premiumExpiresAt ?? 0).toISOString()}`
-        : 'Subscription active'),
+    message: checkout.message ?? 'Subscription active',
   });
 }

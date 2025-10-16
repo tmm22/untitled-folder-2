@@ -105,7 +105,6 @@ npm run test
 - `CONVEX_URL` and `CONVEX_DEPLOYMENT_KEY` (or `CONVEX_ADMIN_KEY`) enable Convex-backed persistence for credentials, usage events, and account data. Implement Convex HTTP functions under `/api/provisioning/*` and `/api/account/*` that mirror the JSON payloads described in `Docs/API_PROVISIONING_SERVICE.md`.
 - `CONVEX_AUTH_SCHEME` lets you force the Authorization scheme used against Convex HTTP actions (defaults to `Deployment` when a deployment key is provided, otherwise `Bearer`).
 - `PROVISIONING_DATA_PATH` (fallback): persists credentials to a JSON file when Convex is not configured; omit to run fully in memory.
-- `PREMIUM_TRIAL_DAYS`: number of days to keep a new checkout in `trial` status (defaults to 14); set to `0` to mark upgrades as immediately `active`.
 - `BILLING_PROVIDER`: choose `polar` to enable the Polar integration (default `paypal`).
 - **Polar billing (`BILLING_PROVIDER=polar`)**
   - `POLAR_ACCESS_TOKEN`, `POLAR_ORGANIZATION_ID`: authenticate with the Polar API.

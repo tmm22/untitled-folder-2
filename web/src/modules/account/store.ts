@@ -5,7 +5,7 @@ import type { PlanTier } from '@/lib/provisioning';
 import { fetchAccount } from '@/lib/account/client';
 import type { AccountBenefitSummary, AccountUsageSummary } from '@/lib/account/types';
 
-export type BillingStatus = 'free' | 'trial' | 'active' | 'past_due' | 'canceled';
+export type BillingStatus = 'free' | 'active' | 'past_due' | 'canceled';
 export type AccountPlanTier = PlanTier | 'free';
 
 interface AccountState {
@@ -48,21 +48,11 @@ export interface AccountUpdatePayload {
 const computeProvisioningAccess = (
   planTier: AccountPlanTier,
   billingStatus: BillingStatus,
-  premiumExpiresAt?: number,
 ): boolean => {
   if (planTier === 'free') {
     return false;
   }
-  if (billingStatus === 'active') {
-    return true;
-  }
-  if (billingStatus === 'trial') {
-    if (premiumExpiresAt && premiumExpiresAt < Date.now()) {
-      return false;
-    }
-    return true;
-  }
-  return false;
+  return billingStatus === 'active';
 };
 
 const generateUserId = () => {
@@ -152,7 +142,7 @@ export const useAccountStore = create<AccountState>(() => ({
           polarPlanId: nextPolarPlanId,
           polarCurrentPeriodEnd: nextPolarCurrentPeriodEnd,
           polarBenefits: nextPolarBenefits,
-          hasProvisioningAccess: computeProvisioningAccess(nextPlanTier, nextBillingStatus, nextPremiumExpiresAt),
+          hasProvisioningAccess: computeProvisioningAccess(nextPlanTier, nextBillingStatus),
           sessionKind: nextSessionKind,
         };
       });
@@ -188,7 +178,7 @@ export const useAccountStore = create<AccountState>(() => ({
           planTier,
           billingStatus,
           premiumExpiresAt,
-          hasProvisioningAccess: computeProvisioningAccess(planTier, billingStatus, premiumExpiresAt),
+          hasProvisioningAccess: computeProvisioningAccess(planTier, billingStatus),
           usageSummary: payload.usage ?? prev.usageSummary,
           polarCustomerId,
           polarSubscriptionId,
@@ -202,21 +192,21 @@ export const useAccountStore = create<AccountState>(() => ({
       useAccountStore.setState((prev) => ({
         ...prev,
         planTier,
-        hasProvisioningAccess: computeProvisioningAccess(planTier, prev.billingStatus, prev.premiumExpiresAt),
+        hasProvisioningAccess: computeProvisioningAccess(planTier, prev.billingStatus),
       }));
     },
     setBillingStatus: (status) => {
       useAccountStore.setState((prev) => ({
         ...prev,
         billingStatus: status,
-        hasProvisioningAccess: computeProvisioningAccess(prev.planTier, status, prev.premiumExpiresAt),
+        hasProvisioningAccess: computeProvisioningAccess(prev.planTier, status),
       }));
     },
     setPremiumExpiry: (expiresAt) => {
       useAccountStore.setState((prev) => ({
         ...prev,
         premiumExpiresAt: expiresAt,
-        hasProvisioningAccess: computeProvisioningAccess(prev.planTier, prev.billingStatus, expiresAt),
+        hasProvisioningAccess: computeProvisioningAccess(prev.planTier, prev.billingStatus),
       }));
     },
     refreshFromServer: async () => {

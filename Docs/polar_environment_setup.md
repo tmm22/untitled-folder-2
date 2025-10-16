@@ -42,7 +42,7 @@ Use this checklist to configure the web workspace to use Polar as the billing en
 
 ## 5. Restart the Workspace
 - Restart `npm run dev` (or redeploy) so the updated environment variables take effect.
-- The “Start free trial” button now generates Polar checkout URLs.
+- The “Activate subscription” button now generates Polar checkout URLs.
 - Webhook events drive account tier changes and provisioning automatically.
 
 ## 6. Monitoring & Verification

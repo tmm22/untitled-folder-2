@@ -15,7 +15,7 @@
 ## 2. Account Lifecycle & Convex Schema
 - [x] Extend Convex schema (`web/convex/schema.ts`, `web/convex/account.ts`) with Polar identifiers (customer ID, subscription ID), renewal timestamps, and optional benefit summary.
 - [x] Update `web/src/lib/account/repository.ts` and related types to persist new fields and map Polar subscription status to internal `planTier`/`billingStatus`.
-- [x] Build a plan resolver mapping Polar product/price IDs to internal tiers, including trial handling and downgrade scenarios.
+- [x] Build a plan resolver mapping Polar product/price IDs to internal tiers, covering lifecycle transitions and downgrade scenarios.
 - [x] Ensure provisioning orchestrator hooks receive Polar-mapped metadata and trigger issue/revoke flows on status changes.
 
 ## 3. API Routes & Webhooks

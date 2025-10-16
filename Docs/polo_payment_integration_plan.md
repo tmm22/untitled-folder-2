@@ -22,7 +22,7 @@
 
 ### 2. Account Lifecycle & Plan Mapping
 - [ ] Align plan tier constants in `web/src/lib/provisioning/types.ts` and `web/src/lib/account/types.ts` with Polo product catalogue (confirm if new tiers are needed or if existing `starter`, `pro`, `enterprise` align).
-- [ ] Add a Polo plan resolver that maps Polo product/price identifiers to internal `planTier` and `billingStatus` values, including handling for trials, downgrades, and legacy PayPal subscribers.
+- [ ] Add a Polo plan resolver that maps Polo product/price identifiers to internal `planTier` and `billingStatus` values, covering downgrade scenarios and legacy PayPal subscribers.
 - [ ] Adjust `web/src/lib/account/repository.ts` and Convex mutations (`web/convex/account.ts`) to accept plan changes triggered by Polo webhooks, including new metadata (e.g., Polo customer ID, renewal dates).
 - [ ] Introduce persistence for Polo customer identifiers and subscription references inside Convex (extend the `accounts` table schema if Polo metadata must be stored).
 - [ ] Ensure `ProvisioningOrchestrator` metadata (`planStatus`, `planTier`) reflects the Polo-driven state so managed credentials gate correctly.
@@ -43,7 +43,7 @@
 
 ### 5. Testing & QA
 - [ ] Replace PayPal mocks in unit tests (`web/src/tests/unit/billingActions.test.ts`, `web/src/tests/unit/accountStore.test.ts`, provisioning orchestrator tests) with Polo-specific fixtures.
-- [ ] Add webhook contract tests covering status transitions (`trial` → `active`, `active` → `past_due`, `past_due` → `canceled`) to ensure account repository updates propagate to provisioning access.
+- [ ] Add webhook contract tests covering status transitions (`active` → `past_due`, `past_due` → `canceled`, recovery back to `active`) to ensure account repository updates propagate to provisioning access.
 - [ ] Write integration tests (Vitest or Playwright) to simulate the checkout flow end-to-end, stubbing Polo API responses and confirming the UI updates.
 - [ ] Update Convex unit tests (or add new ones) to verify schema changes and webhook-driven mutations.
 - [ ] Document manual QA steps: sandbox checkout, webhook replay, provisioning access validation, credential revocation timing.
@@ -69,4 +69,3 @@
 4. Are there additional plan tiers or regional pricing models that must be reflected in `planTier` enumerations?
 
 Resolving these questions is required before development begins. Document findings in this plan file and update the relevant workstream tasks accordingly.
-

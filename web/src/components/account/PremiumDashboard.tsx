@@ -33,7 +33,7 @@ export function PremiumDashboard() {
     return Math.min(100, Math.round((usageSummary.monthTokensUsed / usageSummary.monthlyAllowance) * 100));
   }, [usageSummary]);
 
-  const handleStartTrial = useCallback(async () => {
+  const handleActivateSubscription = useCallback(async () => {
     setProcessing(true);
     setActionMessage(null);
     try {
@@ -45,15 +45,15 @@ export function PremiumDashboard() {
         credentials: 'include',
       });
       if (!response.ok) {
-        throw new Error('Unable to start trial');
+        throw new Error('Unable to activate subscription');
       }
       const payload = await response.json();
       if (payload.account) {
         applyRemoteAccount(payload.account);
       }
-      setActionMessage(payload.message ?? 'Trial activated.');
+      setActionMessage(payload.message ?? 'Subscription activated.');
     } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : 'Unable to start trial');
+      setActionMessage(error instanceof Error ? error.message : 'Unable to activate subscription');
     } finally {
       setProcessing(false);
     }
@@ -157,10 +157,10 @@ export function PremiumDashboard() {
             <button
               type="button"
               className="cta-button px-5 py-2 text-sm"
-              onClick={handleStartTrial}
+              onClick={handleActivateSubscription}
               disabled={isProcessing}
             >
-              Start free trial
+              Activate subscription
             </button>
             <button
               type="button"

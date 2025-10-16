@@ -10,7 +10,6 @@ const DEFAULT_STARTER_ALLOWANCE = 200_000;
 
 const allowanceByTier: Record<string, number> = {
   free: DEFAULT_FREE_ALLOWANCE,
-  trial: DEFAULT_STARTER_ALLOWANCE,
   starter: DEFAULT_STARTER_ALLOWANCE,
   pro: 500_000,
   enterprise: 2_000_000,

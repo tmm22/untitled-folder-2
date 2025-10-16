@@ -1,4 +1,4 @@
-export type PlanTier = 'trial' | 'starter' | 'pro' | 'enterprise';
+export type PlanTier = 'starter' | 'pro' | 'enterprise';
 
 export interface IssueCredentialRequest {
   userId: string;

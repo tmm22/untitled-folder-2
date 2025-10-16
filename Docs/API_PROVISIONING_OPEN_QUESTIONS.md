@@ -8,7 +8,7 @@
 ## Pricing & Packaging
 - What token/usage quotas correspond to each premium tier, and how do overages price out?
 - Should we support pay-as-you-go billing for heavy users in addition to subscriptions?
-- How will promo codes, trials, or refunds interact with provisioning state (auto-disable vs grace period)?
+- How will promo codes or refunds interact with provisioning state (auto-disable vs grace period)?
 
 ## Compliance & Legal
 - Are there jurisdictions requiring explicit consent or data processing agreements for billing/usage tracking?

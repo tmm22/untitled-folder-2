@@ -185,7 +185,7 @@ async function handleSubscriptionEvent(event: PolarWebhookEvent): Promise<void> 
     planTier = 'free';
   }
 
-  const premiumExpiresAt = resolvePremiumExpiryFromPolar(subscription, billingStatus);
+  const premiumExpiresAt = resolvePremiumExpiryFromPolar(subscription);
   const polarCurrentPeriodEnd = resolvePolarCurrentPeriodEnd(subscription);
   const polarBenefits = extractPolarBenefits(subscription.product?.benefits);
 

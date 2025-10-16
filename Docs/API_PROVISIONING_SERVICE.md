@@ -21,7 +21,7 @@
 
 ## High-Level Architecture
 - **Identity & Account Service**: Managed auth provider (Auth0, Supabase, Clerk) issues JWTs and stores profile metadata, MFA settings, and plan tier.
-- **Billing Service**: Polar (preferred) or PayPal integrations manage subscriptions, hosted checkout, and customer portal links; webhook handlers update account status, trial periods, and payment failures.
+- **Billing Service**: Polar (preferred) or PayPal integrations manage subscriptions, hosted checkout, and customer portal links; webhook handlers update account status and payment failures.
 - **Provisioning Orchestrator**: Secure backend service that pulls master provider keys from the vault, mints scoped credentials, and persists hashed tokens.
 - **Secure Proxy/API Gateway**: Server component that signs LLM requests on behalf of users; enforces rate limits, logs usage, and injects provisioned credentials.
 - **Usage Pipeline**: Message queue (Redis Streams, SQS, or PostgreSQL logical queue) plus worker that aggregates usage by user/plan for analytics and billing reconciliation.
@@ -59,7 +59,7 @@
 ```
 
 ## Key Capabilities
-- Account state machine (`trial` → `active` → `past_due` → `canceled`) drives provisioning logic.
+- Account state machine (`active` → `past_due` → `canceled`) drives provisioning logic.
 - Token minting strategy uses short-lived credentials (per user + per provider) stored only as salted hashes.
 - Proxy service injects provider-specific headers, transforms responses, and records billable units.
 - Usage limits configurable per plan: requests/minute, monthly token quotas, burst limits, fraud heuristics.

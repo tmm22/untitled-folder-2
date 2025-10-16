@@ -108,7 +108,7 @@ If you leave it unset, the app defaults to PayPal. After editing `.env.local`, r
 6. **Create a webhook endpoint** in Polar (Dashboard → Developers → Webhooks) pointing to
    `https://your-domain.com/api/billing/polar/events`. Set the generated secret as `POLAR_WEBHOOK_SECRET`.
 7. Leave `POLAR_ENVIRONMENT` as `sandbox` for testing; switch to `production` when ready to charge real customers.
-8. Restart `npm run dev` and exercise the “Start free trial” button. You should receive a hosted Polar checkout URL.
+8. Restart `npm run dev` and exercise the “Activate subscription” button. You should receive a hosted Polar checkout URL.
 
 ### 3b. PayPal Setup (`BILLING_PROVIDER=paypal`)
 
@@ -125,7 +125,7 @@ If you leave it unset, the app defaults to PayPal. After editing `.env.local`, r
    ```
    The portal URL can include `{customerId}` if you want to inject the account identifier.
 5. (Optional) Switch to production by setting `PAYPAL_ENVIRONMENT=live` and using live credentials + plan IDs.
-6. Restart `npm run dev`. Clicking “Start free trial” should now return a PayPal approval link.
+6. Restart `npm run dev`. Clicking “Activate subscription” should now return a PayPal approval link.
 
 ---
 
@@ -135,8 +135,8 @@ If you leave it unset, the app defaults to PayPal. After editing `.env.local`, r
    ```bash
    npm run dev
    ```
-2. Open <http://localhost:3000>. The premium dashboard should show your plan. Try “Start free trial”—with
-   Convex + PayPal configured, you’ll get a real approval link and Convex will record usage.
+2. Open <http://localhost:3000>. The premium dashboard should show your plan. Try “Activate subscription”—with
+   Convex + PayPal configured, you’ll get a real checkout link and Convex will record usage.
 3. Check Convex dashboard logs if things go sideways (`npx convex logs`). PayPal shows request logs under
    Dashboard → My Apps & Credentials → Sandbox/Live App → Logs.
 

@@ -6,7 +6,6 @@ import type {
 
 const KNOWN_PLAN_TIERS: ReadonlySet<AccountPlanTier> = new Set([
   'free',
-  'trial',
   'starter',
   'pro',
   'enterprise',
@@ -112,7 +111,7 @@ export function resolveBillingStatusFromPolar(status: PolarStatus): AccountBilli
   switch (status) {
     case 'trial':
     case 'trialing':
-      return 'trial';
+      return 'active';
     case 'active':
       return 'active';
     case 'past_due':
@@ -130,13 +129,10 @@ export function resolveBillingStatusFromPolar(status: PolarStatus): AccountBilli
 
 export function resolvePremiumExpiryFromPolar(
   subscription: { trialEnd?: unknown; currentPeriodEnd?: unknown; endsAt?: unknown },
-  billingStatus: AccountBillingStatus,
 ): number | undefined {
-  if (billingStatus === 'trial') {
-    const trialEnd = parseTimestamp(subscription?.trialEnd);
-    if (trialEnd) {
-      return trialEnd;
-    }
+  const trialEnd = parseTimestamp(subscription?.trialEnd);
+  if (trialEnd) {
+    return trialEnd;
   }
 
   const currentPeriod =
