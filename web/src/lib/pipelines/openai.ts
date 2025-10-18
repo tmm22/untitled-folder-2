@@ -274,7 +274,14 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
                 typeof item.dueDateHint === 'string' && item.dueDateHint.trim().length > 0
                   ? item.dueDateHint.trim()
                   : undefined;
-              return { text, ownerHint, dueDateHint };
+              const candidate: TranscriptInsightAction = { text };
+              if (ownerHint) {
+                candidate.ownerHint = ownerHint;
+              }
+              if (dueDateHint) {
+                candidate.dueDateHint = dueDateHint;
+              }
+              return candidate;
             })
             .filter((item): item is TranscriptInsightAction => item !== null)
         : [];

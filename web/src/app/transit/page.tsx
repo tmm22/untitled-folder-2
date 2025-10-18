@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { AppVersionBadge } from '@/components/shared/AppVersionBadge';
 import { TransitTranscriptionPanel } from '@/components/transit/TransitTranscriptionPanel';
@@ -16,7 +17,9 @@ export default function TransitPage() {
         </p>
       </header>
 
-      <TransitTranscriptionPanel />
+      <Suspense fallback={<div className="rounded-3xl border border-charcoal-200/70 bg-white/80 px-6 py-8 text-sm text-charcoal-600 shadow-sm">Loading transit workspace…</div>}>
+        <TransitTranscriptionPanel />
+      </Suspense>
       <footer className="mt-16 text-center text-xs text-charcoal-400">
         Built for the Wheelie Mods transit ops team.
       </footer>

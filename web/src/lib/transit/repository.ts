@@ -113,7 +113,17 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
           title: record.title,
           transcript: record.transcript,
           segments: record.segments,
-          summary: record.summary ?? undefined,
+          summary: record.summary
+            ? {
+                summary: record.summary.summary,
+                actionItems: record.summary.actionItems.map((item) => ({
+                  text: item.text,
+                  ownerHint: item.ownerHint ?? undefined,
+                  dueDateHint: item.dueDateHint ?? undefined,
+                })),
+                scheduleRecommendation: record.summary.scheduleRecommendation ?? undefined,
+              }
+            : undefined,
           language: record.language ?? undefined,
           durationMs: record.durationMs,
           confidence: record.confidence ?? undefined,

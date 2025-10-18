@@ -68,8 +68,9 @@ export async function POST(request: Request) {
 
   const source = normalizeSource(form.get('source'));
   const title = normalizeTitle(form.get('title'));
+  const languageHintRaw = form.get('languageHint');
   const languageHint =
-    typeof form.get('languageHint') === 'string' ? form.get('languageHint')?.trim() || undefined : undefined;
+    typeof languageHintRaw === 'string' ? languageHintRaw.trim() || undefined : undefined;
 
   const stream = new ReadableStream({
     async start(controller) {

@@ -15,6 +15,7 @@
 - **Data Storage**:
   - User preferences, snippets, and history persisted in IndexedDB (encrypted via Web Crypto AES-GCM using a derived key)
   - API credentials never stored server-side; users opt-in to local encrypted storage unlocked per session
+  - Transit transcripts and calendar tokens stored in Convex (`transit_transcripts`, `transit_calendar_tokens`) with AES-256-GCM encrypted JSON fallbacks for local development (`TRANSIT_TRANSCRIPTS_PATH`, `TRANSIT_CALENDAR_TOKENS_PATH`)
 - **Testing**: Vitest + Testing Library for UI, MSW for network mocks, Playwright (follow-up) for E2E
 
 ## Application Layout
@@ -27,7 +28,11 @@ web/
 │       ├── providers/
 │       │   ├── [provider]/voices/route.ts   # Voice catalog proxy
 │       │   └── [provider]/synthesize/route.ts # Audio generation proxy
-│       └── imports/route.ts       # Smart import pipeline
+│       ├── imports/route.ts       # Smart import pipeline
+│       └── transit/
+│           ├── transcribe/route.ts
+│           ├── transcriptions/route.ts
+│           └── calendar/{oauth,start,status,events}/route.ts
 ├── components/
 │   ├── editor/
 │   ├── playback/
@@ -47,6 +52,7 @@ web/
 │   ├── preferences/
 │   ├── queue/
 │   ├── snippets/
+│   ├── transitTranscription/
 │   └── tts/
 ├── public/
 ├── styles/
@@ -66,6 +72,7 @@ web/
 - **PronunciationStore** (`modules/pronunciation/store.ts`): persists regex/literal overrides and hydrates `useTTSStore` before each generation.
 - **ImportStore** (`modules/imports/store.ts`): records URL or manual imports with summaries for later injection into the editor.
 - **AccountStore** (`modules/account/store.ts`): keeps lightweight user identity, plan tier, and billing status with derived flags for premium provisioning access.
+- **TransitTranscriptionStore** (`modules/transitTranscription/store.ts`): orchestrates microphone/upload state, streaming transcript buffers, Google Calendar connection status, and mirrors Convex transcript records when available.
 
 
 ## Feature Parity Mapping
@@ -79,6 +86,7 @@ web/
 | Pronunciation glossary per provider | `pronunciationStore` persists rules in IndexedDB; applied before synthesis via `applyPronunciationRules`. |
 | Smart import (articles, Reddit, summaries) | `imports` module orchestrates article fetch, DOM sanitization via JSDOM (server side), optional OpenAI summarization. |
 | History & snippets | Stored locally with encrypted IndexedDB collections (`historyStore`, `snippetStore`) with Convex sync for authenticated accounts. Export endpoints produce transcripts + audio. |
+| Transit transcription + calendar follow-ups | `/app/transit` streams NDJSON transcription updates (OpenAI), persists transcripts via Convex, surfaces summaries/action items, and schedules Google Calendar events through OAuth (PKCE) with encrypted token storage and file-based fallbacks. |
 | API key management | `LocalVault` prompts users for a passphrase, encrypts provider keys locally. Keys injected into API calls through `Authorization` header override when user chooses personal credentials. |
 | Notifications | Web Notifications API with graceful fallback; requires user permission. |
 | Transcript export (SRT/VTT) | `transcriptService` builds formats client-side from generation metadata. |

@@ -15,6 +15,12 @@ Set the following environment variables before running the app:
 - `CONVEX_AUTH_SCHEME` – Optional override for the Authorization scheme (`Bearer`, `Deployment`, etc.); defaults intelligently based on the provided key.
 - `PIPELINES_DATA_PATH` – Optional path to a JSON file the server uses when Convex is unavailable; omit to keep pipeline definitions in memory for the current process.
 - `SESSION_DATA_PATH` – Optional JSON file path used when Convex session storage is disabled or unreachable; keeps encrypted session handshakes persistent between restarts.
+- `TRANSIT_TRANSCRIPTS_PATH` – Optional encrypted JSON fallback for transit transcripts when Convex is disabled.
+- `TRANSIT_CALENDAR_TOKENS_PATH` – Optional encrypted JSON fallback for Google Calendar tokens.
+- `TRANSIT_GOOGLE_CLIENT_ID`, `TRANSIT_GOOGLE_CLIENT_SECRET`, `TRANSIT_GOOGLE_REDIRECT_URI` – Google OAuth 2.0 client credentials powering transit calendar scheduling.
+- `TRANSIT_CALENDAR_ENCRYPTION_KEY` – Base64-encoded 32 byte key (AES-256-GCM) used to encrypt stored Google tokens.
+- `TRANSIT_CALENDAR_DEFAULT_TIMEZONE` – (Optional) IANA zone identifier; defaults to `UTC` when omitted.
+- `TRANSIT_CALENDAR_POST_CONNECT_REDIRECT` – (Optional) override for the OAuth callback redirect URL (defaults to `/transit`).
 
 After changing `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
 
