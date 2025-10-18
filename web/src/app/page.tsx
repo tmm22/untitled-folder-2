@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ProviderSelector } from '@/components/settings/ProviderSelector';
 import { TextEditor } from '@/components/editor/TextEditor';
 import { GenerateButton } from '@/components/editor/GenerateButton';
@@ -55,6 +56,21 @@ export default function Home() {
           <SnippetPanel />
           <PronunciationPanel />
           <ImportPanel />
+          <Link
+            href="/transit"
+            className="flex flex-col justify-between rounded-2xl border border-charcoal-200/70 bg-white/80 px-6 py-6 shadow-sm shadow-charcoal-200/60 transition hover:border-accent-500 hover:shadow-accent-300/40"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Transit</p>
+              <h2 className="mt-3 text-xl font-semibold text-charcoal-900">Open transit transcription workspace</h2>
+              <p className="mt-2 text-sm text-charcoal-600">
+                Stream microphone captures, transcribe uploads, and turn action items into calendar-ready tasks.
+              </p>
+            </div>
+            <span className="mt-4 self-start rounded-full bg-accent-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50">
+              Launch
+            </span>
+          </Link>
         </div>
       </div>
       <footer className="mt-16 text-center text-xs text-charcoal-400">

@@ -14,6 +14,7 @@ import type * as http from "../http.js";
 import type * as pipelines from "../pipelines.js";
 import type * as provisioning from "../provisioning.js";
 import type * as session from "../session.js";
+import type * as transit from "../transit.js";
 import type * as translations from "../translations.js";
 import type * as users from "../users.js";
 
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   pipelines: typeof pipelines;
   provisioning: typeof provisioning;
   session: typeof session;
+  transit: typeof transit;
   translations: typeof translations;
   users: typeof users;
 }>;

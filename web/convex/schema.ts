@@ -119,4 +119,54 @@ export default defineSchema({
     .index('by_pipeline_id', ['id'])
     .index('by_name', ['name'])
     .index('by_webhook_secret', ['webhookSecret']),
+
+  transit_transcripts: defineTable({
+    userId: v.string(),
+    transcriptId: v.string(),
+    title: v.string(),
+    transcript: v.string(),
+    segments: v.array(
+      v.object({
+        index: v.number(),
+        startMs: v.number(),
+        endMs: v.number(),
+        text: v.string(),
+      }),
+    ),
+    summary: v.optional(
+      v.object({
+        summary: v.string(),
+        actionItems: v.array(
+          v.object({
+            text: v.string(),
+            ownerHint: v.optional(v.string()),
+            dueDateHint: v.optional(v.string()),
+          }),
+        ),
+        scheduleRecommendation: v.optional(
+          v.object({
+            title: v.string(),
+            startWindow: v.optional(v.string()),
+            durationMinutes: v.optional(v.number()),
+            participants: v.optional(v.array(v.string())),
+          }),
+        ),
+      }),
+    ),
+    language: v.optional(v.string()),
+    durationMs: v.number(),
+    confidence: v.optional(v.number()),
+    createdAt: v.string(),
+    source: v.string(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_transcript', ['userId', 'transcriptId']),
+
+  transit_calendar_tokens: defineTable({
+    userId: v.string(),
+    encryptedPayload: v.string(),
+    expiresAt: v.number(),
+    scope: v.array(v.string()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
 });
