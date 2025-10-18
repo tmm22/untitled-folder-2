@@ -30,8 +30,19 @@ Environment files store secrets like API keys. In the `web/` folder we already c
    CONVEX_DEPLOYMENT_KEY=your_deployment_key
    ACCOUNT_ID_SECRET=<openssl rand -base64 48>   # must be ≥32 chars in production
    ACCOUNT_UPDATE_SECRET=<another strong secret> # used for plan updates
+   TRANSIT_GOOGLE_CLIENT_ID=your_google_client_id
+   TRANSIT_GOOGLE_CLIENT_SECRET=your_google_client_secret
+   TRANSIT_GOOGLE_REDIRECT_URI=http://localhost:3000/api/transit/calendar/oauth/callback
+   TRANSIT_CALENDAR_ENCRYPTION_KEY=<openssl rand -base64 32> # exactly 32 bytes when decoded
    ```
-   You can add provider keys (OpenAI, ElevenLabs, Google) and PayPal keys later if needed.
+   Optional fallbacks (handy for local dev if Convex is disabled):
+   ```
+   TRANSIT_TRANSCRIPTS_PATH=.data/transit-transcripts.json
+   TRANSIT_CALENDAR_TOKENS_PATH=.data/transit-calendar-tokens.json
+   TRANSIT_CALENDAR_DEFAULT_TIMEZONE=Australia/Sydney
+   TRANSIT_CALENDAR_POST_CONNECT_REDIRECT=http://localhost:3000/transit
+   ```
+   You can add provider keys (OpenAI, ElevenLabs, Google TTS) and PayPal/Polar keys later if needed.
 
 > **Tip**: You can reopen and edit `.env.local` as often as you like. Restart the dev server after changes.
 
@@ -153,6 +164,8 @@ If you leave it unset, the app defaults to PayPal. After editing `.env.local`, r
 | Polar checkout missing plan mapping | Ensure the product ID is set in `POLAR_PLAN_ID`/`POLAR_PLAN_ID_<TIER>` or add `metadata.planTier` in Polar. |
 | PayPal error “client not configured” | Double-check `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` in `.env.local` and restart the dev server. |
 | PayPal approval link missing | Ensure `PAYPAL_PLAN_ID` is valid and the plan is in the same environment (sandbox vs live) as your credentials. |
+| Transit OAuth says "Google Calendar is not connected" | Double-check `TRANSIT_GOOGLE_*` keys, ensure the redirect URI matches the one configured in Google Cloud Console, and confirm `TRANSIT_CALENDAR_ENCRYPTION_KEY` decodes to 32 bytes. |
+| Calendar event scheduling fails with 502 | Verify the connected Google account has Calendar access, and that `TRANSIT_CALENDAR_DEFAULT_TIMEZONE` (if set) is a valid IANA timezone. |
 | Cookie errors about `ACCOUNT_ID_SECRET` | Generate a 32+ char secret (`openssl rand -base64 48`), put it in `.env.local`, restart the dev server. |
 | Account PATCH returns 401/500 | Ensure `ACCOUNT_UPDATE_SECRET` is present in `.env.local` and the caller includes `x-account-update-token`. |
 
