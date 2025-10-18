@@ -9,7 +9,6 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } from '@/lib/audio/mediaRecorder';
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
 import { useAccountStore } from '@/modules/account/store';
@@ -80,7 +79,6 @@ export function TransitTranscriptionPanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sessionKind = useAccountStore((state) => state.sessionKind);
   const isAuthenticated = sessionKind === 'authenticated';
-  const searchParams = useSearchParams();
   const [calendarTitle, setCalendarTitle] = useState('');
   const [calendarWindow, setCalendarWindow] = useState('');
   const [calendarDuration, setCalendarDuration] = useState<number | ''>('');
@@ -149,10 +147,11 @@ export function TransitTranscriptionPanel() {
   }, [refreshCalendarStatus]);
 
   useEffect(() => {
-    if (!searchParams) {
+    if (typeof window === 'undefined') {
       return;
     }
-    const marker = searchParams.get('calendar');
+    const params = new URLSearchParams(window.location.search);
+    const marker = params.get('calendar');
     if (!marker) {
       return;
     }
@@ -163,12 +162,10 @@ export function TransitTranscriptionPanel() {
     } else if (marker === 'error') {
       setCalendarConnectionError('Google Calendar connection failed. Try again.');
     }
-    if (typeof window !== 'undefined') {
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete('calendar');
-      window.history.replaceState({}, document.title, nextUrl.toString());
-    }
-  }, [searchParams, refreshCalendarStatus]);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete('calendar');
+    window.history.replaceState({}, document.title, nextUrl.toString());
+  }, [refreshCalendarStatus]);
 
   const resetInteraction = useCallback(() => {
     setRecording(false);
