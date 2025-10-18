@@ -5,6 +5,7 @@ import { useQueueStore } from '@/modules/queue/store';
 import { useTTSStore } from '@/modules/tts/store';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { extensionFromContentType } from '@/lib/utils/audio';
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pending',
@@ -154,7 +155,7 @@ export function BatchPanel() {
                   {statusLabels[item.status]}
                 </span>
               </div>
-              <span className="text-xs text-cocoa-500">{new Date(item.createdAt).toLocaleString()}</span>
+              <FormattedTimestamp value={item.createdAt} className="text-xs text-cocoa-500" />
             </div>
             <p className="line-clamp-2 text-sm text-cocoa-600">{item.text}</p>
             <div className="relative h-1 rounded-full bg-cream-200">

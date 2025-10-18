@@ -3,6 +3,8 @@
 import { ChangeEvent } from 'react';
 import { useTTSStore } from '@/modules/tts/store';
 
+const numberFormatter = new Intl.NumberFormat('en-US');
+
 export function TextEditor() {
   const inputText = useTTSStore((state) => state.inputText);
   const characterLimit = useTTSStore((state) => state.characterLimit);
@@ -30,7 +32,7 @@ export function TextEditor() {
       <div className="flex items-center justify-between text-sm text-cocoa-500">
         <span>Character limit per generation</span>
         <span className={limitReached ? 'text-rose-600' : 'text-cocoa-700'}>
-          {inputText.length.toLocaleString()} / {characterLimit.toLocaleString()} ({remaining.toLocaleString()} remaining)
+          {numberFormatter.format(inputText.length)} / {numberFormatter.format(characterLimit)} ({numberFormatter.format(remaining)} remaining)
         </span>
       </div>
     </div>

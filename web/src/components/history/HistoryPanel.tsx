@@ -6,11 +6,7 @@ import { triggerDownloadFromUrl, triggerDownloadText } from '@/lib/utils/downloa
 import { buildSrt, buildVtt } from '@/lib/transcript/export';
 import { useHistoryStore } from '@/modules/history/store';
 import { useTTSStore } from '@/modules/tts/store';
-
-const formatTimestamp = (value: string) => {
-  const date = new Date(value);
-  return date.toLocaleString();
-};
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 export function HistoryPanel() {
   const entries = useHistoryStore((state) => state.entries);
@@ -122,7 +118,7 @@ export function HistoryPanel() {
             >
               <div className="flex flex-wrap items-center justify-between text-sm text-cocoa-700">
                 <span className="font-semibold capitalize text-cocoa-900">{entry.provider}</span>
-                <span className="text-xs text-cocoa-500">{formatTimestamp(entry.createdAt)}</span>
+                <FormattedTimestamp value={entry.createdAt} className="text-xs text-cocoa-500" />
               </div>
               <p className="line-clamp-2 text-sm text-cocoa-600">{entry.text || 'No text stored.'}</p>
               <div className="flex flex-wrap items-center gap-2 text-xs text-cocoa-500">

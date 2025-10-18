@@ -13,6 +13,7 @@ import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } fr
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
 import { useAccountStore } from '@/modules/account/store';
 import type { TransitSummaryAction } from '@/modules/transitTranscription/types';
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -663,7 +664,9 @@ export function TransitTranscriptionPanel() {
           Reset
         </button>
         {record && (
-          <p className="text-xs text-charcoal-500">Saved at {new Date(record.createdAt).toLocaleString()}</p>
+          <p className="text-xs text-charcoal-500">
+            Saved at <FormattedTimestamp value={record.createdAt} />
+          </p>
         )}
       </footer>
     </section>

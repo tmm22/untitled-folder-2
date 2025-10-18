@@ -4,6 +4,7 @@ import { PipelineEditor, type PipelineDraft, type ProviderOption } from './Pipel
 import { usePipelineStore } from '@/modules/pipelines/store';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { generateId } from '@/lib/utils/id';
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 function buildDefaultDraft(providerOptions: ProviderOption[]): PipelineDraft {
   const initialQueueProvider = providerOptions[0]?.id ?? 'tightAss';
@@ -60,17 +61,6 @@ function pipelineToDraft(pipeline: PipelineDefinition): PipelineDraft {
     schedule: pipeline.schedule,
     defaultSourceUrl: pipeline.defaultSource?.kind === 'url' ? pipeline.defaultSource.value : undefined,
   };
-}
-
-function formatTimestamp(value?: string): string {
-  if (!value) {
-    return 'Never';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
 }
 
 export function PipelineManager() {
@@ -256,7 +246,10 @@ export function PipelineManager() {
                   {pipeline.description && <p className="text-xs text-cocoa-600">{pipeline.description}</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-cocoa-500">
-                  <span>Last run: {formatTimestamp(pipeline.lastRunAt)}</span>
+                  <span>
+                    Last run:{' '}
+                    <FormattedTimestamp value={pipeline.lastRunAt ?? null} placeholder="Never" />
+                  </span>
                   {pipeline.schedule?.cron && <span>Schedule: {pipeline.schedule.cron}</span>}
                 </div>
               </div>
