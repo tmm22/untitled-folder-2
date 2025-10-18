@@ -5,6 +5,7 @@ import { useSnippetStore } from '@/modules/snippets/store';
 import { useTTSStore } from '@/modules/tts/store';
 import type { TextSnippet } from '@/modules/tts/types';
 import { generateId } from '@/lib/utils/id';
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 export function SnippetPanel() {
   const snippets = useSnippetStore((state) => state.snippets);
@@ -88,7 +89,11 @@ export function SnippetPanel() {
           <div key={snippet.id} className="flex flex-col gap-3 rounded-2xl border border-cream-300 bg-cream-50/80 p-4 shadow-inner">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-cocoa-900">{snippet.name}</h3>
-              <span className="text-xs text-cocoa-500">{new Date(snippet.createdAt).toLocaleDateString()}</span>
+              <FormattedTimestamp
+                value={snippet.createdAt}
+                options={{ year: 'numeric', month: 'short', day: 'numeric' }}
+                className="text-xs text-cocoa-500"
+              />
             </div>
             <p className="line-clamp-2 text-sm text-cocoa-600">{snippet.content}</p>
             <div className="flex flex-wrap items-center gap-2 text-sm">

@@ -11,6 +11,7 @@ import { useQueueStore } from '@/modules/queue/store';
 import { useHistoryStore } from '@/modules/history/store';
 import { resolveVoiceForQueue } from '@/modules/pipelines/voice';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
+import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
 export function ImportPanel() {
   const entries = useImportStore((state) => state.entries);
@@ -211,7 +212,11 @@ export function ImportPanel() {
               <span className="font-medium truncate" title={entry.source}>
                 {entry.title || entry.source}
               </span>
-              <span className="text-xs text-cocoa-500">{new Date(entry.createdAt).toLocaleDateString()}</span>
+              <FormattedTimestamp
+                value={entry.createdAt}
+                options={{ year: 'numeric', month: 'short', day: 'numeric' }}
+                className="text-xs text-cocoa-500"
+              />
             </div>
             {entry.summary && <p className="text-xs text-cocoa-600">Summary: {entry.summary}</p>}
             <div className="flex items-center gap-2">
