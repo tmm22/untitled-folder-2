@@ -49,29 +49,16 @@ const SummaryActionItem = ({ item }: { item: TransitSummaryAction }) => {
 };
 
 export function TransitTranscriptionPanel() {
-  const {
-    stage,
-    segments,
-    summary,
-    record,
-    error,
-    isStreaming,
-    progress,
-    transcriptText,
-    title,
-    actions,
-  } = useTransitTranscriptionStore((state) => ({
-    stage: state.stage,
-    segments: state.segments,
-    summary: state.summary,
-    record: state.record,
-    error: state.error,
-    isStreaming: state.isStreaming,
-    progress: state.progress,
-    transcriptText: state.transcriptText,
-    title: state.title,
-    actions: state.actions,
-  }));
+  const stage = useTransitTranscriptionStore((state) => state.stage);
+  const segments = useTransitTranscriptionStore((state) => state.segments);
+  const summary = useTransitTranscriptionStore((state) => state.summary);
+  const record = useTransitTranscriptionStore((state) => state.record);
+  const error = useTransitTranscriptionStore((state) => state.error);
+  const isStreaming = useTransitTranscriptionStore((state) => state.isStreaming);
+  const progress = useTransitTranscriptionStore((state) => state.progress);
+  const transcriptText = useTransitTranscriptionStore((state) => state.transcriptText);
+  const title = useTransitTranscriptionStore((state) => state.title);
+  const actions = useTransitTranscriptionStore((state) => state.actions);
 
   const [isRecorderSupported, setRecorderSupported] = useState<boolean>(false);
   const [isPreparingRecorder, setPreparingRecorder] = useState(false);
