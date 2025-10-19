@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
 import { getTransitTranscriptionRepository } from '@/lib/transit/repository';
-import type { TransitTranscriptSegment, TransitTranscriptionRecord } from '@/modules/transitTranscription/types';
+import type {
+  TransitScheduleRecommendation,
+  TransitTranscriptSegment,
+  TransitTranscriptionRecord,
+} from '@/modules/transitTranscription/types';
 
 const SOURCE_VALUES = new Set<TransitTranscriptionRecord['source']>(['microphone', 'upload']);
 
@@ -69,7 +73,7 @@ function normalizeSummary(value: unknown): TransitTranscriptionRecord['summary']
         .filter((item): item is NonNullable<typeof item> => item !== null)
     : [];
 
-  let normalizedSchedule: NonNullable<TransitTranscriptionRecord['summary']>['scheduleRecommendation'] = null;
+  let normalizedSchedule: TransitScheduleRecommendation | null = null;
   if (scheduleRecommendation && typeof scheduleRecommendation === 'object') {
     const scheduleCandidate = scheduleRecommendation as Record<string, unknown>;
     const title = scheduleCandidate.title;
