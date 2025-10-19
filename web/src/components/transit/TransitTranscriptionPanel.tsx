@@ -532,7 +532,7 @@ export function TransitTranscriptionPanel() {
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+          <div id="capture" className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-charcoal-900">Capture audio</h3>
               {isRecording && (
@@ -598,7 +598,7 @@ export function TransitTranscriptionPanel() {
             />
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+          <div id="cleanup-controls" className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
             <h3 className="text-sm font-semibold text-charcoal-900">Cleanup instructions</h3>
             <p className="text-xs text-charcoal-500">
               Ask the assistant to polish each transcript—for example Australian English, professional tone, or meeting-ready notes.
@@ -649,7 +649,7 @@ export function TransitTranscriptionPanel() {
           <ImportPanel />
           <SnippetPanel />
 
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+          <div id="transcript-history" className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
               <button
@@ -736,7 +736,7 @@ export function TransitTranscriptionPanel() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <div id="transcript-view" className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-charcoal-900">Transcript</h3>
               {record?.durationMs ? (
@@ -848,7 +848,7 @@ export function TransitTranscriptionPanel() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <div id="calendar" className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
             <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <span
@@ -979,7 +979,7 @@ export function TransitTranscriptionPanel() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div id="tts-controls" className="flex flex-col gap-6">
           <ProviderSelector />
           <TextEditor />
           <TranslationControls />

@@ -1,19 +1,45 @@
 import Link from 'next/link';
-import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
-import { HistoryPanel } from '@/components/history/HistoryPanel';
-import { SnippetPanel } from '@/components/snippets/SnippetPanel';
-import { ImportPanel } from '@/components/imports/ImportPanel';
-import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
-import { ThemePanel } from '@/components/settings/ThemePanel';
-import { CompactPanel } from '@/components/settings/CompactPanel';
-import { NotificationPanel } from '@/components/settings/NotificationPanel';
 import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { PremiumDashboard } from '@/components/account/PremiumDashboard';
 import { AuthPanel } from '@/components/account/AuthPanel';
 import { AppVersionBadge } from '@/components/shared/AppVersionBadge';
 import { TransitTranscriptionHistoryDashboardPanel } from '@/components/transit/TransitTranscriptionHistoryDashboardPanel';
+import { BatchPanel } from '@/components/queue/BatchPanel';
 
 export default function Home() {
+  const quickLinks = [
+    {
+      href: '/studio#capture',
+      title: 'Capture & upload',
+      description: 'Record from the browser or upload audio clips for instant transcription.',
+    },
+    {
+      href: '/studio#cleanup-controls',
+      title: 'Cleanup presets',
+      description: 'Apply Australian English, professional tone, or meeting minutes instructions.',
+    },
+    {
+      href: '/studio#transcript-view',
+      title: 'Transcript workspace',
+      description: 'Edit, review summaries, and grab action items as they stream in.',
+    },
+    {
+      href: '/studio#tts-controls',
+      title: 'Voice & synthesis',
+      description: 'Pick providers, preview voices, and manage batches from one panel.',
+    },
+    {
+      href: '/studio#transcript-history',
+      title: 'Transcript history',
+      description: 'Reopen recent captures, download text, or clear archived sessions.',
+    },
+    {
+      href: '/studio#calendar',
+      title: 'Calendar follow-up',
+      description: 'Schedule Google Calendar events directly from detected action items.',
+    },
+  ];
+
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12 text-cocoa-900">
       <AccountBootstrapper />
@@ -30,31 +56,58 @@ export default function Home() {
       <AuthPanel />
       <PremiumDashboard />
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <div className="flex flex-col items-center gap-4 text-center">
         <Link
           href="/studio"
-          className="flex flex-col justify-between rounded-2xl border border-charcoal-200/70 bg-white/80 px-6 py-6 shadow-sm shadow-charcoal-200/60 transition hover:border-accent-500 hover:shadow-accent-300/40"
+          className="inline-flex items-center gap-3 rounded-full bg-accent-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-cream-50 shadow-lg shadow-accent-600/40 transition hover:bg-accent-700"
         >
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Narration Studio</p>
-            <h2 className="mt-3 text-xl font-semibold text-charcoal-900">Open the unified transcription &amp; TTS workspace</h2>
-            <p className="mt-2 text-sm text-charcoal-600">
-              Launch the full capture, cleanup, and narration experience — including batching, pronunciation rules, and calendar follow-ups.
-            </p>
-          </div>
-          <span className="mt-4 self-start rounded-full bg-accent-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50">
-            Launch
-          </span>
+          Enter Narration Studio
         </Link>
-        <TransitTranscriptionHistoryDashboardPanel />
-        <HistoryPanel />
-        <SnippetPanel />
-        <ImportPanel />
-        <PronunciationPanel />
-        <CredentialsPanel />
-        <ThemePanel />
-        <CompactPanel />
-        <NotificationPanel />
+        <p className="max-w-xl text-sm text-charcoal-600">
+          Need a specific tool? Jump directly to the panel you need inside the studio.
+        </p>
+      </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {quickLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="flex flex-col justify-between rounded-2xl border border-charcoal-200/70 bg-white/80 px-5 py-5 text-left shadow-sm shadow-charcoal-200/40 transition hover:border-accent-500 hover:shadow-accent-300/40"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">{link.title}</p>
+              <p className="mt-2 text-sm text-charcoal-600">{link.description}</p>
+            </div>
+            <span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-accent-600">
+              Open
+              <span aria-hidden>→</span>
+            </span>
+          </Link>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <details className="group rounded-2xl border border-charcoal-200/70 bg-white/80 px-6 py-5 shadow-sm shadow-charcoal-200/50">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-charcoal-900">
+            Transcript history snapshot
+            <span className="ml-2 text-xs text-charcoal-500 group-open:hidden">(expand)</span>
+            <span className="ml-2 text-xs text-charcoal-500 hidden group-open:inline">(collapse)</span>
+          </summary>
+          <div className="mt-4 text-sm text-charcoal-600">
+            <TransitTranscriptionHistoryDashboardPanel />
+          </div>
+        </details>
+        <details className="group rounded-2xl border border-charcoal-200/70 bg-white/80 px-6 py-5 shadow-sm shadow-charcoal-200/50">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-charcoal-900">
+            Batch queue overview
+            <span className="ml-2 text-xs text-charcoal-500 group-open:hidden">(expand)</span>
+            <span className="ml-2 text-xs text-charcoal-500 hidden group-open:inline">(collapse)</span>
+          </summary>
+          <div className="mt-4 text-sm text-charcoal-600">
+            <BatchPanel />
+          </div>
+        </details>
       </section>
       <footer className="mt-16 text-center text-xs text-charcoal-400">
         Copyright Mangan Distributions Pty Ltd.  This is a free service bought to you by the Wheelie Mods team with optional paid extras.
