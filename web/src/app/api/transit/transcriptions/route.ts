@@ -69,7 +69,7 @@ function normalizeSummary(value: unknown): TransitTranscriptionRecord['summary']
         .filter((item): item is NonNullable<typeof item> => item !== null)
     : [];
 
-  let normalizedSchedule: TransitTranscriptionRecord['summary']['scheduleRecommendation'] = null;
+  let normalizedSchedule: NonNullable<TransitTranscriptionRecord['summary']>['scheduleRecommendation'] = null;
   if (scheduleRecommendation && typeof scheduleRecommendation === 'object') {
     const scheduleCandidate = scheduleRecommendation as Record<string, unknown>;
     const title = scheduleCandidate.title;
