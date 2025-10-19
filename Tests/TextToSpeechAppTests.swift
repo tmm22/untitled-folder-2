@@ -79,6 +79,51 @@ final class TextToSpeechAppTests: XCTestCase {
     }
 
     @MainActor
+    private final class StubTranscriptionService: AudioTranscribing {
+        var result: (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) = ("", nil, 0, [])
+        var error: Error?
+        private(set) var callCount = 0
+
+        func transcribe(fileURL: URL, languageHint: String?) async throws -> (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) {
+            callCount += 1
+            if let error {
+                throw error
+            }
+            return result
+        }
+    }
+
+    @MainActor
+    private final class StubTranscriptInsightsService: TranscriptInsightsServicing {
+        var result: TranscriptionSummaryBlock = TranscriptionSummaryBlock(summary: "", actionItems: [], scheduleRecommendation: nil)
+        var error: Error?
+        private(set) var callCount = 0
+
+        func generateInsights(for transcript: String) async throws -> TranscriptionSummaryBlock {
+            callCount += 1
+            if let error {
+                throw error
+            }
+            return result
+        }
+    }
+
+    @MainActor
+    private final class StubTranscriptCleanupService: TranscriptCleanupServicing {
+        var result: TranscriptCleanupResult = TranscriptCleanupResult(instruction: "", label: nil, output: "")
+        var error: Error?
+        private(set) var callCount = 0
+
+        func clean(transcript: String, instruction: String, label: String?) async throws -> TranscriptCleanupResult {
+            callCount += 1
+            if let error {
+                throw error
+            }
+            return result
+        }
+    }
+
+    @MainActor
     private final class StubPreviewAudioPlayer: AudioPlayerService {
         override func loadAudio(from data: Data) async throws {
             isBuffering = true
@@ -158,7 +203,10 @@ final class TextToSpeechAppTests: XCTestCase {
                                    elevenLabsService: ElevenLabsService = ElevenLabsService(),
                                    openAIService: OpenAIService = OpenAIService(),
                                    googleService: GoogleTTSService = GoogleTTSService(),
-                                   localService: LocalTTSService = LocalTTSService()) -> TTSViewModel {
+                                   localService: LocalTTSService = LocalTTSService(),
+                                   transcriptionService: AudioTranscribing = OpenAITranscriptionService(),
+                                   insightsService: TranscriptInsightsServicing = TranscriptInsightsService(),
+                                   cleanupService: TranscriptCleanupServicing = TranscriptCleanupService()) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
         return TTSViewModel(notificationCenterProvider: { nil },
                             urlContentLoader: loader,
@@ -171,9 +219,12 @@ final class TextToSpeechAppTests: XCTestCase {
                             elevenLabsService: elevenLabsService,
                             openAIService: openAIService,
                             googleService: googleService,
-                            localService: localService)
+                            localService: localService,
+                            transcriptionService: transcriptionService,
+                            transcriptInsightsService: insightsService,
+                            transcriptCleanupService: cleanupService)
     }
-    
+
     // MARK: - Model Tests
     
     func testVoiceCreation() {
@@ -198,6 +249,63 @@ final class TextToSpeechAppTests: XCTestCase {
         let raw = "Skip to content\nMenu\nArticle heading\nThis is the body.\nSign in\nFooter navigation"
         let cleaned = TextSanitizer.cleanImportedText(raw)
         XCTAssertEqual(cleaned, "Article heading\nThis is the body.")
+    }
+
+    func testTranscribeAudioDeletesEphemeralSource() async throws {
+        resetPersistedSettings()
+        let transcriptionService = StubTranscriptionService()
+        transcriptionService.result = (text: "hello", language: "en", duration: 1.0, segments: [])
+        let insightsService = StubTranscriptInsightsService()
+        insightsService.result = TranscriptionSummaryBlock(summary: "", actionItems: [], scheduleRecommendation: nil)
+        let cleanupService = StubTranscriptCleanupService()
+
+        let viewModel = makeTestViewModel(transcriptionService: transcriptionService,
+                                          insightsService: insightsService,
+                                          cleanupService: cleanupService)
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("test-recording-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try Data([0x00, 0x01]).write(to: tempURL)
+
+        viewModel.transcribeAudioFile(at: tempURL, shouldDeleteAfterTranscription: true)
+
+        await waitUntil { viewModel.transcriptionStage == .complete }
+
+        XCTAssertEqual(viewModel.transcriptionStage, .complete)
+        XCTAssertEqual(transcriptionService.callCount, 1)
+        XCTAssertEqual(insightsService.callCount, 1)
+        XCTAssertEqual(cleanupService.callCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempURL.path))
+    }
+
+    func testTranscribeAudioKeepsSourceWhenDeletionDisabled() async throws {
+        resetPersistedSettings()
+        let transcriptionService = StubTranscriptionService()
+        transcriptionService.result = (text: "keep", language: nil, duration: 0.5, segments: [])
+        let insightsService = StubTranscriptInsightsService()
+        insightsService.result = TranscriptionSummaryBlock(summary: "ok", actionItems: [], scheduleRecommendation: nil)
+        let cleanupService = StubTranscriptCleanupService()
+
+        let viewModel = makeTestViewModel(transcriptionService: transcriptionService,
+                                          insightsService: insightsService,
+                                          cleanupService: cleanupService)
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("test-keep-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try Data([0xAA]).write(to: tempURL)
+
+        viewModel.transcribeAudioFile(at: tempURL, shouldDeleteAfterTranscription: false)
+
+        await waitUntil { viewModel.transcriptionStage == .complete }
+
+        XCTAssertEqual(viewModel.transcriptionStage, .complete)
+        XCTAssertEqual(transcriptionService.callCount, 1)
+        XCTAssertEqual(insightsService.callCount, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
+
+        try? FileManager.default.removeItem(at: tempURL)
     }
 
     func testTextChunkerRespectsLimits() {

@@ -72,6 +72,7 @@ private enum InspectorSection: String, CaseIterable, Identifiable {
 }
 
 private enum ComposerUtility: String, CaseIterable, Identifiable {
+    case transcription
     case urlImport
     case sampleText
     case chunking
@@ -80,6 +81,8 @@ private enum ComposerUtility: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .transcription:
+            return "Transcription"
         case .urlImport:
             return "URL Import"
         case .sampleText:
@@ -91,6 +94,8 @@ private enum ComposerUtility: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .transcription:
+            return "waveform"
         case .urlImport:
             return "link.badge.plus"
         case .sampleText:
@@ -102,6 +107,8 @@ private enum ComposerUtility: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
+        case .transcription:
+            return "Transcribe an audio recording and generate a cleaned script"
         case .urlImport:
             return "Pull readable text from a web article"
         case .sampleText:
@@ -1392,6 +1399,9 @@ private struct UtilityDetailView: View {
             }
 
             switch utility {
+            case .transcription:
+                TranscriptionUtilityView()
+                    .environmentObject(viewModel)
             case .urlImport:
                 URLImportView()
                     .environmentObject(viewModel)

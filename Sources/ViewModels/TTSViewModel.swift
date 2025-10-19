@@ -121,6 +121,16 @@ struct GenerationOutput {
     let duration: TimeInterval
 }
 
+enum TranscriptionStage: Equatable {
+    case idle
+    case recording
+    case transcribing
+    case summarising
+    case cleaning
+    case complete
+    case error
+}
+
 @MainActor
 class TTSViewModel: ObservableObject {
     // MARK: - Published Properties
@@ -205,6 +215,21 @@ class TTSViewModel: ObservableObject {
             saveSettings()
         }
     }
+    @Published private(set) var transcriptionStage: TranscriptionStage = .idle
+    @Published private(set) var transcriptionProgress: Double = 0
+    @Published private(set) var transcriptionSegments: [TranscriptionSegment] = []
+    @Published private(set) var transcriptionSummary: TranscriptionSummaryBlock?
+    @Published private(set) var transcriptionCleanupResult: TranscriptCleanupResult?
+    @Published private(set) var transcriptionError: String?
+    @Published private(set) var transcriptionRecord: TranscriptionRecord?
+    @Published private(set) var transcriptionText: String = ""
+    @Published private(set) var transcriptionLanguage: String?
+    @Published private(set) var isTranscriptionRecording: Bool = false
+    @Published private(set) var transcriptionRecordingDuration: TimeInterval = 0
+    @Published private(set) var transcriptionRecordingLevel: Float = 0
+    @Published var transcriptionCleanupInstruction: String = ""
+    @Published var transcriptionCleanupLabel: String?
+    @Published private(set) var isTranscriptionInProgress: Bool = false
     @Published var elevenLabsPrompt: String = "" {
         didSet {
             guard elevenLabsPrompt != oldValue else { return }
@@ -236,6 +261,10 @@ class TTSViewModel: ObservableObject {
     private let googleTTS: GoogleTTSService
     private let localTTS: LocalTTSService
     private let summarizationService: TextSummarizationService
+    private let transcriptionService: AudioTranscribing
+    private let transcriptInsightsService: TranscriptInsightsServicing
+    private let transcriptCleanupService: TranscriptCleanupServicing
+    private let transcriptionRecorder = TranscriptionRecorder()
     private let keychainManager = KeychainManager()
 
     // MARK: - Private Properties
@@ -282,6 +311,11 @@ class TTSViewModel: ObservableObject {
     private var elevenLabsVoiceTask: Task<Void, Never>?
     private let managedProvisioningClient: ManagedProvisioningClient
     private var managedProvisioningTask: Task<Void, Never>?
+    private var transcriptionTask: Task<Void, Never>?
+    private var transcriptionRecordingTimer: Timer?
+    private var transcriptionRecordingStart: Date?
+    private var transcriptionRecordingURL: URL?
+    private var ephemeralRecordingURLs: Set<URL> = []
 
     var supportedFormats: [AudioSettings.AudioFormat] {
         supportedFormats(for: selectedProvider)
@@ -443,6 +477,9 @@ class TTSViewModel: ObservableObject {
          openAIService: OpenAIService = OpenAIService(),
          googleService: GoogleTTSService = GoogleTTSService(),
          localService: LocalTTSService = LocalTTSService(),
+         transcriptionService: AudioTranscribing = OpenAITranscriptionService(),
+         transcriptInsightsService: TranscriptInsightsServicing = TranscriptInsightsService(),
+         transcriptCleanupService: TranscriptCleanupServicing = TranscriptCleanupService(),
          managedProvisioningClient: ManagedProvisioningClient = .shared) {
         self.notificationCenter = notificationCenterProvider()
         self.urlContentLoader = urlContentLoader
@@ -456,6 +493,9 @@ class TTSViewModel: ObservableObject {
         self.openAI = openAIService
         self.googleTTS = googleService
         self.localTTS = localService
+        self.transcriptionService = transcriptionService
+        self.transcriptInsightsService = transcriptInsightsService
+        self.transcriptCleanupService = transcriptCleanupService
         self.managedProvisioningClient = managedProvisioningClient
         setupAudioPlayer()
         setupPreviewPlayer()
@@ -619,6 +659,242 @@ class TTSViewModel: ObservableObject {
         inputText = translationResult.translatedText
         isUpdatingInputFromTranslation = false
         self.translationResult = nil
+    }
+
+    func setTranscriptionCleanupPreset(instruction: String, label: String?) {
+        transcriptionCleanupInstruction = instruction
+        transcriptionCleanupLabel = label
+    }
+
+    func clearTranscriptionCleanupPreset() {
+        transcriptionCleanupInstruction = ""
+        transcriptionCleanupLabel = nil
+    }
+
+    func startTranscriptionRecording() {
+        guard !isTranscriptionRecording else { return }
+
+        transcriptionTask?.cancel()
+        transcriptionError = nil
+
+        if let existingURL = transcriptionRecordingURL {
+            let standardizedExisting = existingURL.standardizedFileURL
+            ephemeralRecordingURLs.remove(standardizedExisting)
+            try? FileManager.default.removeItem(at: standardizedExisting)
+            transcriptionRecordingURL = nil
+        }
+
+        transcriptionRecordingDuration = 0
+        transcriptionRecordingLevel = 0
+        transcriptionStage = .recording
+        isTranscriptionInProgress = true
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let url = try await self.transcriptionRecorder.startRecording()
+                let standardizedURL = url.standardizedFileURL
+                self.ephemeralRecordingURLs.insert(standardizedURL)
+                self.transcriptionRecordingURL = standardizedURL
+                self.transcriptionRecordingDuration = 0
+                self.transcriptionRecordingLevel = 0
+                self.transcriptionRecordingStart = Date()
+                self.isTranscriptionRecording = true
+                self.startRecordingTimer()
+            } catch let error as TTSError {
+                self.transcriptionError = error.localizedDescription
+                self.transcriptionStage = .idle
+                self.isTranscriptionInProgress = false
+            } catch {
+                self.transcriptionError = error.localizedDescription
+                self.transcriptionStage = .idle
+                self.isTranscriptionInProgress = false
+            }
+        }
+    }
+
+    func stopTranscriptionRecording() {
+        guard isTranscriptionRecording else { return }
+        let url = transcriptionRecorder.stopRecording()
+        finishRecordingSession(with: url, shouldTranscribe: true)
+    }
+
+    func cancelTranscriptionRecording() {
+        guard isTranscriptionRecording else { return }
+        let url = transcriptionRecorder.cancelRecording()
+        finishRecordingSession(with: url, shouldTranscribe: false)
+        transcriptionStage = .idle
+        transcriptionError = nil
+    }
+
+    func transcribeAudioFile(at url: URL,
+                             title: String? = nil,
+                             languageHint: String? = nil,
+                             shouldDeleteAfterTranscription: Bool? = nil) {
+        transcriptionTask?.cancel()
+        let standardizedURL = url.standardizedFileURL
+        let resolvedTitle = title ?? standardizedURL.deletingPathExtension().lastPathComponent
+        let tempDirectoryPath = FileManager.default.temporaryDirectory.standardizedFileURL.path
+        let removedEphemeral = ephemeralRecordingURLs.remove(standardizedURL) != nil
+        let shouldDeleteSource: Bool
+        if let override = shouldDeleteAfterTranscription {
+            shouldDeleteSource = override
+        } else if removedEphemeral {
+            shouldDeleteSource = true
+        } else {
+            shouldDeleteSource = standardizedURL.path.hasPrefix(tempDirectoryPath)
+        }
+        transcriptionTask = Task { [weak self] in
+            await self?.executeTranscription(at: standardizedURL,
+                                             title: resolvedTitle,
+                                             languageHint: languageHint,
+                                             shouldDeleteSource: shouldDeleteSource)
+        }
+    }
+
+    func insertTranscriptionIntoEditor(useCleanedText: Bool) {
+        guard let record = transcriptionRecord else { return }
+        let candidate: String?
+        if useCleanedText {
+            candidate = transcriptionCleanupResult?.output
+        } else {
+            candidate = record.transcript
+        }
+
+        guard let text = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }
+        inputText = text
+    }
+
+    private func executeTranscription(at url: URL,
+                                      title: String,
+                                      languageHint: String?,
+                                      shouldDeleteSource: Bool) async {
+        resetTranscriptionState()
+        isTranscriptionInProgress = true
+        transcriptionStage = .transcribing
+        transcriptionProgress = 0.15
+        defer {
+            isTranscriptionInProgress = false
+            transcriptionTask = nil
+            if shouldDeleteSource {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+
+        do {
+            let transcription = try await transcriptionService.transcribe(fileURL: url, languageHint: languageHint)
+            try Task.checkCancellation()
+
+            transcriptionText = transcription.text
+            transcriptionLanguage = transcription.language
+            transcriptionSegments = transcription.segments
+            transcriptionProgress = 0.45
+
+            transcriptionStage = .summarising
+            let insights = try await transcriptInsightsService.generateInsights(for: transcription.text)
+            try Task.checkCancellation()
+            let meaningfulSummary = insights.isMeaningful ? insights : nil
+            transcriptionSummary = meaningfulSummary
+            transcriptionProgress = 0.7
+
+            var cleanupResult: TranscriptCleanupResult?
+            let trimmedInstruction = transcriptionCleanupInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedInstruction.isEmpty {
+                transcriptionStage = .cleaning
+                cleanupResult = try await transcriptCleanupService.clean(transcript: transcription.text,
+                                                                          instruction: trimmedInstruction,
+                                                                          label: transcriptionCleanupLabel)
+                try Task.checkCancellation()
+                transcriptionCleanupResult = cleanupResult
+                transcriptionProgress = 0.9
+            } else {
+                transcriptionCleanupResult = nil
+            }
+
+            transcriptionRecord = TranscriptionRecord(
+                title: title,
+                transcript: transcription.text,
+                language: transcription.language,
+                duration: transcription.duration,
+                segments: transcription.segments,
+                summary: meaningfulSummary,
+                cleanup: cleanupResult
+            )
+
+            transcriptionStage = .complete
+            transcriptionProgress = 1.0
+            transcriptionError = nil
+        } catch is CancellationError {
+            // No-op: task cancelled by caller
+        } catch let error as TTSError {
+            transcriptionError = error.localizedDescription
+            transcriptionStage = .error
+        } catch {
+            transcriptionError = error.localizedDescription
+            transcriptionStage = .error
+        }
+    }
+
+    private func resetTranscriptionState() {
+        transcriptionStage = .idle
+        transcriptionProgress = 0
+        transcriptionSegments = []
+        transcriptionSummary = nil
+        transcriptionCleanupResult = nil
+        transcriptionError = nil
+        transcriptionRecord = nil
+        transcriptionText = ""
+        transcriptionLanguage = nil
+    }
+
+    private func startRecordingTimer() {
+        stopRecordingTimer()
+        transcriptionRecordingTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.refreshRecordingMetrics()
+            }
+        }
+        RunLoop.main.add(transcriptionRecordingTimer!, forMode: .common)
+    }
+
+    private func stopRecordingTimer() {
+        transcriptionRecordingTimer?.invalidate()
+        transcriptionRecordingTimer = nil
+    }
+
+    private func refreshRecordingMetrics() {
+        guard isTranscriptionRecording else { return }
+        if let start = transcriptionRecordingStart {
+            transcriptionRecordingDuration = Date().timeIntervalSince(start)
+        }
+        transcriptionRecordingLevel = transcriptionRecorder.currentLevel()
+    }
+
+    private func finishRecordingSession(with url: URL?, shouldTranscribe: Bool) {
+        stopRecordingTimer()
+        let finalDuration = transcriptionRecordingDuration
+        transcriptionRecordingStart = nil
+        transcriptionRecordingLevel = 0
+        isTranscriptionRecording = false
+        let previousRecordingURL = transcriptionRecordingURL
+
+        if shouldTranscribe, let url {
+            transcriptionRecordingDuration = finalDuration
+            transcriptionRecordingURL = nil
+            transcribeAudioFile(at: url)
+        } else {
+            transcriptionRecordingDuration = 0
+            transcriptionRecordingURL = nil
+            isTranscriptionInProgress = false
+            if let url {
+                let standardizedURL = url.standardizedFileURL
+                ephemeralRecordingURLs.remove(standardizedURL)
+                try? FileManager.default.removeItem(at: standardizedURL)
+            } else if let previousRecordingURL {
+                ephemeralRecordingURLs.remove(previousRecordingURL.standardizedFileURL)
+            }
+        }
     }
 
     func generateSpeech() async {
@@ -1745,12 +2021,18 @@ class TTSViewModel: ObservableObject {
         UserDefaults.standard.set(appearancePreference.rawValue, forKey: "appearancePreference")
     }
 
-    deinit {
+    @MainActor deinit {
         batchTask?.cancel()
         previewTask?.cancel()
         articleSummaryTask?.cancel()
         elevenLabsVoiceTask?.cancel()
         managedProvisioningTask?.cancel()
+        transcriptionTask?.cancel()
+        if let url = transcriptionRecorder.cancelRecording() {
+            try? FileManager.default.removeItem(at: url)
+        }
+        transcriptionRecordingTimer?.invalidate()
+        transcriptionRecordingTimer = nil
     }
 }
 

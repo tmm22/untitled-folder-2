@@ -81,3 +81,11 @@ _Living document tracking the unified Narration Studio (transcription ↔︎ tex
 ---
 
 _Last updated: 2025-02-14_
+
+## macOS Backport Snapshot
+
+- Added a Narration Studio utility to the macOS Composer (new Transcription utility alongside URL Import/Sample Text/Chunking) with microphone capture.
+- `OpenAITranscriptionService` streams Whisper transcriptions via multipart uploads using managed credentials when available.
+- Transcript insights and cleanup reuse the shared OpenAI chat pipeline to deliver summaries, action items, and polished copy.
+- Results sync with the existing editor—buttons insert raw or cleaned transcript into the script composer; summaries/action items render inline.
+- Segments and metadata surface within the utility, mirroring the web layout.

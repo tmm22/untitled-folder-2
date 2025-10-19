@@ -24,6 +24,8 @@
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Text to Speech records microphone input so you can transcribe spoken audio.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
