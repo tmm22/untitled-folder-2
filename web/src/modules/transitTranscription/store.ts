@@ -9,6 +9,7 @@ import type {
   TransitTranscriptionSource,
 } from '@/modules/transitTranscription/types';
 import { streamTransitTranscription } from './service';
+import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
 
 type TransitStage =
   | 'idle'
@@ -48,6 +49,7 @@ export interface TransitTranscriptionState {
     setLanguageHint: (language?: string) => void;
     submit: (input: { file: Blob; title?: string }) => Promise<void>;
     cancel: () => void;
+    loadFromHistory: (record: TransitTranscriptionRecord) => void;
   };
 }
 
@@ -88,6 +90,22 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
         controller.abort();
       }
       set({ stage: 'idle', isStreaming: false, progress: 0, controller: undefined });
+    },
+    loadFromHistory: (record) => {
+      set({
+        stage: 'complete',
+        segments: record.segments,
+        summary: record.summary,
+        record,
+        transcriptText: record.transcript,
+        error: undefined,
+        isStreaming: false,
+        progress: STAGE_PROGRESS.complete,
+        controller: undefined,
+        title: record.title,
+        languageHint: record.language ?? undefined,
+        source: record.source,
+      });
     },
     submit: async ({ file, title }) => {
       const { controller: existingController, source, languageHint } = get();
@@ -147,7 +165,21 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
                 isStreaming: false,
                 progress: STAGE_PROGRESS.complete,
                 controller: undefined,
+                summary: payload.data.summary,
+                segments: payload.data.segments,
+                transcriptText: payload.data.transcript,
               });
+              void (async () => {
+                try {
+                  const historyState = useTransitTranscriptionHistoryStore.getState();
+                  if (typeof window !== 'undefined' && !historyState.hydrated) {
+                    await historyState.actions.hydrate();
+                  }
+                  await historyState.actions.record(payload.data);
+                } catch (historyError) {
+                  console.error('Failed to persist transit transcription history', historyError);
+                }
+              })();
               return;
             }
 

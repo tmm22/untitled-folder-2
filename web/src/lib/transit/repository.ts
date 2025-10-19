@@ -11,6 +11,7 @@ const MAX_TRANSCRIPTS = 200;
 export interface TransitTranscriptionRepository {
   list(userId: string): Promise<TransitTranscriptionRecord[]>;
   save(userId: string, record: TransitTranscriptionRecord): Promise<void>;
+  remove(userId: string, transcriptId: string): Promise<void>;
   clear(userId: string): Promise<void>;
 }
 
@@ -88,6 +89,20 @@ class FileTransitTranscriptionRepository implements TransitTranscriptionReposito
       await this.writeAll(entries);
     }
   }
+
+  async remove(userId: string, transcriptId: string): Promise<void> {
+    const entries = await this.readAll();
+    const existing = entries[userId];
+    if (!existing) {
+      return;
+    }
+    const filtered = existing.filter((record) => record.id !== transcriptId);
+    if (filtered.length === existing.length) {
+      return;
+    }
+    entries[userId] = filtered;
+    await this.writeAll(entries);
+  }
 }
 
 class ConvexTransitTranscriptionRepository implements TransitTranscriptionRepository {
@@ -142,6 +157,14 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
       this.options,
     );
   }
+
+  async remove(userId: string, transcriptId: string): Promise<void> {
+    await fetchMutation(
+      api.transit.removeTranscript,
+      { userId, transcriptId },
+      this.options,
+    );
+  }
 }
 
 class NoopTransitTranscriptionRepository implements TransitTranscriptionRepository {
@@ -152,6 +175,8 @@ class NoopTransitTranscriptionRepository implements TransitTranscriptionReposito
   async save(): Promise<void> {}
 
   async clear(): Promise<void> {}
+
+  async remove(): Promise<void> {}
 }
 
 function resolveRepository(): TransitTranscriptionRepository {

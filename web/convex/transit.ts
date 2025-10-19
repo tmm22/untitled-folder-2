@@ -153,6 +153,21 @@ export const clearTranscripts = mutation({
   },
 });
 
+export const removeTranscript = mutation({
+  args: {
+    userId: v.string(),
+    transcriptId: v.string(),
+  },
+  handler: async (ctx, { userId, transcriptId }) => {
+    const existing = await findTranscript(ctx, userId, transcriptId);
+    if (!existing) {
+      return { removed: false };
+    }
+    await ctx.db.delete(existing._id);
+    return { removed: true };
+  },
+});
+
 export const getCalendarToken = query({
   args: {
     userId: v.string(),
