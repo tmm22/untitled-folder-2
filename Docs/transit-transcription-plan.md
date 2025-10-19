@@ -17,7 +17,7 @@
 - Automated tests cover the UI store, API routes, and calendar workflows; monitoring provides request latency/error metrics.
 
 ## 3. Assumptions & Dependencies
-- OpenAI Whisper or `gpt-4o-mini-transcribe` endpoints remain available under the existing OpenAI provisioning key managed by Clerk/Keychain parity logic.
+- OpenAI Whisper (`whisper-1`) remains available under the existing OpenAI provisioning key managed by Clerk/Keychain parity logic, with room to swap via `OPENAI_TRANSCRIPTION_MODEL` when new transcribe models GA.
 - Convex is available for authenticated persistence; fallback JSON/IndexedDB paths remain for offline use.
 - Browser supports MediaRecorder API (progressive enhancement required).
 - Google Calendar integration will use OAuth 2.0 with limited scopes (`https://www.googleapis.com/auth/calendar.events`) stored via Convex secrets.

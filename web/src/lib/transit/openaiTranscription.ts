@@ -1,7 +1,7 @@
 const OPENAI_TRANSCRIPTION_URL =
   process.env.OPENAI_TRANSCRIPTIONS_URL?.trim() || 'https://api.openai.com/v1/audio/transcriptions';
 const OPENAI_TRANSCRIPTION_MODEL =
-  process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe';
+  process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'whisper-1';
 
 interface OpenAITranscriptSegment {
   id: number;
