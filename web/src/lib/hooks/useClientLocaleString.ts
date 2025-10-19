@@ -23,6 +23,17 @@ const computeFallback = (value: DateLike, fallback?: string): string => {
   return date.toISOString();
 };
 
+const serializeOptions = (options?: Intl.DateTimeFormatOptions): string | null => {
+  if (!options) {
+    return null;
+  }
+  try {
+    return JSON.stringify(options, Object.keys(options).sort());
+  } catch {
+    return '__UNKNOWN__';
+  }
+};
+
 /**
  * Returns a locale-aware date string that only hydrates on the client.
  * Server render falls back to ISO to avoid hydration mismatches.
@@ -32,30 +43,39 @@ export function useClientLocaleString(
   options?: Intl.DateTimeFormatOptions,
   fallback?: string,
 ): string {
-  const initial = useMemo(() => computeFallback(value, fallback), [value, fallback]);
-  const [formatted, setFormatted] = useState(initial);
+  const [formatted, setFormatted] = useState(() => computeFallback(value, fallback));
 
-  useEffect(() => {
-    setFormatted(initial);
-  }, [initial]);
+  const optionsKey = useMemo(() => serializeOptions(options), [options]);
+  const stableOptions = useMemo(() => {
+    if (!optionsKey) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(optionsKey) as Intl.DateTimeFormatOptions;
+    } catch {
+      return undefined;
+    }
+  }, [optionsKey]);
 
   useEffect(() => {
     const date = normaliseDate(value);
     if (!date) {
-      if (fallback !== undefined) {
-        setFormatted(fallback);
-      }
+      const replacement = fallback ?? '';
+      setFormatted((prev) => (prev === replacement ? prev : replacement));
       return;
     }
 
     try {
-      const next = options ? date.toLocaleString(undefined, options) : date.toLocaleString();
-      setFormatted(next);
+      const next = stableOptions
+        ? new Intl.DateTimeFormat(undefined, stableOptions).format(date)
+        : date.toLocaleString();
+      setFormatted((prev) => (prev === next ? prev : next));
     } catch (error) {
       console.warn('Failed to format date with locale options, falling back to ISO.', error);
-      setFormatted(date.toISOString());
+      const fallbackIso = date.toISOString();
+      setFormatted((prev) => (prev === fallbackIso ? prev : fallbackIso));
     }
-  }, [value, options, fallback]);
+  }, [value, fallback, stableOptions]);
 
   return formatted;
 }
