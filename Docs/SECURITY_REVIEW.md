@@ -53,3 +53,4 @@
 - Locked down `/api/imports` with hostname/IP validation, response size limits, and optional DNS bypass for tests (`src/app/api/imports/route.ts`, `src/tests/unit/importsRoute.test.ts`).
 - Secured `/api/account` updates by requiring a server-held `ACCOUNT_UPDATE_SECRET` token and added targeted regression tests (`src/app/api/account/route.ts`, `src/tests/unit/accountRoute.test.ts`).
 - Transit transcription now depends on PKCE-based Google OAuth with AES-256-GCM encrypted token storage (`src/lib/transit/calendarTokenStore.ts`), Convex persistence, and status endpoints that refuse to schedule events unless a Clerk-authenticated user has connected Google Calendar.
+- Transit transcription cleanup uses OpenAI chat completions on the server; polished copies are streamed to the client and stored alongside the raw transcript so no extra secrets or files are persisted.

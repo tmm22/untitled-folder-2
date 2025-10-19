@@ -13,6 +13,7 @@
 - Users can start/stop microphone recordings in-browser, upload audio files (WAV/MP3/M4A), and see real-time progress + error handling.
 - Transcriptions complete via OpenAI without exposing API keys and persist in history for signed-in users (Convex) and encrypted IndexedDB for guests.
 - Summaries and action items appear alongside the transcript; users can trigger Google Calendar workflows when relevant.
+- Users can configure cleanup instructions (presets or custom prompts) to generate polished transcripts alongside the raw capture.
 - Calendar integration only activates after the user grants Google OAuth consent and stores tokens securely (Convex + encrypted refresh token handling).
 - Automated tests cover the UI store, API routes, and calendar workflows; monitoring provides request latency/error metrics.
 
@@ -33,11 +34,13 @@
 - **Client (Next.js App Router)**
   - New `TransitTranscriptionPanel` React feature mounted under `/app/transit` (route or nested panel in workspace).
   - Zustand store `modules/transitTranscription/store.ts` managing session state (recording status, transcript, summary, calendar suggestions).
+  - Cleanup instruction controls (presets plus custom textarea) wired into the store and rendered alongside transcript results.
   - Shared UI components for microphone controls, file uploader, transcript viewer, summary cards, and calendar CTA.
 - **Server**
-- New route handler `app/api/transit/transcribe/route.ts` calling OpenAI transcription with streaming support.
-- Summarisation step reused from `lib/pipelines/openai.ts` (extend with `summariseTranscript` helper).
-- Calendar integration via `app/api/transit/calendar/**` (OAuth start, callback, status, event creation) leveraging encrypted Google tokens.
+  - New route handler `app/api/transit/transcribe/route.ts` calling OpenAI transcription with streaming support.
+  - Summarisation step reused from `lib/pipelines/openai.ts` (extend with `summariseTranscript` helper).
+  - Cleanup pass performed via `applyTranscriptCleanup` (OpenAI chat completions) when instructions are provided, with polished text streamed back to the client.
+  - Calendar integration via `app/api/transit/calendar/**` (OAuth start, callback, status, event creation) leveraging encrypted Google tokens.
 - **Data stores**
   - Authenticated: Convex tables `transcripts`, `calendarTokens`.
   - Guest: Encrypted IndexedDB via `LocalVault`.
@@ -68,7 +71,13 @@
 - store summary alongside transcript; display in UI.
 - Provide editing affordances for action items prior to calendar creation.
 
-### 6.4 Google Calendar Integration
+### 6.4 Cleanup & Formatting
+- Introduce preset cleanup instructions (Australian English, professional tone, meeting minutes) plus a custom textarea, persisted in the store.
+- Stream cleanup events from the API so the UI can show progress and preview the polished transcript as soon as it is available.
+- Reuse OpenAI chat completions via `applyTranscriptCleanup` to transform the transcript while retaining the original text for auditing.
+- Persist cleanup metadata (instruction, label, output) in Convex/IndexedDB and surface it in history cards.
+
+### 6.5 Google Calendar Integration
 - **Consent Flow**: Transit panel exposes a “Connect Google Calendar” CTA. Clerk session IDs are mapped to OAuth handshakes via PKCE:
   - `app/api/transit/calendar/oauth/start` issues state + code challenge, persisted for 15 minutes in the session store.
   - `app/api/transit/calendar/oauth/callback` exchanges the authorization code, encrypts refresh tokens, and redirects back to `/transit?calendar=success|error`.
@@ -81,7 +90,7 @@
   - Disconnection simply clears the encrypted entry.
 - **Safety checks**: manual participant entry only, auto-refresh with 60s skew, descriptive error handling, and TODO rate limiting once Convex functions land.
 
-### 6.5 Data Model Additions
+### 6.6 Data Model Additions
 - Convex schema snippet:
   ```ts
   transcripts: {
@@ -106,7 +115,7 @@
 - Frontend types under `modules/transitTranscription/types.ts` mirrored for store consumption.
 - Interim file-backed persistence (encrypted) implemented until Convex schema ships; repository exposes `list/save/clear` and `/api/transit/transcriptions` for retrieval.
 
-### 6.6 UI/UX Considerations
+### 6.7 UI/UX Considerations
 - Entry point as new tab in workspace left nav (“Transit”).
 - Recording UI: timer, waveform visualization (phase 2), pause/resume, discard.
 - Transcript display with inline editing, copy/export (SRT/VTT reuse).
@@ -137,6 +146,7 @@
 - Transit panel exposes connect/reconnect UX, disables scheduling until OAuth completes, and surfaces success/error messaging.
 - Added transcript listing route backed by encrypted JSON storage ahead of Convex deployment.
 - Introduced Playwright smoke coverage alongside expanded Vitest suite; documentation refreshed with new environment settings.
+- Generalised transcript post-processing with cleanup presets, custom instructions, polished transcript persistence, and history surfacing.
 
 ## 9. Telemetry & Observability
 - Add logging hooks to record transcription duration, size, latency (without audio payload).

@@ -47,6 +47,7 @@ const createRecord = (overrides?: Partial<TransitTranscriptionRecord>): TransitT
       actionItems: [],
       scheduleRecommendation: null,
     },
+  cleanup: overrides?.cleanup ?? null,
   language: overrides?.language ?? 'en',
   durationMs: overrides?.durationMs ?? 2000,
   confidence: overrides?.confidence ?? 0.85,

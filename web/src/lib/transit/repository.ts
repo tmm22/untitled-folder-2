@@ -139,6 +139,13 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
                 scheduleRecommendation: record.summary.scheduleRecommendation ?? undefined,
               }
             : undefined,
+          cleanup: record.cleanup
+            ? {
+                instruction: record.cleanup.instruction,
+                output: record.cleanup.output,
+                label: record.cleanup.label ?? undefined,
+              }
+            : undefined,
           language: record.language ?? undefined,
           durationMs: record.durationMs,
           confidence: record.confidence ?? undefined,

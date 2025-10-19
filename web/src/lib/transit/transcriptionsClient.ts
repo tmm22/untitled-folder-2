@@ -30,6 +30,7 @@ export async function fetchTransitTranscriptions(): Promise<TransitTranscription
   return (payload.records ?? []).map((record) => ({
     ...record,
     summary: record.summary ?? null,
+    cleanup: record.cleanup ?? null,
     language: record.language ?? null,
   }));
 }

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type {
+  TransitCleanupResult,
   TransitStreamPayload,
   TransitSummaryBlock,
   TransitTranscriptSegment,
@@ -17,6 +18,7 @@ type TransitStage =
   | 'received'
   | 'transcribing'
   | 'summarising'
+  | 'cleaning'
   | 'persisting'
   | 'complete'
   | 'error';
@@ -26,6 +28,7 @@ const STAGE_PROGRESS: Record<Exclude<TransitStage, 'idle' | 'error'>, number> = 
   received: 0.2,
   transcribing: 0.5,
   summarising: 0.75,
+  cleaning: 0.82,
   persisting: 0.9,
   complete: 1,
 };
@@ -34,6 +37,7 @@ export interface TransitTranscriptionState {
   stage: TransitStage;
   segments: TransitTranscriptSegment[];
   summary: TransitSummaryBlock | null;
+  cleanupResult: TransitCleanupResult | null;
   record: TransitTranscriptionRecord | null;
   transcriptText: string;
   error?: string;
@@ -42,11 +46,14 @@ export interface TransitTranscriptionState {
   source: TransitTranscriptionSource;
   title: string;
   languageHint?: string;
+  cleanupInstruction: string;
+  cleanupLabel?: string;
   actions: {
     reset: () => void;
     setSource: (source: TransitTranscriptionSource) => void;
     setTitle: (title: string) => void;
     setLanguageHint: (language?: string) => void;
+    setCleanupInstruction: (instruction: string, label?: string) => void;
     submit: (input: { file: Blob; title?: string }) => Promise<void>;
     cancel: () => void;
     loadFromHistory: (record: TransitTranscriptionRecord) => void;
@@ -61,6 +68,7 @@ const initialState: Omit<TransitTranscriptionState, 'actions'> = {
   stage: 'idle',
   segments: [],
   summary: null,
+  cleanupResult: null,
   record: null,
   transcriptText: '',
   error: undefined,
@@ -69,21 +77,33 @@ const initialState: Omit<TransitTranscriptionState, 'actions'> = {
   source: 'microphone',
   title: '',
   languageHint: undefined,
+  cleanupInstruction: '',
+  cleanupLabel: undefined,
 };
 
 export const useTransitTranscriptionStore = create<TransitTranscriptionState & InternalState>((set, get) => ({
   ...initialState,
   actions: {
     reset: () => {
-      const controller = get().controller;
+      const { controller, cleanupInstruction, cleanupLabel } = get();
       if (controller) {
         controller.abort();
       }
-      set({ ...initialState, controller: undefined });
+      set({
+        ...initialState,
+        controller: undefined,
+        cleanupInstruction,
+        cleanupLabel,
+      });
     },
     setSource: (source) => set({ source }),
     setTitle: (title) => set({ title }),
     setLanguageHint: (languageHint) => set({ languageHint }),
+    setCleanupInstruction: (instruction, label) =>
+      set({
+        cleanupInstruction: instruction,
+        cleanupLabel: label,
+      }),
     cancel: () => {
       const controller = get().controller;
       if (controller) {
@@ -92,10 +112,12 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
       set({ stage: 'idle', isStreaming: false, progress: 0, controller: undefined });
     },
     loadFromHistory: (record) => {
+      const { cleanupInstruction, cleanupLabel } = get();
       set({
         stage: 'complete',
         segments: record.segments,
         summary: record.summary,
+        cleanupResult: record.cleanup,
         record,
         transcriptText: record.transcript,
         error: undefined,
@@ -105,10 +127,13 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
         title: record.title,
         languageHint: record.language ?? undefined,
         source: record.source,
+        cleanupInstruction: record.cleanup?.instruction ?? cleanupInstruction,
+        cleanupLabel: record.cleanup?.label ?? cleanupLabel,
       });
     },
     submit: async ({ file, title }) => {
-      const { controller: existingController, source, languageHint } = get();
+      const state = get();
+      const { controller: existingController, source, languageHint, cleanupInstruction, cleanupLabel } = state;
       if (existingController) {
         existingController.abort();
       }
@@ -119,21 +144,28 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
         stage: 'uploading',
         segments: [],
         summary: null,
+        cleanupResult: null,
         record: null,
         transcriptText: '',
         error: undefined,
         isStreaming: true,
         progress: STAGE_PROGRESS.uploading,
         controller,
-        title: title ?? get().title ?? '',
+        title: title ?? state.title ?? '',
       });
 
       try {
+        const normalizedCleanupInstruction = cleanupInstruction.trim();
+        const cleanupInstructionToSend = normalizedCleanupInstruction.length > 0 ? normalizedCleanupInstruction : undefined;
+        const cleanupLabelToSend = cleanupInstructionToSend ? cleanupLabel : undefined;
+
         await streamTransitTranscription({
           file,
-          title: title ?? get().title ?? '',
+          title: title ?? state.title ?? '',
           source,
           languageHint,
+          cleanupInstruction: cleanupInstructionToSend,
+          cleanupLabel: cleanupLabelToSend,
           signal: controller.signal,
           onEvent: (payload: TransitStreamPayload) => {
             if (payload.event === 'status') {
@@ -158,8 +190,17 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
               return;
             }
 
-            if (payload.event === 'complete') {
+            if (payload.event === 'cleanup') {
               set({
+                cleanupResult: payload.data,
+                cleanupInstruction: payload.data.instruction,
+                cleanupLabel: payload.data.label,
+              });
+              return;
+            }
+
+            if (payload.event === 'complete') {
+              set((current) => ({
                 record: payload.data,
                 stage: 'complete',
                 isStreaming: false,
@@ -168,7 +209,10 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
                 summary: payload.data.summary,
                 segments: payload.data.segments,
                 transcriptText: payload.data.transcript,
-              });
+                cleanupResult: payload.data.cleanup,
+                cleanupInstruction: payload.data.cleanup?.instruction ?? current.cleanupInstruction,
+                cleanupLabel: payload.data.cleanup?.label ?? current.cleanupLabel,
+              }));
               void (async () => {
                 try {
                   const historyState = useTransitTranscriptionHistoryStore.getState();

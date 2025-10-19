@@ -18,16 +18,25 @@ const PERSISTED_VERSION = 1;
 const isBrowser = () => typeof window !== 'undefined' && 'indexedDB' in window;
 const isClient = () => typeof window !== 'undefined';
 
+const coerceRecord = (record: TransitTranscriptionRecord): TransitTranscriptionRecord => ({
+  ...record,
+  summary: record.summary ?? null,
+  cleanup: record.cleanup ?? null,
+  language: record.language ?? null,
+});
+
 const sortRecords = (records: TransitTranscriptionRecord[]) =>
-  [...records].sort((a, b) => {
-    if (a.createdAt > b.createdAt) {
-      return -1;
-    }
-    if (a.createdAt < b.createdAt) {
-      return 1;
-    }
-    return 0;
-  });
+  [...records]
+    .map(coerceRecord)
+    .sort((a, b) => {
+      if (a.createdAt > b.createdAt) {
+        return -1;
+      }
+      if (a.createdAt < b.createdAt) {
+        return 1;
+      }
+      return 0;
+    });
 
 const shouldUseRemoteHistory = () => {
   const account = useAccountStore.getState();

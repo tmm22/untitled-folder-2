@@ -8,6 +8,8 @@ export interface StreamTranscriptionOptions {
   title?: string;
   source: TransitTranscriptionSource;
   languageHint?: string;
+  cleanupInstruction?: string;
+  cleanupLabel?: string;
   signal?: AbortSignal;
   onEvent: (payload: TransitStreamPayload) => void;
 }
@@ -23,6 +25,12 @@ function buildFormData(options: StreamTranscriptionOptions): FormData {
   }
   if (options.languageHint) {
     formData.append('languageHint', options.languageHint);
+  }
+  if (options.cleanupInstruction) {
+    formData.append('cleanupInstruction', options.cleanupInstruction);
+  }
+  if (options.cleanupLabel) {
+    formData.append('cleanupLabel', options.cleanupLabel);
   }
   return formData;
 }

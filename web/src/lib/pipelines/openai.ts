@@ -205,6 +205,60 @@ export async function adjustTone(text: string, options: ToneOptions): Promise<st
   }
 }
 
+export interface CleanupInstructionOptions {
+  instruction: string;
+}
+
+const MAX_CLEANUP_TEXT_LENGTH = 12_000;
+
+export async function applyTranscriptCleanup(
+  text: string,
+  options: CleanupInstructionOptions,
+): Promise<string> {
+  const instruction = options.instruction.trim();
+  if (!instruction) {
+    return text;
+  }
+
+  if (!isOpenAIConfigured()) {
+    return text;
+  }
+
+  const transcriptSample = text.length > MAX_CLEANUP_TEXT_LENGTH ? text.slice(0, MAX_CLEANUP_TEXT_LENGTH) : text;
+
+  try {
+    const response = await callChatCompletion(
+      [
+        {
+          role: 'system',
+          content:
+            'You rewrite transcripts according to the provided instructions. Return polished text only, without commentary or formatting markers beyond paragraphs.',
+        },
+        {
+          role: 'user',
+          content: `Instruction:\n${instruction}\n\nTranscript:\n${transcriptSample}`,
+        },
+      ],
+      {
+        maxTokens: Math.min(3000, Math.round(transcriptSample.length * 1.1)),
+        temperature: 0.3,
+      },
+    );
+
+    if (!response) {
+      return text;
+    }
+
+    return response.trim();
+  } catch (error) {
+    if (error instanceof OpenAIUnavailableError) {
+      return text;
+    }
+    console.error('OpenAI transcript cleanup failed', error);
+    return text;
+  }
+}
+
 const TRANSCRIPT_INSIGHT_PROMPT = `You are an assistant that analyses transit operations transcripts. Return a minified JSON object with this exact shape:
 {
   "summary": string,

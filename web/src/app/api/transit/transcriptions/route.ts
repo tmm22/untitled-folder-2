@@ -105,6 +105,25 @@ function normalizeSummary(value: unknown): TransitTranscriptionRecord['summary']
   };
 }
 
+function normalizeCleanup(value: unknown): TransitTranscriptionRecord['cleanup'] {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Record<string, unknown>;
+  const instruction = typeof candidate.instruction === 'string' ? candidate.instruction.trim() : '';
+  const output = typeof candidate.output === 'string' ? candidate.output.trim() : '';
+  if (!instruction || !output) {
+    return null;
+  }
+  const labelRaw = candidate.label;
+  const label = typeof labelRaw === 'string' && labelRaw.trim().length > 0 ? labelRaw.trim() : undefined;
+  return {
+    instruction,
+    output,
+    label,
+  };
+}
+
 function normalizeRecord(identityUserId: string, raw: RawRecordPayload['record']): TransitTranscriptionRecord | null {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -146,6 +165,7 @@ function normalizeRecord(identityUserId: string, raw: RawRecordPayload['record']
   }
 
   const summary = normalizeSummary(candidate.summary);
+  const cleanup = normalizeCleanup(candidate.cleanup);
   const languageRaw = candidate.language;
   const language =
     typeof languageRaw === 'string' && languageRaw.trim().length > 0 ? languageRaw.trim() : null;
@@ -161,6 +181,7 @@ function normalizeRecord(identityUserId: string, raw: RawRecordPayload['record']
     transcript,
     segments,
     summary,
+    cleanup,
     language,
     durationMs,
     confidence,

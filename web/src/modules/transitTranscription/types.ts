@@ -26,12 +26,19 @@ export interface TransitSummaryBlock {
   scheduleRecommendation?: TransitScheduleRecommendation | null;
 }
 
+export interface TransitCleanupResult {
+  instruction: string;
+  output: string;
+  label?: string;
+}
+
 export interface TransitTranscriptionRecord {
   id: string;
   title: string;
   transcript: string;
   segments: TransitTranscriptSegment[];
   summary: TransitSummaryBlock | null;
+  cleanup: TransitCleanupResult | null;
   language: string | null;
   durationMs: number;
   confidence?: number;
@@ -45,8 +52,9 @@ export interface TransitStreamEvent<TType extends string, TPayload> {
 }
 
 export type TransitStreamPayload =
-  | TransitStreamEvent<'status', { stage: 'received' | 'transcribing' | 'summarising' | 'persisting' | 'complete' }>
+  | TransitStreamEvent<'status', { stage: 'received' | 'transcribing' | 'summarising' | 'cleaning' | 'persisting' | 'complete' }>
   | TransitStreamEvent<'segment', TransitTranscriptSegment>
   | TransitStreamEvent<'summary', TransitSummaryBlock>
+  | TransitStreamEvent<'cleanup', TransitCleanupResult>
   | TransitStreamEvent<'complete', TransitTranscriptionRecord>
   | TransitStreamEvent<'error', { message: string }>;

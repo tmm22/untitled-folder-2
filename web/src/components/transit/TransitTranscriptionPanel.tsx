@@ -23,10 +23,28 @@ const stageLabels: Record<string, string> = {
   received: 'Audio received',
   transcribing: 'Transcribing with OpenAI…',
   summarising: 'Generating insights…',
+  cleaning: 'Applying cleanup instructions…',
   persisting: 'Saving transcript…',
   complete: 'Complete',
   error: 'Error',
 };
+
+const cleanupPresets = [
+  {
+    label: 'Australian English',
+    instruction:
+      'Rewrite the transcript using Australian English spelling and idioms. Fix obvious transcription errors, ensure sentences read naturally, and keep the meaning intact.',
+  },
+  {
+    label: 'Professional tone',
+    instruction: 'Polish the transcript into a professional business document with clear paragraphs and precise wording while preserving factual details.',
+  },
+  {
+    label: 'Meeting minutes',
+    instruction:
+      'Transform the transcript into concise meeting minutes with clear sections for context, decisions, and next steps. Remove filler words and keep names where available.',
+  },
+] as const;
 
 const formatMilliseconds = (value: number): string => {
   const totalSeconds = Math.max(0, Math.round(value / 1000));
@@ -54,6 +72,9 @@ export function TransitTranscriptionPanel() {
   const stage = useTransitTranscriptionStore((state) => state.stage);
   const segments = useTransitTranscriptionStore((state) => state.segments);
   const summary = useTransitTranscriptionStore((state) => state.summary);
+  const cleanupResult = useTransitTranscriptionStore((state) => state.cleanupResult);
+  const cleanupInstruction = useTransitTranscriptionStore((state) => state.cleanupInstruction);
+  const cleanupLabel = useTransitTranscriptionStore((state) => state.cleanupLabel);
   const record = useTransitTranscriptionStore((state) => state.record);
   const error = useTransitTranscriptionStore((state) => state.error);
   const isStreaming = useTransitTranscriptionStore((state) => state.isStreaming);
@@ -87,6 +108,8 @@ export function TransitTranscriptionPanel() {
   const [historyStatus, setHistoryStatus] = useState<string | null>(null);
   const [historyClearing, setHistoryClearing] = useState(false);
   const [historyPendingId, setHistoryPendingId] = useState<string | null>(null);
+  const trimmedCleanupInstruction = cleanupInstruction.trim();
+  const hasCleanupInstruction = trimmedCleanupInstruction.length > 0;
 
   useEffect(() => {
     setRecorderSupported(isMediaRecorderSupported());
@@ -339,7 +362,7 @@ export function TransitTranscriptionPanel() {
 
   const statusLabel = useMemo(() => stageLabels[stage] ?? stage, [stage]);
 
-  const hasResults = Boolean(record || summary || segments.length > 0);
+  const hasResults = Boolean(record || summary || cleanupResult || segments.length > 0);
   const calendarFormDisabled = !calendarConnected;
   const sortedHistoryRecords = useMemo(() => {
     return [...historyRecords].sort((a, b) => {
@@ -491,6 +514,56 @@ export function TransitTranscriptionPanel() {
             onChange={handleFilePick}
           />
         </div>
+
+        <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50 lg:col-span-2">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-semibold text-charcoal-900">Cleanup instructions</h3>
+            <p className="text-xs text-charcoal-500">
+              Ask the assistant to polish each transcript—for example Australian English, professional tone, or meeting-ready notes.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {cleanupPresets.map((preset) => {
+              const isActive = cleanupLabel === preset.label;
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => actions.setCleanupInstruction(preset.instruction, preset.label)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    isActive
+                      ? 'border-accent-600 bg-accent-600 text-cream-50 shadow-sm shadow-accent-200/60'
+                      : 'border-charcoal-300 text-charcoal-600 hover:border-accent-500 hover:text-accent-600'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => actions.setCleanupInstruction('', undefined)}
+              className="rounded-full border border-transparent px-3 py-1 text-xs font-medium text-charcoal-500 transition hover:text-charcoal-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!hasCleanupInstruction}
+            >
+              Clear
+            </button>
+          </div>
+          <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+            Custom instruction
+            <textarea
+              value={cleanupInstruction}
+              onChange={(event) => actions.setCleanupInstruction(event.target.value, undefined)}
+              className="min-h-[96px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner transition focus:border-accent-500 focus:outline-none"
+              placeholder="e.g. Make this transcript conform to Australian English standards and read like a formal briefing."
+            />
+          </label>
+          <p className="text-xs text-charcoal-500">
+            {hasCleanupInstruction
+              ? 'Cleanup runs automatically after transcription completes. The polished version appears in the Cleanup panel below.'
+              : 'Add an instruction to generate a polished version alongside the raw transcript.'}
+          </p>
+        </div>
       </div>
 
       <section className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/60">
@@ -554,6 +627,38 @@ export function TransitTranscriptionPanel() {
                 <p className="mt-2 text-sm text-charcoal-700">{summary.summary}</p>
               ) : (
                 <p className="mt-2 text-sm text-charcoal-400">Insights will appear here after transcription.</p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-semibold text-charcoal-900">Cleanup</h3>
+                {cleanupResult ? (
+                  <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-700">
+                    {cleanupResult.label ?? 'Custom instructions'}
+                  </span>
+                ) : hasCleanupInstruction ? (
+                  <span className="rounded-full bg-charcoal-100 px-2 py-0.5 text-[11px] font-medium text-charcoal-600">
+                    Pending
+                  </span>
+                ) : null}
+              </div>
+              {cleanupResult ? (
+                <>
+                  {!cleanupResult.label && (
+                    <p className="mt-2 text-xs text-charcoal-500">
+                      Instruction: {cleanupResult.instruction}
+                    </p>
+                  )}
+                  <p className="mt-3 whitespace-pre-line text-sm text-charcoal-700">{cleanupResult.output}</p>
+                </>
+              ) : hasCleanupInstruction ? (
+                <p className="mt-2 text-sm text-charcoal-400">
+                  {stage === 'cleaning' || isStreaming
+                    ? 'Applying cleanup instructions…'
+                    : 'Run a transcription to generate a polished version with the current instructions.'}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-charcoal-400">Add instructions to generate a polished version alongside the raw transcript.</p>
               )}
             </div>
             <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
@@ -764,6 +869,11 @@ export function TransitTranscriptionPanel() {
                 <p className="mt-2 line-clamp-3 text-sm text-charcoal-600">
                   {historyRecord.summary?.summary ?? historyRecord.transcript}
                 </p>
+                {historyRecord.cleanup && (
+                  <p className="mt-1 text-xs text-charcoal-500">
+                    Cleanup: {historyRecord.cleanup.label ?? 'Custom instructions'}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-charcoal-500">
                   <span className="capitalize text-charcoal-700">{historyRecord.source}</span>
                   <span className="text-charcoal-700">

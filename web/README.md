@@ -2,6 +2,11 @@
 
 The web workspace powers rapid iteration on the studio UI. It includes content imports, history management, pronunciation glossaries, batch queueing, and (now) configurable automation pipelines that chain Convex actions together.
 
+### Transit Transcription Workspace
+- Record live microphone sessions or upload audio, then watch transcripts stream in with summaries and action items.
+- Apply cleanup instructions (built-in presets like Australian English, professional tone, meeting minutes, or fully custom prompts) to generate polished copies alongside the raw transcript.
+- Persist transcripts, summaries, and cleanup results to Convex for authenticated users or encrypted IndexedDB for guests, with Google Calendar follow-ups available once OAuth is connected.
+
 ## Authentication & Data Layer
 
 The app uses Clerk for authentication and Convex (when configured) for persistent data. Without Convex the workspace falls back to JSON files or in-memory stores depending on the feature.

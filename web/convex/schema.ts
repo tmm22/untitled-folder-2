@@ -153,6 +153,13 @@ export default defineSchema({
         ),
       }),
     ),
+    cleanup: v.optional(
+      v.object({
+        instruction: v.string(),
+        output: v.string(),
+        label: v.optional(v.string()),
+      }),
+    ),
     language: v.optional(v.string()),
     durationMs: v.number(),
     confidence: v.optional(v.number()),

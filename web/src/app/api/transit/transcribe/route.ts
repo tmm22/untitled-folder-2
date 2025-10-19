@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
 import { transcribeAudioWithOpenAI } from '@/lib/transit/openaiTranscription';
-import { generateTranscriptInsights } from '@/lib/pipelines/openai';
+import { applyTranscriptCleanup, generateTranscriptInsights } from '@/lib/pipelines/openai';
 import {
+  type TransitCleanupResult,
   type TransitStreamPayload,
   type TransitTranscriptSegment,
   type TransitTranscriptionRecord,
@@ -71,6 +72,11 @@ export async function POST(request: Request) {
   const languageHintRaw = form.get('languageHint');
   const languageHint =
     typeof languageHintRaw === 'string' ? languageHintRaw.trim() || undefined : undefined;
+  const cleanupInstructionRaw = form.get('cleanupInstruction');
+  const cleanupInstruction =
+    typeof cleanupInstructionRaw === 'string' ? cleanupInstructionRaw.trim() : '';
+  const cleanupLabelRaw = form.get('cleanupLabel');
+  const cleanupLabel = typeof cleanupLabelRaw === 'string' ? cleanupLabelRaw.trim() : '';
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -108,12 +114,40 @@ export async function POST(request: Request) {
           sendEvent(controller, { event: 'summary', data: insights });
         }
 
+        let cleanup: TransitCleanupResult | null = null;
+        if (cleanupInstruction.length > 0) {
+          sendEvent(controller, { event: 'status', data: { stage: 'cleaning' } });
+          try {
+            const cleaned = await applyTranscriptCleanup(transcription.text, {
+              instruction: cleanupInstruction,
+            });
+            const normalized = cleaned.trim().length > 0 ? cleaned.trim() : transcription.text;
+            cleanup = {
+              instruction: cleanupInstruction,
+              output: normalized,
+              label: cleanupLabel.length > 0 ? cleanupLabel : undefined,
+            };
+          } catch (cleanupError) {
+            console.error('Transit transcript cleanup failed', cleanupError);
+            cleanup = {
+              instruction: cleanupInstruction,
+              output: transcription.text,
+              label: cleanupLabel.length > 0 ? cleanupLabel : undefined,
+            };
+          }
+
+          if (cleanup) {
+            sendEvent(controller, { event: 'cleanup', data: cleanup });
+          }
+        }
+
         const record: TransitTranscriptionRecord = {
           id: randomUUID(),
           title,
           transcript: transcription.text,
           segments,
           summary: insights,
+          cleanup,
           language: transcription.language ?? null,
           durationMs: transcription.durationMs,
           createdAt: new Date().toISOString(),

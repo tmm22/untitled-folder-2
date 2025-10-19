@@ -33,12 +33,19 @@ const summarySchema = v.object({
   scheduleRecommendation: v.optional(scheduleRecommendationSchema),
 });
 
+const cleanupSchema = v.object({
+  instruction: v.string(),
+  output: v.string(),
+  label: v.optional(v.string()),
+});
+
 const mapTranscript = (doc: TranscriptDoc) => ({
   id: doc.transcriptId,
   title: doc.title,
   transcript: doc.transcript,
   segments: doc.segments,
   summary: doc.summary ?? null,
+  cleanup: doc.cleanup ?? null,
   language: doc.language ?? null,
   durationMs: doc.durationMs,
   confidence: doc.confidence ?? undefined,
@@ -92,6 +99,7 @@ export const saveTranscript = mutation({
       transcript: v.string(),
       segments: v.array(segmentSchema),
       summary: v.optional(summarySchema),
+      cleanup: v.optional(cleanupSchema),
       language: v.optional(v.string()),
       durationMs: v.number(),
       confidence: v.optional(v.number()),
@@ -107,6 +115,7 @@ export const saveTranscript = mutation({
         transcript: record.transcript,
         segments: record.segments,
         summary: record.summary,
+        cleanup: record.cleanup,
         language: record.language,
         durationMs: record.durationMs,
         confidence: record.confidence,
@@ -124,6 +133,7 @@ export const saveTranscript = mutation({
       transcript: record.transcript,
       segments: record.segments,
       summary: record.summary ?? undefined,
+      cleanup: record.cleanup ?? undefined,
       language: record.language ?? undefined,
       durationMs: record.durationMs,
       confidence: record.confidence ?? undefined,

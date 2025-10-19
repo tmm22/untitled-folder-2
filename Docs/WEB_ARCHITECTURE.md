@@ -72,7 +72,7 @@ web/
 - **PronunciationStore** (`modules/pronunciation/store.ts`): persists regex/literal overrides and hydrates `useTTSStore` before each generation.
 - **ImportStore** (`modules/imports/store.ts`): records URL or manual imports with summaries for later injection into the editor.
 - **AccountStore** (`modules/account/store.ts`): keeps lightweight user identity, plan tier, and billing status with derived flags for premium provisioning access.
-- **TransitTranscriptionStore** (`modules/transitTranscription/store.ts`): orchestrates microphone/upload state, streaming transcript buffers, Google Calendar connection status, and mirrors Convex transcript records when available.
+- **TransitTranscriptionStore** (`modules/transitTranscription/store.ts`): orchestrates microphone/upload state, streaming transcript buffers, configurable cleanup instructions, Google Calendar connection status, and mirrors Convex transcript records when available.
 
 
 ## Feature Parity Mapping
@@ -86,7 +86,7 @@ web/
 | Pronunciation glossary per provider | `pronunciationStore` persists rules in IndexedDB; applied before synthesis via `applyPronunciationRules`. |
 | Smart import (articles, Reddit, summaries) | `imports` module orchestrates article fetch, DOM sanitization via JSDOM (server side), optional OpenAI summarization. |
 | History & snippets | Stored locally with encrypted IndexedDB collections (`historyStore`, `snippetStore`) with Convex sync for authenticated accounts. Export endpoints produce transcripts + audio. |
-| Transit transcription + calendar follow-ups | `/app/transit` streams NDJSON transcription updates (OpenAI), persists transcripts via Convex, surfaces summaries/action items, and schedules Google Calendar events through OAuth (PKCE) with encrypted token storage and file-based fallbacks. |
+| Transit transcription + calendar follow-ups | `/app/transit` streams NDJSON transcription updates (OpenAI), applies optional cleanup instructions for polished copies, persists transcripts via Convex, surfaces summaries/action items, and schedules Google Calendar events through OAuth (PKCE) with encrypted token storage and file-based fallbacks. |
 | API key management | `LocalVault` prompts users for a passphrase, encrypts provider keys locally. Keys injected into API calls through `Authorization` header override when user chooses personal credentials. |
 | Notifications | Web Notifications API with graceful fallback; requires user permission. |
 | Transcript export (SRT/VTT) | `transcriptService` builds formats client-side from generation metadata. |
