@@ -5,7 +5,7 @@ import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { AppVersionBadge } from '@/components/shared/AppVersionBadge';
 import { TransitTranscriptionPanel } from '@/components/transit/TransitTranscriptionPanel';
 
-export default function TransitPage() {
+export default function StudioPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12 text-cocoa-900">
       <AccountBootstrapper />

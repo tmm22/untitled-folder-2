@@ -11,11 +11,27 @@ import {
 } from 'react';
 import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } from '@/lib/audio/mediaRecorder';
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
+import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
 import { useAccountStore } from '@/modules/account/store';
 import type { TransitSummaryAction, TransitTranscriptionRecord } from '@/modules/transitTranscription/types';
 import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
-import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
 import { triggerDownloadText } from '@/lib/utils/download';
+import { useTTSStore } from '@/modules/tts/store';
+import { ProviderSelector } from '@/components/settings/ProviderSelector';
+import { TextEditor } from '@/components/editor/TextEditor';
+import { GenerateButton } from '@/components/editor/GenerateButton';
+import { TranslationControls } from '@/components/translations/TranslationControls';
+import { TranslationHistoryPanel } from '@/components/translations/TranslationHistoryPanel';
+import { PlaybackControls } from '@/components/playback/PlaybackControls';
+import { BatchPanel } from '@/components/queue/BatchPanel';
+import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
+import { HistoryPanel } from '@/components/history/HistoryPanel';
+import { SnippetPanel } from '@/components/snippets/SnippetPanel';
+import { ImportPanel } from '@/components/imports/ImportPanel';
+import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
+import { ThemePanel } from '@/components/settings/ThemePanel';
+import { CompactPanel } from '@/components/settings/CompactPanel';
+import { NotificationPanel } from '@/components/settings/NotificationPanel';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -24,6 +40,7 @@ const stageLabels: Record<string, string> = {
   transcribing: 'Transcribing with OpenAI…',
   summarising: 'Generating insights…',
   cleaning: 'Applying cleanup instructions…',
+  synthesising: 'Generating narration…',
   persisting: 'Saving transcript…',
   complete: 'Complete',
   error: 'Error',
@@ -37,7 +54,8 @@ const cleanupPresets = [
   },
   {
     label: 'Professional tone',
-    instruction: 'Polish the transcript into a professional business document with clear paragraphs and precise wording while preserving factual details.',
+    instruction:
+      'Polish the transcript into a professional business document with clear paragraphs and precise wording while preserving factual details.',
   },
   {
     label: 'Meeting minutes',
@@ -108,6 +126,11 @@ export function TransitTranscriptionPanel() {
   const [historyStatus, setHistoryStatus] = useState<string | null>(null);
   const [historyClearing, setHistoryClearing] = useState(false);
   const [historyPendingId, setHistoryPendingId] = useState<string | null>(null);
+
+  const ttsIsGenerating = useTTSStore((state) => state.isGenerating);
+  const ttsError = useTTSStore((state) => state.errorMessage);
+  const setTTSInputText = useTTSStore((state) => state.actions.setInputText);
+
   const trimmedCleanupInstruction = cleanupInstruction.trim();
   const hasCleanupInstruction = trimmedCleanupInstruction.length > 0;
 
@@ -135,7 +158,7 @@ export function TransitTranscriptionPanel() {
       return;
     }
 
-    setCalendarTitle((prev) => (prev || summary.scheduleRecommendation?.title || ''));
+    setCalendarTitle((prev) => prev || summary.scheduleRecommendation?.title || '');
     if (!calendarWindow && summary.scheduleRecommendation.startWindow) {
       setCalendarWindow(summary.scheduleRecommendation.startWindow);
     }
@@ -193,6 +216,12 @@ export function TransitTranscriptionPanel() {
     nextUrl.searchParams.delete('calendar');
     window.history.replaceState({}, document.title, nextUrl.toString());
   }, [refreshCalendarStatus]);
+
+  useEffect(() => {
+    if (record?.transcript) {
+      setTTSInputText(record.transcript);
+    }
+  }, [record?.id, record?.transcript, setTTSInputText]);
 
   const resetInteraction = useCallback(() => {
     setRecording(false);
@@ -360,20 +389,36 @@ export function TransitTranscriptionPanel() {
     ],
   );
 
-  const statusLabel = useMemo(() => stageLabels[stage] ?? stage, [stage]);
+  const pipelineStage = useMemo(() => {
+    if (isStreaming) {
+      return stage;
+    }
+    if (ttsIsGenerating) {
+      return 'synthesising';
+    }
+    return stage;
+  }, [isStreaming, stage, ttsIsGenerating]);
+
+  const pipelineStatusLabel = useMemo(() => stageLabels[pipelineStage] ?? 'Ready', [pipelineStage]);
+
+  const pipelineProgress = useMemo(() => {
+    if (pipelineStage === 'synthesising') {
+      return 0.9;
+    }
+    if (pipelineStage === 'idle') {
+      return 0;
+    }
+    return progress;
+  }, [pipelineStage, progress]);
+
+  const pipelineProgressPercent = Math.round(Math.min(1, Math.max(0, pipelineProgress)) * 100);
+
+  const aggregatedError = error ?? ttsError ?? null;
 
   const hasResults = Boolean(record || summary || cleanupResult || segments.length > 0);
   const calendarFormDisabled = !calendarConnected;
   const sortedHistoryRecords = useMemo(() => {
-    return [...historyRecords].sort((a, b) => {
-      if (a.createdAt > b.createdAt) {
-        return -1;
-      }
-      if (a.createdAt < b.createdAt) {
-        return 1;
-      }
-      return 0;
-    });
+    return [...historyRecords].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }, [historyRecords]);
 
   const handleReset = useCallback(() => {
@@ -415,8 +460,8 @@ export function TransitTranscriptionPanel() {
         setHistoryPendingId(id);
         await historyActions.remove(id);
         setHistoryStatus('Transcript removed from history.');
-      } catch (error) {
-        console.error('Failed to remove transit transcript record', error);
+      } catch (removeError) {
+        console.error('Failed to remove transit transcript record', removeError);
         setHistoryStatus('Unable to remove transcript.');
       } finally {
         setHistoryPendingId(null);
@@ -437,8 +482,8 @@ export function TransitTranscriptionPanel() {
       setHistoryClearing(true);
       await historyActions.clear();
       setHistoryStatus('Transcript history cleared.');
-    } catch (error) {
-      console.error('Failed to clear transit transcript history', error);
+    } catch (clearError) {
+      console.error('Failed to clear transit transcript history', clearError);
       setHistoryStatus('Unable to clear transcript history.');
     } finally {
       setHistoryClearing(false);
@@ -447,155 +492,257 @@ export function TransitTranscriptionPanel() {
 
   return (
     <section className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-6 py-8 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)]">
-      <header className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Transit</p>
-        <h2 className="text-2xl font-semibold text-charcoal-900">Transit transcription workspace</h2>
-        <p className="text-sm text-charcoal-600">
-          Capture live dispatch audio or upload recordings, transcribe with OpenAI, and review action items with calendar-ready summaries.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Narration Studio</p>
+          <h2 className="text-2xl font-semibold text-charcoal-900">Transcribe, clean, and narrate in one workspace</h2>
+          <p className="text-sm text-charcoal-600">
+            Capture live audio or uploads, polish transcripts with cleanup presets, and generate narration without switching contexts.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="rounded-full border border-charcoal-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70"
+          onClick={handleReset}
+        >
+          Reset workspace
+        </button>
       </header>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
-          <h3 className="text-sm font-semibold text-charcoal-900">Record with microphone</h3>
-          {isRecorderSupported ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={isRecording ? handleStopRecording : handleStartRecording}
-                  className={`rounded-full px-4 py-2 text-sm font-medium shadow transition ${
-                    isRecording
-                      ? 'bg-red-500 text-cream-50 hover:bg-red-600'
-                      : 'bg-accent-600 text-cream-50 hover:bg-accent-700'
-                  } ${isPreparingRecorder ? 'opacity-60' : ''}`}
-                  disabled={isPreparingRecorder}
-                >
-                  {isRecording ? 'Stop recording' : 'Start recording'}
-                </button>
-                {isRecording && (
+      <div className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-accent-500">Pipeline status</p>
+            <p className="text-sm font-medium text-charcoal-900">{pipelineStatusLabel}</p>
+          </div>
+          <div className="flex w-full items-center gap-2 sm:w-64">
+            <div className="relative h-2 flex-1 rounded-full bg-charcoal-200/60">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-accent-500 transition-all"
+                style={{ width: `${pipelineProgressPercent}%` }}
+              />
+            </div>
+            <span className="w-12 text-right text-xs text-charcoal-500">{pipelineProgressPercent}%</span>
+          </div>
+        </div>
+        {aggregatedError && (
+          <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{aggregatedError}</p>
+        )}
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-charcoal-900">Capture audio</h3>
+              {isRecording && (
+                <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.25em] text-red-500">
+                  Recording…
+                </span>
+              )}
+            </div>
+            {isRecorderSupported ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleCancelRecording}
-                    className="rounded-full border border-charcoal-300 px-3 py-2 text-sm font-medium text-charcoal-600 hover:bg-charcoal-100/70"
+                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                    className={`rounded-full px-4 py-2 text-sm font-medium shadow transition ${
+                      isRecording
+                        ? 'bg-red-500 text-cream-50 hover:bg-red-600'
+                        : 'bg-accent-600 text-cream-50 hover:bg-accent-700'
+                    } ${isPreparingRecorder ? 'opacity-60' : ''}`}
+                    disabled={isPreparingRecorder}
                   >
-                    Cancel
+                    {isRecording ? 'Stop recording' : 'Start recording'}
                   </button>
-                )}
+                  {isRecording && (
+                    <button
+                      type="button"
+                      onClick={handleCancelRecording}
+                      className="rounded-full border border-charcoal-300 px-3 py-2 text-sm font-medium text-charcoal-600 hover:bg-charcoal-100/70"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-charcoal-500">
+                  {isRecording
+                    ? 'Recording… stop when you are ready to transcribe.'
+                    : 'Allow microphone access to capture live communications.'}
+                </p>
               </div>
-              <p className="text-xs text-charcoal-500">
-                {isRecording
-                  ? 'Recording… stop when you are ready to transcribe.'
-                  : 'Allow microphone access to capture live communications.'}
+            ) : (
+              <p className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Microphone recording is not supported in this browser. Use the upload option instead.
               </p>
-            </div>
-          ) : (
-            <p className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Microphone recording is not supported in this browser. Use the upload option instead.
-            </p>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
-          <h3 className="text-sm font-semibold text-charcoal-900">Upload audio file</h3>
-          <p className="text-xs text-charcoal-500">MP3, WAV, or M4A up to 25 MB.</p>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-fit rounded-full border border-dashed border-charcoal-300 px-4 py-2 text-sm font-medium text-charcoal-700 hover:border-accent-500 hover:text-accent-600"
-          >
-            Choose file…
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            className="hidden"
-            onChange={handleFilePick}
-          />
-        </div>
+          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+            <h3 className="text-sm font-semibold text-charcoal-900">Upload audio file</h3>
+            <p className="text-xs text-charcoal-500">MP3, WAV, or M4A up to 25 MB.</p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-fit rounded-full border border-dashed border-charcoal-300 px-4 py-2 text-sm font-medium text-charcoal-700 hover:border-accent-500 hover:text-accent-600"
+            >
+              Choose file…
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={handleFilePick}
+            />
+          </div>
 
-        <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50 lg:col-span-2">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
             <h3 className="text-sm font-semibold text-charcoal-900">Cleanup instructions</h3>
             <p className="text-xs text-charcoal-500">
               Ask the assistant to polish each transcript—for example Australian English, professional tone, or meeting-ready notes.
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {cleanupPresets.map((preset) => {
-              const isActive = cleanupLabel === preset.label;
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => actions.setCleanupInstruction(preset.instruction, preset.label)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    isActive
-                      ? 'border-accent-600 bg-accent-600 text-cream-50 shadow-sm shadow-accent-200/60'
-                      : 'border-charcoal-300 text-charcoal-600 hover:border-accent-500 hover:text-accent-600'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => actions.setCleanupInstruction('', undefined)}
-              className="rounded-full border border-transparent px-3 py-1 text-xs font-medium text-charcoal-500 transition hover:text-charcoal-700 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!hasCleanupInstruction}
-            >
-              Clear
-            </button>
-          </div>
-          <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-            Custom instruction
-            <textarea
-              value={cleanupInstruction}
-              onChange={(event) => actions.setCleanupInstruction(event.target.value, undefined)}
-              className="min-h-[96px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner transition focus:border-accent-500 focus:outline-none"
-              placeholder="e.g. Make this transcript conform to Australian English standards and read like a formal briefing."
-            />
-          </label>
-          <p className="text-xs text-charcoal-500">
-            {hasCleanupInstruction
-              ? 'Cleanup runs automatically after transcription completes. The polished version appears in the Cleanup panel below.'
-              : 'Add an instruction to generate a polished version alongside the raw transcript.'}
-          </p>
-        </div>
-      </div>
-
-      <section className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/60">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-accent-500">Status</p>
-            <p className="text-sm font-medium text-charcoal-900">{statusLabel}</p>
-          </div>
-          <div className="flex w-40 items-center gap-2">
-            <div className="relative h-2 flex-1 rounded-full bg-charcoal-200/60">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-accent-500 transition-all"
-                style={{ width: `${Math.round(progress * 100)}%` }}
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              {cleanupPresets.map((preset) => {
+                const isActive = cleanupLabel === preset.label;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => actions.setCleanupInstruction(preset.instruction, preset.label)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      isActive
+                        ? 'border-accent-600 bg-accent-600 text-cream-50 shadow-sm shadow-accent-200/60'
+                        : 'border-charcoal-300 text-charcoal-600 hover:border-accent-500 hover:text-accent-600'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => actions.setCleanupInstruction('', undefined)}
+                className="rounded-full border border-transparent px-3 py-1 text-xs font-medium text-charcoal-500 transition hover:text-charcoal-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!hasCleanupInstruction}
+              >
+                Clear
+              </button>
             </div>
-            <span className="w-10 text-right text-xs text-charcoal-500">{Math.round(progress * 100)}%</span>
+            <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+              Custom instruction
+              <textarea
+                value={cleanupInstruction}
+                onChange={(event) => actions.setCleanupInstruction(event.target.value, undefined)}
+                className="min-h-[96px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner transition focus:border-accent-500 focus:outline-none"
+                placeholder="e.g. Make this transcript conform to Australian English standards and read like a formal briefing."
+              />
+            </label>
+            <p className="text-xs text-charcoal-500">
+              {hasCleanupInstruction
+                ? 'Cleanup runs automatically after transcription completes. The polished version appears in the Cleanup panel.'
+                : 'Add an instruction to generate a polished version alongside the raw transcript.'}
+            </p>
+          </div>
+
+          <ImportPanel />
+          <SnippetPanel />
+
+          <div className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
+              <button
+                type="button"
+                className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                onClick={() => void handleHistoryClear()}
+                disabled={historyClearing || sortedHistoryRecords.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+            {historyStatus && <p className="mt-2 text-xs text-charcoal-500">{historyStatus}</p>}
+            {!historyHydrated && <p className="mt-3 text-sm text-charcoal-500">Loading transcript history…</p>}
+            {historyHydrated && historyError && (
+              <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">{historyError}</p>
+            )}
+            {historyHydrated && !historyError && (
+              sortedHistoryRecords.length === 0 ? (
+                <p className="mt-3 text-sm text-charcoal-500">Transcribe audio to start building your history.</p>
+              ) : (
+                <div className="mt-3 space-y-4">
+                  {sortedHistoryRecords.map((historyRecord) => (
+                    <article
+                      key={historyRecord.id}
+                      className="rounded-xl border border-charcoal-200/70 bg-cream-50/80 p-3 shadow-inner shadow-charcoal-200/30"
+                    >
+                      <header className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-charcoal-900">
+                          {historyRecord.title || 'Untitled transcript'}
+                        </h4>
+                        <FormattedTimestamp value={historyRecord.createdAt} className="text-xs text-charcoal-500" />
+                      </header>
+                      <p className="mt-2 line-clamp-3 text-sm text-charcoal-600">
+                        {historyRecord.summary?.summary ?? historyRecord.transcript}
+                      </p>
+                      {historyRecord.cleanup && (
+                        <p className="mt-1 text-xs text-charcoal-500">
+                          Cleanup: {historyRecord.cleanup.label ?? 'Custom instructions'}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-charcoal-500">
+                        <span className="capitalize text-charcoal-700">{historyRecord.source}</span>
+                        <span className="text-charcoal-700">
+                          Duration: {formatMilliseconds(historyRecord.durationMs)}
+                        </span>
+                        <span className="text-charcoal-700">Segments: {historyRecord.segments.length}</span>
+                        <span className="text-charcoal-700">
+                          Confidence:{' '}
+                          {typeof historyRecord.confidence === 'number' && Number.isFinite(historyRecord.confidence)
+                            ? `${Math.round(Math.max(0, Math.min(1, historyRecord.confidence)) * 100)}%`
+                            : 'Unknown'}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full bg-charcoal-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50 hover:bg-charcoal-800"
+                          onClick={() => handleHistoryLoad(historyRecord)}
+                        >
+                          Load
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-charcoal-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70"
+                          onClick={() => handleHistoryDownload(historyRecord)}
+                        >
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                          onClick={() => void handleHistoryRemove(historyRecord.id)}
+                          disabled={historyPendingId === historyRecord.id}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )
+            )}
           </div>
         </div>
-        {error && (
-          <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-      </section>
 
-      {hasResults && (
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="flex flex-col gap-6">
           <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-            <h3 className="text-sm font-semibold text-charcoal-900">Transcript</h3>
-            <p className="mt-1 text-xs text-charcoal-500">
-              {record?.durationMs ? `Duration: ${formatMilliseconds(record.durationMs)}` : null}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-charcoal-900">Transcript</h3>
+              {record?.durationMs ? (
+                <span className="text-xs text-charcoal-500">Duration: {formatMilliseconds(record.durationMs)}</span>
+              ) : null}
+            </div>
             <div className="mt-4 max-h-72 overflow-y-auto rounded-xl border border-charcoal-100/80 bg-cream-50/90 px-4 py-3 text-sm text-charcoal-800">
               {transcriptText || record?.transcript ? (
                 <p className="whitespace-pre-line">{record?.transcript ?? transcriptText}</p>
@@ -606,7 +753,10 @@ export function TransitTranscriptionPanel() {
             {segments.length > 0 && (
               <ol className="mt-4 space-y-3">
                 {segments.map((segment) => (
-                  <li key={segment.index} className="rounded-lg border border-charcoal-100/80 bg-white px-3 py-2 text-sm text-charcoal-800 shadow-sm">
+                  <li
+                    key={segment.index}
+                    className="rounded-lg border border-charcoal-100/80 bg-white px-3 py-2 text-sm text-charcoal-800 shadow-sm"
+                  >
                     <div className="flex items-center justify-between text-xs text-charcoal-500">
                       <span>Segment {segment.index}</span>
                       <span>
@@ -620,319 +770,239 @@ export function TransitTranscriptionPanel() {
             )}
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-              <h3 className="text-sm font-semibold text-charcoal-900">Summary</h3>
-              {summary?.summary ? (
-                <p className="mt-2 text-sm text-charcoal-700">{summary.summary}</p>
-              ) : (
-                <p className="mt-2 text-sm text-charcoal-400">Insights will appear here after transcription.</p>
-              )}
-            </div>
-            <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold text-charcoal-900">Cleanup</h3>
-                {cleanupResult ? (
-                  <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-700">
-                    {cleanupResult.label ?? 'Custom instructions'}
-                  </span>
-                ) : hasCleanupInstruction ? (
-                  <span className="rounded-full bg-charcoal-100 px-2 py-0.5 text-[11px] font-medium text-charcoal-600">
-                    Pending
-                  </span>
-                ) : null}
-              </div>
+          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+            <h3 className="text-sm font-semibold text-charcoal-900">Summary</h3>
+            {summary?.summary ? (
+              <p className="mt-2 text-sm text-charcoal-700">{summary.summary}</p>
+            ) : (
+              <p className="mt-2 text-sm text-charcoal-400">Insights will appear here after transcription.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold text-charcoal-900">Cleanup result</h3>
               {cleanupResult ? (
-                <>
-                  {!cleanupResult.label && (
-                    <p className="mt-2 text-xs text-charcoal-500">
-                      Instruction: {cleanupResult.instruction}
-                    </p>
-                  )}
-                  <p className="mt-3 whitespace-pre-line text-sm text-charcoal-700">{cleanupResult.output}</p>
-                </>
-              ) : hasCleanupInstruction ? (
-                <p className="mt-2 text-sm text-charcoal-400">
-                  {stage === 'cleaning' || isStreaming
-                    ? 'Applying cleanup instructions…'
-                    : 'Run a transcription to generate a polished version with the current instructions.'}
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-charcoal-400">Add instructions to generate a polished version alongside the raw transcript.</p>
-              )}
-            </div>
-            <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-              <h3 className="text-sm font-semibold text-charcoal-900">Action items</h3>
-              {summary?.actionItems && summary.actionItems.length > 0 ? (
-                <ul className="mt-2 space-y-2">
-                  {summary.actionItems.map((item, index) => (
-                    <SummaryActionItem key={`${item.text}-${index}`} item={item} />
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-charcoal-400">No action items detected.</p>
-              )}
-            </div>
-            {summary?.scheduleRecommendation && (
-              <div className="rounded-2xl border border-accent-500/40 bg-accent-50/80 p-4 shadow-sm shadow-accent-200/50">
-                <h3 className="text-sm font-semibold text-accent-800">Suggested calendar event</h3>
-                <p className="mt-2 text-sm text-accent-800">{summary.scheduleRecommendation.title}</p>
-                {(summary.scheduleRecommendation.startWindow ||
-                  summary.scheduleRecommendation.durationMinutes ||
-                  (summary.scheduleRecommendation.participants?.length ?? 0) > 0) && (
-                  <ul className="mt-2 space-y-1 text-xs text-accent-700">
-                    {summary.scheduleRecommendation.startWindow && (
-                      <li>Window: {summary.scheduleRecommendation.startWindow}</li>
-                    )}
-                    {summary.scheduleRecommendation.durationMinutes && (
-                      <li>Duration: {summary.scheduleRecommendation.durationMinutes} minutes</li>
-                    )}
-                    {summary.scheduleRecommendation.participants &&
-                      summary.scheduleRecommendation.participants.length > 0 && (
-                        <li>Participants: {summary.scheduleRecommendation.participants.join(', ')}</li>
-                      )}
-                  </ul>
-                )}
-              </div>
-            )}
-            <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-              <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${
-                    calendarConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-charcoal-100 text-charcoal-600'
-                  }`}
-                >
-                  {calendarConnected ? 'Google calendar connected' : 'Not connected'}
+                <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-700">
+                  {cleanupResult.label ?? 'Custom instructions'}
                 </span>
-                <button
-                  type="button"
-                  onClick={handleConnectCalendar}
-                  className="rounded-full border border-accent-500 px-4 py-1.5 text-xs font-medium text-accent-600 transition hover:bg-accent-50 disabled:cursor-not-allowed disabled:border-charcoal-300 disabled:text-charcoal-400"
-                  disabled={isConnectingCalendar}
-                >
-                  {isConnectingCalendar ? 'Opening…' : calendarConnected ? 'Reconnect' : 'Connect Google Calendar'}
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-charcoal-500">
-                Enter attendees manually. Only the organiser is pre-filled from your signed-in account. Events use your configured
-                Google Calendar timezone.
+              ) : hasCleanupInstruction ? (
+                <span className="rounded-full bg-charcoal-100 px-2 py-0.5 text-[11px] font-medium text-charcoal-600">
+                  Pending
+                </span>
+              ) : null}
+            </div>
+            {cleanupResult ? (
+              <>
+                {!cleanupResult.label && (
+                  <p className="mt-2 text-xs text-charcoal-500">Instruction: {cleanupResult.instruction}</p>
+                )}
+                <p className="mt-3 whitespace-pre-line text-sm text-charcoal-700">{cleanupResult.output}</p>
+              </>
+            ) : hasCleanupInstruction ? (
+              <p className="mt-2 text-sm text-charcoal-400">
+                {stage === 'cleaning' || isStreaming
+                  ? 'Applying cleanup instructions…'
+                  : 'Run a transcription to generate a polished version with the current instructions.'}
               </p>
-              <form className="mt-3 flex flex-col gap-3" onSubmit={handleCalendarSubmit}>
-                <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-                  Title
-                  <input
-                    type="text"
-                    value={calendarTitle}
-                    onChange={(event) => {
-                      setCalendarTitle(event.target.value);
-                      setCalendarStatus('idle');
-                    }}
-                    className="rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
-                    placeholder="e.g. Route 9 follow-up briefing"
-                    disabled={calendarFormDisabled}
-                    required
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-                  Preferred window
-                  <input
-                    type="text"
-                    value={calendarWindow}
-                    onChange={(event) => {
-                      setCalendarWindow(event.target.value);
-                      setCalendarStatus('idle');
-                    }}
-                    className="rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
-                    placeholder="Tomorrow between 2–4pm"
-                    disabled={calendarFormDisabled}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-                  Duration (minutes)
-                  <input
-                    type="number"
-                    min={0}
-                    value={calendarDuration}
-                    onChange={(event) => {
-                      const next = event.target.valueAsNumber;
-                      setCalendarDuration(Number.isFinite(next) ? next : '');
-                      setCalendarStatus('idle');
-                    }}
-                    className="w-32 rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
-                    placeholder="45"
-                    disabled={calendarFormDisabled}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-                  Participants (one per line)
-                  <textarea
-                    value={calendarParticipants}
-                    onChange={(event) => {
-                      setCalendarParticipants(event.target.value);
-                      setCalendarStatus('idle');
-                    }}
-                    className="min-h-[96px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
-                    placeholder="alex@example.com&#10;dispatch.lead@example.com"
-                    disabled={calendarFormDisabled}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
-                  Notes
-                  <textarea
-                    value={calendarNotes}
-                    onChange={(event) => {
-                      setCalendarNotes(event.target.value);
-                      setCalendarStatus('idle');
-                    }}
-                    className="min-h-[72px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
-                    placeholder="Key agenda points or links"
-                    disabled={calendarFormDisabled}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="self-start rounded-full bg-accent-600 px-4 py-2 text-sm font-medium text-cream-50 transition hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-charcoal-300"
-                  disabled={calendarStatus === 'saving' || calendarFormDisabled}
-                >
-                  {isAuthenticated
-                    ? calendarFormDisabled
-                      ? 'Connect Google Calendar'
-                      : calendarStatus === 'saving'
-                        ? 'Scheduling…'
-                        : 'Schedule Google Calendar event'
-                    : 'Sign in to schedule'}
-                </button>
-              </form>
-              {calendarConnectionError && (
-                <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  {calendarConnectionError}
-                </p>
-              )}
-              {calendarFormError && (
-                <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {calendarFormError}
-                </p>
-              )}
-              {calendarStatus === 'success' && (
-                <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                  Event scheduled in Google Calendar.
-                </p>
-              )}
-              {calendarInfoMessage && calendarStatus !== 'success' && (
-                <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                  {calendarInfoMessage}
-                </p>
+            ) : (
+              <p className="mt-2 text-sm text-charcoal-400">
+                Add instructions to generate a polished version alongside the raw transcript.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+            <h3 className="text-sm font-semibold text-charcoal-900">Action items</h3>
+            {summary?.actionItems && summary.actionItems.length > 0 ? (
+              <ul className="mt-2 space-y-2">
+                {summary.actionItems.map((item, index) => (
+                  <SummaryActionItem key={`${item.text}-${index}`} item={item} />
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-charcoal-400">No action items detected.</p>
+            )}
+          </div>
+
+          {summary?.scheduleRecommendation && (
+            <div className="rounded-2xl border border-accent-500/40 bg-accent-50/80 p-4 shadow-sm shadow-accent-200/50">
+              <h3 className="text-sm font-semibold text-accent-800">Suggested calendar event</h3>
+              <p className="mt-2 text-sm text-accent-800">{summary.scheduleRecommendation.title}</p>
+              {(summary.scheduleRecommendation.startWindow ||
+                summary.scheduleRecommendation.durationMinutes ||
+                (summary.scheduleRecommendation.participants?.length ?? 0) > 0) && (
+                <ul className="mt-2 space-y-1 text-xs text-accent-700">
+                  {summary.scheduleRecommendation.startWindow && (
+                    <li>Window: {summary.scheduleRecommendation.startWindow}</li>
+                  )}
+                  {summary.scheduleRecommendation.durationMinutes && (
+                    <li>Duration: {summary.scheduleRecommendation.durationMinutes} minutes</li>
+                  )}
+                  {summary.scheduleRecommendation.participants &&
+                    summary.scheduleRecommendation.participants.length > 0 && (
+                      <li>Participants: {summary.scheduleRecommendation.participants.join(', ')}</li>
+                    )}
+                </ul>
               )}
             </div>
-          </div>
-        </section>
-      )}
+          )}
 
-      <section className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
-            <p className="text-xs text-charcoal-500">Recent captures stored in COMBEX or your browser.</p>
-          </div>
-          <button
-            type="button"
-            className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
-            onClick={() => void handleHistoryClear()}
-            disabled={historyClearing || sortedHistoryRecords.length === 0}
-          >
-            Clear history
-          </button>
-        </div>
-        {!historyHydrated && (
-          <p className="mt-4 text-sm text-charcoal-600">Loading transcript history…</p>
-        )}
-        {historyHydrated && historyError && (
-          <p className="mt-4 text-sm text-red-700">{historyError}</p>
-        )}
-        {historyHydrated && !historyError && (
-          <div className="mt-4 space-y-4">
-            {sortedHistoryRecords.length === 0 && (
-              <p className="text-sm text-charcoal-500">Transcribe audio to start building your history.</p>
-            )}
-            {sortedHistoryRecords.map((historyRecord) => (
-              <article
-                key={historyRecord.id}
-                className="rounded-xl border border-charcoal-200/70 bg-cream-50/80 p-3 shadow-inner shadow-charcoal-200/30"
+          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+            <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${
+                  calendarConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-charcoal-100 text-charcoal-600'
+                }`}
               >
-                <header className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-charcoal-900">
-                    {historyRecord.title || 'Untitled transcript'}
-                  </h4>
-                  <FormattedTimestamp value={historyRecord.createdAt} className="text-xs text-charcoal-500" />
-                </header>
-                <p className="mt-2 line-clamp-3 text-sm text-charcoal-600">
-                  {historyRecord.summary?.summary ?? historyRecord.transcript}
-                </p>
-                {historyRecord.cleanup && (
-                  <p className="mt-1 text-xs text-charcoal-500">
-                    Cleanup: {historyRecord.cleanup.label ?? 'Custom instructions'}
-                  </p>
-                )}
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-charcoal-500">
-                  <span className="capitalize text-charcoal-700">{historyRecord.source}</span>
-                  <span className="text-charcoal-700">
-                    Duration: {formatMilliseconds(historyRecord.durationMs)}
-                  </span>
-                  <span className="text-charcoal-700">Segments: {historyRecord.segments.length}</span>
-                  <span className="text-charcoal-700">
-                    Confidence:{' '}
-                    {typeof historyRecord.confidence === 'number' && Number.isFinite(historyRecord.confidence)
-                      ? `${Math.round(Math.max(0, Math.min(1, historyRecord.confidence)) * 100)}%`
-                      : 'Unknown'}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full bg-charcoal-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50 hover:bg-charcoal-800"
-                    onClick={() => handleHistoryLoad(historyRecord)}
-                  >
-                    Load in workspace
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-charcoal-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100"
-                    onClick={() => handleHistoryDownload(historyRecord)}
-                  >
-                    Download text
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
-                    onClick={() => void handleHistoryRemove(historyRecord.id)}
-                    disabled={historyPendingId === historyRecord.id}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
+                {calendarConnected ? 'Google calendar connected' : 'Not connected'}
+              </span>
+              <button
+                type="button"
+                onClick={handleConnectCalendar}
+                className="rounded-full border border-accent-500 px-4 py-1.5 text-xs font-medium text-accent-600 transition hover:bg-accent-50 disabled:cursor-not-allowed disabled:border-charcoal-300 disabled:text-charcoal-400"
+                disabled={isConnectingCalendar}
+              >
+                {isConnectingCalendar ? 'Opening…' : calendarConnected ? 'Reconnect' : 'Connect Google Calendar'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-charcoal-500">
+              Enter attendees manually. Only the organiser is pre-filled from your signed-in account. Events use your configured Google Calendar timezone.
+            </p>
+            <form className="mt-3 flex flex-col gap-3" onSubmit={handleCalendarSubmit}>
+              <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+                Title
+                <input
+                  type="text"
+                  value={calendarTitle}
+                  onChange={(event) => {
+                    setCalendarTitle(event.target.value);
+                    setCalendarStatus('idle');
+                  }}
+                  className="rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
+                  placeholder="e.g. Route 9 follow-up briefing"
+                  disabled={calendarFormDisabled}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+                Preferred window
+                <input
+                  type="text"
+                  value={calendarWindow}
+                  onChange={(event) => {
+                    setCalendarWindow(event.target.value);
+                    setCalendarStatus('idle');
+                  }}
+                  className="rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
+                  placeholder="Tomorrow between 2–4pm"
+                  disabled={calendarFormDisabled}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+                Duration (minutes)
+                <input
+                  type="number"
+                  min={0}
+                  value={calendarDuration}
+                  onChange={(event) => {
+                    const next = event.target.valueAsNumber;
+                    setCalendarDuration(Number.isFinite(next) ? next : '');
+                    setCalendarStatus('idle');
+                  }}
+                  className="w-32 rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
+                  placeholder="45"
+                  disabled={calendarFormDisabled}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+                Participants (one per line)
+                <textarea
+                  value={calendarParticipants}
+                  onChange={(event) => {
+                    setCalendarParticipants(event.target.value);
+                    setCalendarStatus('idle');
+                  }}
+                  className="min-h-[96px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
+                  placeholder="alex@example.com&#10;dispatch.lead@example.com"
+                  disabled={calendarFormDisabled}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-charcoal-700">
+                Notes
+                <textarea
+                  value={calendarNotes}
+                  onChange={(event) => {
+                    setCalendarNotes(event.target.value);
+                    setCalendarStatus('idle');
+                  }}
+                  className="min-h-[72px] rounded-lg border border-charcoal-200/70 bg-white px-3 py-2 text-sm text-charcoal-900 shadow-inner disabled:cursor-not-allowed disabled:bg-charcoal-100"
+                  placeholder="Key agenda points or links"
+                  disabled={calendarFormDisabled}
+                />
+              </label>
+              <button
+                type="submit"
+                className="self-start rounded-full bg-accent-600 px-4 py-2 text-sm font-medium text-cream-50 transition hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-charcoal-300"
+                disabled={calendarStatus === 'saving' || calendarFormDisabled}
+              >
+                {isAuthenticated
+                  ? calendarFormDisabled
+                    ? 'Connect Google Calendar'
+                    : calendarStatus === 'saving'
+                      ? 'Scheduling…'
+                      : 'Schedule Google Calendar event'
+                  : 'Sign in to schedule'}
+              </button>
+            </form>
+            {calendarConnectionError && (
+              <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                {calendarConnectionError}
+              </p>
+            )}
+            {calendarFormError && (
+              <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {calendarFormError}
+              </p>
+            )}
+            {calendarInfoMessage && calendarStatus !== 'success' && (
+              <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                {calendarInfoMessage}
+              </p>
+            )}
+            {calendarStatus === 'success' && (
+              <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                Event scheduled in Google Calendar.
+              </p>
+            )}
           </div>
-        )}
-        {historyStatus && <p className="mt-4 text-sm text-charcoal-600">{historyStatus}</p>}
-      </section>
+        </div>
 
-      <footer className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={handleReset}
-          className="rounded-full border border-charcoal-300 px-4 py-2 text-sm font-medium text-charcoal-600 hover:bg-charcoal-100/70"
-          disabled={isStreaming}
-        >
-          Reset
-        </button>
-        {record && (
-          <p className="text-xs text-charcoal-500">
-            Saved at <FormattedTimestamp value={record.createdAt} />
+        <div className="flex flex-col gap-6">
+          <ProviderSelector />
+          <TextEditor />
+          <TranslationControls />
+          <GenerateButton />
+          <PlaybackControls />
+          <BatchPanel />
+          <PronunciationPanel />
+          <HistoryPanel />
+          <TranslationHistoryPanel />
+          <CredentialsPanel />
+          <ThemePanel />
+          <CompactPanel />
+          <NotificationPanel />
+        </div>
+      </div>
+
+      {!hasResults && (
+        <div className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/70 p-6 text-sm text-charcoal-600 shadow-sm shadow-charcoal-200/60">
+          <p>
+            Start a recording or upload audio to populate the transcript. Cleanup instructions, summaries, action items, and calendar tools will activate automatically.
           </p>
-        )}
-      </footer>
+        </div>
+      )}
     </section>
   );
 }
