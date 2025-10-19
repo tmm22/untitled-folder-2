@@ -12,8 +12,10 @@ import {
 import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } from '@/lib/audio/mediaRecorder';
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
 import { useAccountStore } from '@/modules/account/store';
-import type { TransitSummaryAction } from '@/modules/transitTranscription/types';
+import type { TransitSummaryAction, TransitTranscriptionRecord } from '@/modules/transitTranscription/types';
 import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
+import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
+import { triggerDownloadText } from '@/lib/utils/download';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -59,6 +61,10 @@ export function TransitTranscriptionPanel() {
   const transcriptText = useTransitTranscriptionStore((state) => state.transcriptText);
   const title = useTransitTranscriptionStore((state) => state.title);
   const actions = useTransitTranscriptionStore((state) => state.actions);
+  const historyRecords = useTransitTranscriptionHistoryStore((state) => state.records);
+  const historyHydrated = useTransitTranscriptionHistoryStore((state) => state.hydrated);
+  const historyError = useTransitTranscriptionHistoryStore((state) => state.error);
+  const historyActions = useTransitTranscriptionHistoryStore((state) => state.actions);
 
   const [isRecorderSupported, setRecorderSupported] = useState<boolean>(false);
   const [isPreparingRecorder, setPreparingRecorder] = useState(false);
@@ -78,10 +84,20 @@ export function TransitTranscriptionPanel() {
   const [calendarConnectionError, setCalendarConnectionError] = useState<string | null>(null);
   const [calendarInfoMessage, setCalendarInfoMessage] = useState<string | null>(null);
   const [isConnectingCalendar, setConnectingCalendar] = useState(false);
+  const [historyStatus, setHistoryStatus] = useState<string | null>(null);
+  const [historyClearing, setHistoryClearing] = useState(false);
+  const [historyPendingId, setHistoryPendingId] = useState<string | null>(null);
 
   useEffect(() => {
     setRecorderSupported(isMediaRecorderSupported());
   }, []);
+
+  useEffect(() => {
+    if (historyHydrated) {
+      return;
+    }
+    void historyActions.hydrate();
+  }, [historyActions, historyHydrated]);
 
   useEffect(() => {
     return () => {
@@ -325,6 +341,17 @@ export function TransitTranscriptionPanel() {
 
   const hasResults = Boolean(record || summary || segments.length > 0);
   const calendarFormDisabled = !calendarConnected;
+  const sortedHistoryRecords = useMemo(() => {
+    return [...historyRecords].sort((a, b) => {
+      if (a.createdAt > b.createdAt) {
+        return -1;
+      }
+      if (a.createdAt < b.createdAt) {
+        return 1;
+      }
+      return 0;
+    });
+  }, [historyRecords]);
 
   const handleReset = useCallback(() => {
     actions.reset();
@@ -338,6 +365,62 @@ export function TransitTranscriptionPanel() {
     setCalendarDuration('');
     setCalendarWindow('');
   }, [actions, resetInteraction]);
+
+  const handleHistoryLoad = useCallback(
+    (historyRecord: TransitTranscriptionRecord) => {
+      actions.loadFromHistory(historyRecord);
+      setHistoryStatus('Transcript loaded into the workspace.');
+    },
+    [actions],
+  );
+
+  const handleHistoryDownload = useCallback((historyRecord: TransitTranscriptionRecord) => {
+    triggerDownloadText(
+      historyRecord.transcript,
+      `transit-transcript-${historyRecord.id}.txt`,
+      'text/plain;charset=utf-8',
+    );
+    setHistoryStatus('Transcript download started.');
+  }, []);
+
+  const handleHistoryRemove = useCallback(
+    async (id: string) => {
+      if (historyPendingId) {
+        return;
+      }
+      try {
+        setHistoryPendingId(id);
+        await historyActions.remove(id);
+        setHistoryStatus('Transcript removed from history.');
+      } catch (error) {
+        console.error('Failed to remove transit transcript record', error);
+        setHistoryStatus('Unable to remove transcript.');
+      } finally {
+        setHistoryPendingId(null);
+      }
+    },
+    [historyActions, historyPendingId],
+  );
+
+  const handleHistoryClear = useCallback(async () => {
+    if (historyClearing) {
+      return;
+    }
+    if (sortedHistoryRecords.length === 0) {
+      setHistoryStatus('History is already empty.');
+      return;
+    }
+    try {
+      setHistoryClearing(true);
+      await historyActions.clear();
+      setHistoryStatus('Transcript history cleared.');
+    } catch (error) {
+      console.error('Failed to clear transit transcript history', error);
+      setHistoryStatus('Unable to clear transcript history.');
+    } finally {
+      setHistoryClearing(false);
+    }
+  }, [historyActions, historyClearing, sortedHistoryRecords.length]);
 
   return (
     <section className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-6 py-8 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)]">
@@ -640,6 +723,90 @@ export function TransitTranscriptionPanel() {
           </div>
         </section>
       )}
+
+      <section className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
+            <p className="text-xs text-charcoal-500">Recent captures stored in COMBEX or your browser.</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+            onClick={() => void handleHistoryClear()}
+            disabled={historyClearing || sortedHistoryRecords.length === 0}
+          >
+            Clear history
+          </button>
+        </div>
+        {!historyHydrated && (
+          <p className="mt-4 text-sm text-charcoal-600">Loading transcript history…</p>
+        )}
+        {historyHydrated && historyError && (
+          <p className="mt-4 text-sm text-red-700">{historyError}</p>
+        )}
+        {historyHydrated && !historyError && (
+          <div className="mt-4 space-y-4">
+            {sortedHistoryRecords.length === 0 && (
+              <p className="text-sm text-charcoal-500">Transcribe audio to start building your history.</p>
+            )}
+            {sortedHistoryRecords.map((historyRecord) => (
+              <article
+                key={historyRecord.id}
+                className="rounded-xl border border-charcoal-200/70 bg-cream-50/80 p-3 shadow-inner shadow-charcoal-200/30"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-charcoal-900">
+                    {historyRecord.title || 'Untitled transcript'}
+                  </h4>
+                  <FormattedTimestamp value={historyRecord.createdAt} className="text-xs text-charcoal-500" />
+                </header>
+                <p className="mt-2 line-clamp-3 text-sm text-charcoal-600">
+                  {historyRecord.summary?.summary ?? historyRecord.transcript}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-charcoal-500">
+                  <span className="capitalize text-charcoal-700">{historyRecord.source}</span>
+                  <span className="text-charcoal-700">
+                    Duration: {formatMilliseconds(historyRecord.durationMs)}
+                  </span>
+                  <span className="text-charcoal-700">Segments: {historyRecord.segments.length}</span>
+                  <span className="text-charcoal-700">
+                    Confidence:{' '}
+                    {typeof historyRecord.confidence === 'number' && Number.isFinite(historyRecord.confidence)
+                      ? `${Math.round(Math.max(0, Math.min(1, historyRecord.confidence)) * 100)}%`
+                      : 'Unknown'}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full bg-charcoal-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50 hover:bg-charcoal-800"
+                    onClick={() => handleHistoryLoad(historyRecord)}
+                  >
+                    Load in workspace
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-charcoal-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100"
+                    onClick={() => handleHistoryDownload(historyRecord)}
+                  >
+                    Download text
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                    onClick={() => void handleHistoryRemove(historyRecord.id)}
+                    disabled={historyPendingId === historyRecord.id}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {historyStatus && <p className="mt-4 text-sm text-charcoal-600">{historyStatus}</p>}
+      </section>
 
       <footer className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <button

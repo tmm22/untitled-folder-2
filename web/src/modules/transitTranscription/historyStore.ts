@@ -19,7 +19,15 @@ const isBrowser = () => typeof window !== 'undefined' && 'indexedDB' in window;
 const isClient = () => typeof window !== 'undefined';
 
 const sortRecords = (records: TransitTranscriptionRecord[]) =>
-  [...records].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  [...records].sort((a, b) => {
+    if (a.createdAt > b.createdAt) {
+      return -1;
+    }
+    if (a.createdAt < b.createdAt) {
+      return 1;
+    }
+    return 0;
+  });
 
 const shouldUseRemoteHistory = () => {
   const account = useAccountStore.getState();
