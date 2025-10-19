@@ -73,7 +73,7 @@ export function TransitTranscriptionPanel() {
     actions: state.actions,
   }));
 
-  const [isRecorderSupported, setRecorderSupported] = useState<boolean>(isMediaRecorderSupported());
+  const [isRecorderSupported, setRecorderSupported] = useState<boolean>(false);
   const [isPreparingRecorder, setPreparingRecorder] = useState(false);
   const [recordingHandle, setRecordingHandle] = useState<RecorderHandle | null>(null);
   const [isRecording, setRecording] = useState(false);
