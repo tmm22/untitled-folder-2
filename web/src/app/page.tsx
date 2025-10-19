@@ -18,6 +18,7 @@ import { AccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import { PremiumDashboard } from '@/components/account/PremiumDashboard';
 import { AuthPanel } from '@/components/account/AuthPanel';
 import { AppVersionBadge } from '@/components/shared/AppVersionBadge';
+import { TransitTranscriptionHistoryDashboardPanel } from '@/components/transit/TransitTranscriptionHistoryDashboardPanel';
 
 export default function Home() {
   return (
@@ -56,6 +57,7 @@ export default function Home() {
           <SnippetPanel />
           <PronunciationPanel />
           <ImportPanel />
+          <TransitTranscriptionHistoryDashboardPanel />
           <Link
             href="/transit"
             className="flex flex-col justify-between rounded-2xl border border-charcoal-200/70 bg-white/80 px-6 py-6 shadow-sm shadow-charcoal-200/60 transition hover:border-accent-500 hover:shadow-accent-300/40"
