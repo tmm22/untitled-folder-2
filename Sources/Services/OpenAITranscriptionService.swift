@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 @MainActor
 protocol AudioTranscribing {
+    func hasCredentials() -> Bool
     func transcribe(fileURL: URL,
                     languageHint: String?) async throws -> (text: String,
                                                             language: String?,

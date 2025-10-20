@@ -8,6 +8,7 @@ final class TextToSpeechAppTests: XCTestCase {
         let defaults = UserDefaults.standard
         [
             "selectedProvider",
+            "selectedTranscriptionProvider",
             "playbackSpeed",
             "volume",
             "loopEnabled",
@@ -83,6 +84,11 @@ final class TextToSpeechAppTests: XCTestCase {
         var result: (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) = ("", nil, 0, [])
         var error: Error?
         private(set) var callCount = 0
+        var credentialAvailable = true
+
+        func hasCredentials() -> Bool {
+            credentialAvailable
+        }
 
         func transcribe(fileURL: URL, languageHint: String?) async throws -> (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) {
             callCount += 1
@@ -204,23 +210,27 @@ final class TextToSpeechAppTests: XCTestCase {
                                    openAIService: OpenAIService = OpenAIService(),
                                    googleService: GoogleTTSService = GoogleTTSService(),
                                    localService: LocalTTSService = LocalTTSService(),
-                                   transcriptionService: AudioTranscribing = OpenAITranscriptionService(),
-                                   insightsService: TranscriptInsightsServicing = TranscriptInsightsService(),
-                                   cleanupService: TranscriptCleanupServicing = TranscriptCleanupService()) -> TTSViewModel {
+                                   transcriptionServices: [TranscriptionProviderType: any AudioTranscribing] = [:],
+                                   defaultTranscriptionProvider: TranscriptionProviderType = .openAI,
+                                  insightsService: TranscriptInsightsServicing = TranscriptInsightsService(),
+                                  cleanupService: TranscriptCleanupServicing = TranscriptCleanupService()) -> TTSViewModel {
         let loader = StubURLContentLoader(result: urlContentResult)
+        let resolvedAudioPlayer = audioPlayer ?? StubPreviewAudioPlayer()
+        let resolvedPreviewPlayer = previewPlayer ?? StubPreviewAudioPlayer()
         return TTSViewModel(notificationCenterProvider: { nil },
                             urlContentLoader: loader,
                             translationService: translationService,
                             summarizationService: summarizationService,
-                            audioPlayer: audioPlayer,
-                            previewAudioPlayer: previewPlayer,
+                            audioPlayer: resolvedAudioPlayer,
+                            previewAudioPlayer: resolvedPreviewPlayer,
                             previewDataLoader: previewLoader,
                             previewAudioGenerator: previewGenerator,
                             elevenLabsService: elevenLabsService,
                             openAIService: openAIService,
                             googleService: googleService,
                             localService: localService,
-                            transcriptionService: transcriptionService,
+                            transcriptionServices: transcriptionServices,
+                            defaultTranscriptionProvider: defaultTranscriptionProvider,
                             transcriptInsightsService: insightsService,
                             transcriptCleanupService: cleanupService)
     }
@@ -259,7 +269,7 @@ final class TextToSpeechAppTests: XCTestCase {
         insightsService.result = TranscriptionSummaryBlock(summary: "", actionItems: [], scheduleRecommendation: nil)
         let cleanupService = StubTranscriptCleanupService()
 
-        let viewModel = makeTestViewModel(transcriptionService: transcriptionService,
+        let viewModel = makeTestViewModel(transcriptionServices: [.openAI: transcriptionService],
                                           insightsService: insightsService,
                                           cleanupService: cleanupService)
 
@@ -287,7 +297,7 @@ final class TextToSpeechAppTests: XCTestCase {
         insightsService.result = TranscriptionSummaryBlock(summary: "ok", actionItems: [], scheduleRecommendation: nil)
         let cleanupService = StubTranscriptCleanupService()
 
-        let viewModel = makeTestViewModel(transcriptionService: transcriptionService,
+        let viewModel = makeTestViewModel(transcriptionServices: [.openAI: transcriptionService],
                                           insightsService: insightsService,
                                           cleanupService: cleanupService)
 
@@ -306,6 +316,106 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
 
         try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    func testTranscriptionUsesSelectedProvider() async throws {
+        resetPersistedSettings()
+        let openAIStub = StubTranscriptionService()
+        let googleStub = StubTranscriptionService()
+        googleStub.result = (text: "google", language: "en", duration: 1.0, segments: [])
+
+        let viewModel = makeTestViewModel(transcriptionServices: [
+            .openAI: openAIStub,
+            .googleChirp2: googleStub
+        ])
+
+        viewModel.selectedTranscriptionProvider = .googleChirp2
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("test-google-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try Data([0x00]).write(to: tempURL)
+
+        viewModel.transcribeAudioFile(at: tempURL, shouldDeleteAfterTranscription: false)
+
+        await waitUntil { googleStub.callCount == 1 }
+
+        XCTAssertEqual(googleStub.callCount, 1)
+        XCTAssertEqual(openAIStub.callCount, 0)
+
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    func testTranscriptionProviderFallbackWhenMissingService() {
+        resetPersistedSettings()
+        UserDefaults.standard.set(TranscriptionProviderType.googleChirp2.rawValue,
+                                  forKey: "selectedTranscriptionProvider")
+        let openAIStub = StubTranscriptionService()
+        let viewModel = makeTestViewModel(transcriptionServices: [.openAI: openAIStub],
+                                          defaultTranscriptionProvider: .openAI)
+        XCTAssertEqual(viewModel.selectedTranscriptionProvider, .openAI)
+        UserDefaults.standard.removeObject(forKey: "selectedTranscriptionProvider")
+    }
+
+    func testMicrophoneTranscriptionAutoInsertsRawTranscript() async throws {
+        resetPersistedSettings()
+        let transcriptionService = StubTranscriptionService()
+        transcriptionService.result = (text: "  Hello microphone  ", language: "en", duration: 1.5, segments: [])
+        let insightsService = StubTranscriptInsightsService()
+        insightsService.result = TranscriptionSummaryBlock(summary: "", actionItems: [], scheduleRecommendation: nil)
+        let cleanupService = StubTranscriptCleanupService()
+
+        let viewModel = makeTestViewModel(transcriptionServices: [.openAI: transcriptionService],
+                                          insightsService: insightsService,
+                                          cleanupService: cleanupService)
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("auto-insert-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try Data([0x10, 0x20]).write(to: tempURL)
+
+        viewModel.transcribeAudioFile(at: tempURL,
+                                      shouldDeleteAfterTranscription: true,
+                                      autoInsertIntoEditor: true)
+
+        await waitUntil { viewModel.transcriptionStage == .complete }
+
+        XCTAssertEqual(viewModel.inputText, "Hello microphone")
+        XCTAssertEqual(cleanupService.callCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempURL.path))
+    }
+
+    func testMicrophoneTranscriptionAutoInsertionPrefersCleanedOutput() async throws {
+        resetPersistedSettings()
+        let transcriptionService = StubTranscriptionService()
+        transcriptionService.result = (text: "raw transcript", language: "en", duration: 2.0, segments: [])
+        let insightsService = StubTranscriptInsightsService()
+        insightsService.result = TranscriptionSummaryBlock(summary: "ok", actionItems: [], scheduleRecommendation: nil)
+        let cleanupService = StubTranscriptCleanupService()
+        cleanupService.result = TranscriptCleanupResult(instruction: "Polish",
+                                                        label: "Polished",
+                                                        output: "Cleaned transcript")
+
+        let viewModel = makeTestViewModel(transcriptionServices: [.openAI: transcriptionService],
+                                          insightsService: insightsService,
+                                          cleanupService: cleanupService)
+        viewModel.transcriptionCleanupInstruction = "Polish"
+        viewModel.transcriptionCleanupLabel = "Polished"
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("auto-insert-clean-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try Data([0x30, 0x40]).write(to: tempURL)
+
+        viewModel.transcribeAudioFile(at: tempURL,
+                                      shouldDeleteAfterTranscription: true,
+                                      autoInsertIntoEditor: true)
+
+        await waitUntil { viewModel.transcriptionStage == .complete }
+
+        XCTAssertEqual(viewModel.inputText, "Cleaned transcript")
+        XCTAssertEqual(cleanupService.callCount, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempURL.path))
     }
 
     func testTextChunkerRespectsLimits() {
@@ -380,6 +490,44 @@ final class TextToSpeechAppTests: XCTestCase {
         XCTAssertEqual(service.name, "Tight Ass Mode")
         XCTAssertFalse(service.availableVoices.isEmpty)
         XCTAssertEqual(service.defaultVoice.provider, .tightAss)
+    }
+
+    func testGoogleTranscriptionServiceRequiresAPIKey() async {
+        final class StubKeychainManager: KeychainManager {
+            private let storedKey: String?
+
+            init(storedKey: String?) {
+                self.storedKey = storedKey
+                super.init()
+            }
+
+            override func getAPIKey(for provider: String) -> String? {
+                storedKey
+            }
+        }
+
+        let keychain = StubKeychainManager(storedKey: nil)
+        let service = GoogleTranscriptionService(session: SecureURLSession.makeEphemeral(),
+                                                 keychain: keychain)
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("google-key-test-\(UUID().uuidString).wav")
+            .standardizedFileURL
+        try? Data([0x00]).write(to: tempURL)
+
+        do {
+            _ = try await service.transcribe(fileURL: tempURL, languageHint: nil)
+            XCTFail("Expected invalid API key error")
+        } catch let error as TTSError {
+            if case .invalidAPIKey = error {
+                // Expected path
+            } else {
+                XCTFail("Unexpected TTSError \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error \(error)")
+        }
+
+        try? FileManager.default.removeItem(at: tempURL)
     }
     
     // MARK: - Keychain Manager Tests
@@ -875,7 +1023,9 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testStyleValuesPersistAcrossSessions() {
         resetPersistedSettings()
-        var viewModel = makeTestViewModel()
+        let stubTranscription = StubTranscriptionService()
+        stubTranscription.credentialAvailable = false
+        var viewModel = makeTestViewModel(transcriptionServices: [.openAI: stubTranscription])
 
         viewModel.selectedProvider = .openAI
         viewModel.updateAvailableVoices()
@@ -899,7 +1049,7 @@ final class TextToSpeechAppTests: XCTestCase {
         let elevenControlID = elevenControl.id
         viewModel.binding(for: elevenControl).wrappedValue = 0.55
 
-        viewModel = makeTestViewModel()
+        viewModel = makeTestViewModel(transcriptionServices: [.openAI: stubTranscription])
 
         viewModel.selectedProvider = .openAI
         viewModel.updateAvailableVoices()
@@ -919,18 +1069,17 @@ final class TextToSpeechAppTests: XCTestCase {
     @MainActor
     func testAppearancePreferencePersistence() {
         resetPersistedSettings()
-        var viewModel = makeTestViewModel()
-        XCTAssertNil(viewModel.colorSchemeOverride)
+        let initialViewModel = makeTestViewModel()
+        XCTAssertNil(initialViewModel.colorSchemeOverride)
 
-        viewModel.appearancePreference = .dark
+        initialViewModel.appearancePreference = .dark
 
-        // Reinitialize to confirm persistence
-        viewModel = makeTestViewModel()
-        XCTAssertEqual(viewModel.appearancePreference, .dark)
-        XCTAssertEqual(viewModel.colorSchemeOverride, .dark)
+        let reinitializedViewModel = makeTestViewModel()
+        XCTAssertEqual(reinitializedViewModel.appearancePreference, .dark)
+        XCTAssertEqual(reinitializedViewModel.colorSchemeOverride, .dark)
 
-        viewModel.appearancePreference = .light
-        XCTAssertEqual(viewModel.colorSchemeOverride, .light)
+        reinitializedViewModel.appearancePreference = .light
+        XCTAssertEqual(reinitializedViewModel.colorSchemeOverride, .light)
 
         resetPersistedSettings()
     }

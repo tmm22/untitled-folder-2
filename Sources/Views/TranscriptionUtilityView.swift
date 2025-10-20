@@ -36,6 +36,19 @@ struct TranscriptionUtilityView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
+            Picker("Transcription provider", selection: $viewModel.selectedTranscriptionProvider) {
+                ForEach(TranscriptionProviderType.allCases, id: \.self) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if !viewModel.transcriptionProviderHasCredentials(viewModel.selectedTranscriptionProvider) {
+                Text("\(viewModel.selectedTranscriptionProvider.displayName) API key required in Settings.")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             HStack(spacing: 10) {
                 Button {
                     if viewModel.isTranscriptionRecording {
@@ -156,7 +169,7 @@ struct TranscriptionUtilityView: View {
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label(stageDescription, systemImage: "bolt.horizontal.circle")
+                Label(viewModel.transcriptionStageDescription, systemImage: "bolt.horizontal.circle")
                     .font(.subheadline)
                 Spacer()
                 if viewModel.isTranscriptionInProgress {
@@ -299,25 +312,6 @@ struct TranscriptionUtilityView: View {
                     .frame(maxHeight: 180)
                 }
             }
-        }
-    }
-
-    private var stageDescription: String {
-        switch viewModel.transcriptionStage {
-        case .idle:
-            return "Ready"
-        case .recording:
-            return "Recording microphone input"
-        case .transcribing:
-            return "Transcribing audio with OpenAI"
-        case .summarising:
-            return "Generating insights"
-        case .cleaning:
-            return "Applying cleanup instructions"
-        case .complete:
-            return "Transcription complete"
-        case .error:
-            return "Transcription failed"
         }
     }
 

@@ -145,6 +145,18 @@ class TTSViewModel: ObservableObject {
         }
     }
     @Published var selectedProvider: TTSProviderType = .openAI
+    @Published var selectedTranscriptionProvider: TranscriptionProviderType = .openAI {
+        didSet {
+            guard selectedTranscriptionProvider != oldValue else { return }
+            if transcriptionServices[selectedTranscriptionProvider] == nil {
+                selectedTranscriptionProvider = defaultTranscriptionProvider
+                return
+            }
+            if hasLoadedInitialSettings {
+                UserDefaults.standard.set(selectedTranscriptionProvider.rawValue, forKey: transcriptionProviderKey)
+            }
+        }
+    }
     @Published var selectedVoice: Voice?
     @Published var isGenerating: Bool = false
     @Published var isPlaying: Bool = false
@@ -261,7 +273,8 @@ class TTSViewModel: ObservableObject {
     private let googleTTS: GoogleTTSService
     private let localTTS: LocalTTSService
     private let summarizationService: TextSummarizationService
-    private let transcriptionService: AudioTranscribing
+    private let transcriptionServices: [TranscriptionProviderType: any AudioTranscribing]
+    private let defaultTranscriptionProvider: TranscriptionProviderType
     private let transcriptInsightsService: TranscriptInsightsServicing
     private let transcriptCleanupService: TranscriptCleanupServicing
     private let transcriptionRecorder = TranscriptionRecorder()
@@ -269,6 +282,7 @@ class TTSViewModel: ObservableObject {
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
+    private var hasLoadedInitialSettings = false
     private(set) var audioData: Data?  // Make it readable but not writable from outside
     private(set) var currentAudioFormat: AudioSettings.AudioFormat = .mp3
     private(set) var currentTranscript: TranscriptBundle?
@@ -292,6 +306,7 @@ class TTSViewModel: ObservableObject {
     private let pronunciationKey = "pronunciationRules"
     private let notificationsKey = "notificationsEnabled"
     private let styleValuesKey = "providerStyleValues"
+    private let transcriptionProviderKey = "selectedTranscriptionProvider"
     private let elevenLabsPromptKey = "elevenLabs.prompt"
     private let elevenLabsModelKey = "elevenLabs.model"
     private let elevenLabsTagsKey = "elevenLabs.tags"
@@ -448,6 +463,29 @@ class TTSViewModel: ObservableObject {
 
     var costEstimateDetail: String? { costEstimate.detail }
 
+    var transcriptionStageDescription: String {
+        switch transcriptionStage {
+        case .idle:
+            return "Ready"
+        case .recording:
+            return "Recording microphone input"
+        case .transcribing:
+            return "Transcribing audio with \(selectedTranscriptionProvider.displayName)"
+        case .summarising:
+            return "Generating insights"
+        case .cleaning:
+            return "Applying cleanup instructions"
+        case .complete:
+            return "Transcription complete"
+        case .error:
+            return "Transcription failed"
+        }
+    }
+
+    func transcriptionProviderHasCredentials(_ provider: TranscriptionProviderType) -> Bool {
+        transcriptionServices[provider]?.hasCredentials() ?? false
+    }
+
     func binding(for control: ProviderStyleControl) -> Binding<Double> {
         Binding(
             get: { self.currentStyleValue(for: control) },
@@ -477,7 +515,8 @@ class TTSViewModel: ObservableObject {
          openAIService: OpenAIService = OpenAIService(),
          googleService: GoogleTTSService = GoogleTTSService(),
          localService: LocalTTSService = LocalTTSService(),
-         transcriptionService: AudioTranscribing = OpenAITranscriptionService(),
+         transcriptionServices: [TranscriptionProviderType: any AudioTranscribing] = [:],
+         defaultTranscriptionProvider: TranscriptionProviderType = .openAI,
          transcriptInsightsService: TranscriptInsightsServicing = TranscriptInsightsService(),
          transcriptCleanupService: TranscriptCleanupServicing = TranscriptCleanupService(),
          managedProvisioningClient: ManagedProvisioningClient = .shared) {
@@ -493,17 +532,54 @@ class TTSViewModel: ObservableObject {
         self.openAI = openAIService
         self.googleTTS = googleService
         self.localTTS = localService
-        self.transcriptionService = transcriptionService
+        var resolvedTranscriptionServices = transcriptionServices
+        if resolvedTranscriptionServices.isEmpty {
+            resolvedTranscriptionServices = [
+                .openAI: OpenAITranscriptionService(),
+                .googleChirp2: GoogleTranscriptionService()
+            ]
+        } else {
+            if resolvedTranscriptionServices[.openAI] == nil {
+                resolvedTranscriptionServices[.openAI] = OpenAITranscriptionService()
+            }
+            if resolvedTranscriptionServices[.googleChirp2] == nil {
+                resolvedTranscriptionServices[.googleChirp2] = GoogleTranscriptionService()
+            }
+        }
+        self.transcriptionServices = resolvedTranscriptionServices
+        self.defaultTranscriptionProvider = defaultTranscriptionProvider
         self.transcriptInsightsService = transcriptInsightsService
         self.transcriptCleanupService = transcriptCleanupService
         self.managedProvisioningClient = managedProvisioningClient
+        self.selectedTranscriptionProvider = defaultTranscriptionProvider
         setupAudioPlayer()
         setupPreviewPlayer()
         loadSavedSettings()
+        ensureValidTranscriptionProviderSelection()
+        hasLoadedInitialSettings = true
         updateAvailableVoices()
         managedProvisioningTask = Task { [weak self] in
             await self?.refreshManagedAccountSnapshot(silently: true)
         }
+    }
+
+    private func ensureValidTranscriptionProviderSelection() {
+        if transcriptionServices[selectedTranscriptionProvider] == nil {
+            selectedTranscriptionProvider = defaultTranscriptionProvider
+        }
+    }
+
+    private func resolvedTranscriptionService() -> any AudioTranscribing {
+        if let service = transcriptionServices[selectedTranscriptionProvider] {
+            return service
+        }
+        if let fallback = transcriptionServices[defaultTranscriptionProvider] {
+            return fallback
+        }
+        guard let service = transcriptionServices.values.first else {
+            fatalError("No transcription services configured.")
+        }
+        return service
     }
 
     private func refreshStyleControls(for providerType: TTSProviderType) {
@@ -730,7 +806,8 @@ class TTSViewModel: ObservableObject {
     func transcribeAudioFile(at url: URL,
                              title: String? = nil,
                              languageHint: String? = nil,
-                             shouldDeleteAfterTranscription: Bool? = nil) {
+                             shouldDeleteAfterTranscription: Bool? = nil,
+                             autoInsertIntoEditor: Bool = false) {
         transcriptionTask?.cancel()
         let standardizedURL = url.standardizedFileURL
         let resolvedTitle = title ?? standardizedURL.deletingPathExtension().lastPathComponent
@@ -748,7 +825,8 @@ class TTSViewModel: ObservableObject {
             await self?.executeTranscription(at: standardizedURL,
                                              title: resolvedTitle,
                                              languageHint: languageHint,
-                                             shouldDeleteSource: shouldDeleteSource)
+                                             shouldDeleteSource: shouldDeleteSource,
+                                             autoInsertIntoEditor: autoInsertIntoEditor)
         }
     }
 
@@ -768,7 +846,8 @@ class TTSViewModel: ObservableObject {
     private func executeTranscription(at url: URL,
                                       title: String,
                                       languageHint: String?,
-                                      shouldDeleteSource: Bool) async {
+                                      shouldDeleteSource: Bool,
+                                      autoInsertIntoEditor: Bool) async {
         resetTranscriptionState()
         isTranscriptionInProgress = true
         transcriptionStage = .transcribing
@@ -782,7 +861,8 @@ class TTSViewModel: ObservableObject {
         }
 
         do {
-            let transcription = try await transcriptionService.transcribe(fileURL: url, languageHint: languageHint)
+            let service = resolvedTranscriptionService()
+            let transcription = try await service.transcribe(fileURL: url, languageHint: languageHint)
             try Task.checkCancellation()
 
             transcriptionText = transcription.text
@@ -821,6 +901,10 @@ class TTSViewModel: ObservableObject {
                 cleanup: cleanupResult
             )
 
+            if autoInsertIntoEditor {
+                autoInsertTranscriptionIntoEditor(cleanupResult: cleanupResult, rawTranscript: transcription.text)
+            }
+
             transcriptionStage = .complete
             transcriptionProgress = 1.0
             transcriptionError = nil
@@ -845,6 +929,18 @@ class TTSViewModel: ObservableObject {
         transcriptionRecord = nil
         transcriptionText = ""
         transcriptionLanguage = nil
+    }
+
+    private func autoInsertTranscriptionIntoEditor(cleanupResult: TranscriptCleanupResult?, rawTranscript: String) {
+        if let cleaned = cleanupResult?.output.trimmingCharacters(in: .whitespacesAndNewlines), !cleaned.isEmpty {
+            inputText = cleaned
+            return
+        }
+
+        let trimmedRaw = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedRaw.isEmpty {
+            inputText = trimmedRaw
+        }
     }
 
     private func startRecordingTimer() {
@@ -882,7 +978,7 @@ class TTSViewModel: ObservableObject {
         if shouldTranscribe, let url {
             transcriptionRecordingDuration = finalDuration
             transcriptionRecordingURL = nil
-            transcribeAudioFile(at: url)
+            transcribeAudioFile(at: url, autoInsertIntoEditor: true)
         } else {
             transcriptionRecordingDuration = 0
             transcriptionRecordingURL = nil
@@ -1856,6 +1952,14 @@ class TTSViewModel: ObservableObject {
             selectedProvider = TTSProviderType(rawValue: savedProvider) ?? .openAI
         }
 
+        if let savedTranscriptionProvider = UserDefaults.standard.string(forKey: transcriptionProviderKey),
+           let provider = TranscriptionProviderType(rawValue: savedTranscriptionProvider),
+           transcriptionServices[provider] != nil {
+            selectedTranscriptionProvider = provider
+        } else {
+            selectedTranscriptionProvider = defaultTranscriptionProvider
+        }
+
         playbackSpeed = UserDefaults.standard.double(forKey: "playbackSpeed")
         if playbackSpeed == 0 { playbackSpeed = 1.0 }
         
@@ -2013,6 +2117,7 @@ class TTSViewModel: ObservableObject {
 
     func saveSettings() {
         UserDefaults.standard.set(selectedProvider.rawValue, forKey: "selectedProvider")
+        UserDefaults.standard.set(selectedTranscriptionProvider.rawValue, forKey: transcriptionProviderKey)
         UserDefaults.standard.set(playbackSpeed, forKey: "playbackSpeed")
         UserDefaults.standard.set(volume, forKey: "volume")
         UserDefaults.standard.set(isLoopEnabled, forKey: "loopEnabled")
