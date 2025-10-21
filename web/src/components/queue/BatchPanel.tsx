@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useQueueStore } from '@/modules/queue/store';
 import { useTTSStore } from '@/modules/tts/store';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
@@ -76,7 +77,7 @@ export function BatchPanel() {
   };
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Batch queue" minHeight={320} maxHeight={960}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="panel-title">Batch queue</h2>
@@ -200,6 +201,6 @@ export function BatchPanel() {
       </div>
 
       {status && <p className="mt-5 text-sm text-cocoa-600">{status}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

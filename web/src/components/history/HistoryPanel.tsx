@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { extensionFromContentType } from '@/lib/utils/audio';
 import { triggerDownloadFromUrl, triggerDownloadText } from '@/lib/utils/download';
 import { buildSrt, buildVtt } from '@/lib/transcript/export';
@@ -85,14 +86,14 @@ export function HistoryPanel() {
 
   if (!hydrated) {
     return (
-      <section className="panel text-sm text-cocoa-600">
+      <CollapsibleSection title="Recent generations" className="text-sm text-cocoa-600">
         Loading history…
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Recent generations" minHeight={300} maxHeight={900}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="panel-title">Recent generations</h2>
@@ -168,6 +169,6 @@ export function HistoryPanel() {
         })}
       </div>
       {status && <p className="mt-3 text-sm text-cocoa-600">{status}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

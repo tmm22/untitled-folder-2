@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { getProviderDescription } from '@/modules/tts/getProviderDescription';
 import { useCredentialStore } from '@/modules/credentials/store';
@@ -103,15 +104,15 @@ export function CredentialsPanel() {
 
   if (status === 'loading') {
     return (
-      <section className="panel text-sm text-cocoa-600">
+      <CollapsibleSection title="Secure credential vault" className="text-sm text-cocoa-600" minHeight={260} maxHeight={720}>
         Initialising secure storage…
-      </section>
+      </CollapsibleSection>
     );
   }
 
   if (hasVault === false) {
     return (
-      <section className="panel">
+      <CollapsibleSection title="Create secure credential vault" minHeight={320} maxHeight={820}>
         <h2 className="panel-title">Create secure credential vault</h2>
         <p className="panel-subtitle">
           Store provider API keys locally with AES-GCM encryption. The passphrase never leaves your device and is required
@@ -148,13 +149,13 @@ export function CredentialsPanel() {
           </button>
           {feedback && <p className="text-sm text-cocoa-600">{feedback}</p>}
         </form>
-      </section>
+      </CollapsibleSection>
     );
   }
 
   if (!isUnlocked) {
     return (
-      <section className="panel">
+      <CollapsibleSection title="Unlock credential vault" minHeight={280} maxHeight={800}>
         <h2 className="panel-title">Unlock credential vault</h2>
         <form className="mt-5 flex flex-col gap-4" onSubmit={handleUnlock}>
           <label className="flex flex-col gap-2">
@@ -184,12 +185,12 @@ export function CredentialsPanel() {
             {feedback && <span className="text-sm text-rose-600">{feedback}</span>}
           </div>
         </form>
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Provider credentials" minHeight={360} maxHeight={960}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="panel-title">Provider credentials</h2>
@@ -280,6 +281,6 @@ export function CredentialsPanel() {
       </div>
 
       {feedback && <p className="mt-5 text-sm text-cocoa-600">{feedback}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

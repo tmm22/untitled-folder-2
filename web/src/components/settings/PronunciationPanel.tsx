@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { usePronunciationStore } from '@/modules/pronunciation/store';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import type { PronunciationRule, ProviderType } from '@/modules/tts/types';
@@ -49,14 +50,14 @@ export function PronunciationPanel() {
 
   if (!hydrated) {
     return (
-      <section className="panel text-sm text-cocoa-600">
+      <CollapsibleSection title="Pronunciation glossary" className="text-sm text-cocoa-600" minHeight={280} maxHeight={880}>
         Loading pronunciation rules…
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Pronunciation glossary" minHeight={280} maxHeight={880}>
       <h2 className="panel-title">Pronunciation glossary</h2>
       <p className="panel-subtitle">Rules run before requests are sent to providers.</p>
       <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
@@ -139,8 +140,7 @@ export function PronunciationPanel() {
           </div>
         ))}
       </div>
-
       {status && <p className="mt-4 text-sm text-cocoa-600">{status}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

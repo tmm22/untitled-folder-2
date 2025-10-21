@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import type {
   PipelineScheduleConfig,
   PipelineStep,
@@ -190,7 +191,14 @@ export function PipelineEditor(props: PipelineEditorProps) {
   };
 
   return (
-    <form className="panel mt-4 space-y-4" onSubmit={handleSubmit}>
+    <CollapsibleSection
+      title={mode === 'create' ? 'Pipeline builder' : 'Edit pipeline'}
+      className="mt-4 space-y-4"
+      collapsibleId={initial.id ? `pipeline-editor-${initial.id}` : undefined}
+      minHeight={360}
+      maxHeight={960}
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-semibold text-charcoal-900">{mode === 'create' ? 'New pipeline' : 'Edit pipeline'}</h3>
         <p className="text-sm text-cocoa-600">
@@ -692,6 +700,7 @@ export function PipelineEditor(props: PipelineEditorProps) {
           {isSaving ? 'Saving…' : mode === 'create' ? 'Create pipeline' : 'Save changes'}
         </button>
       </div>
-    </form>
+      </form>
+    </CollapsibleSection>
   );
 }

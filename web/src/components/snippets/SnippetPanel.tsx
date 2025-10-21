@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useSnippetStore } from '@/modules/snippets/store';
 import { useTTSStore } from '@/modules/tts/store';
 import type { TextSnippet } from '@/modules/tts/types';
@@ -56,14 +57,14 @@ export function SnippetPanel() {
 
   if (!hydrated) {
     return (
-      <section className="panel text-sm text-cocoa-600">
+      <CollapsibleSection title="Snippet library" className="text-sm text-cocoa-600" minHeight={280} maxHeight={840}>
         Loading snippets…
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Snippet library" minHeight={280} maxHeight={840}>
       <h2 className="panel-title">Snippet library</h2>
       <p className="panel-subtitle">Store reusable intros, outros, and prompts.</p>
       <form className="mt-4 flex flex-col gap-4" onSubmit={handleSave}>
@@ -122,8 +123,7 @@ export function SnippetPanel() {
           </div>
         ))}
       </div>
-
       {status && <p className="mt-4 text-sm text-cocoa-600">{status}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

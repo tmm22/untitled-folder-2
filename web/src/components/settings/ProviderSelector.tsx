@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { getProviderDescription } from '@/modules/tts/getProviderDescription';
 import { useTTSStore } from '@/modules/tts/store';
@@ -58,7 +59,7 @@ export function ProviderSelector() {
   });
 
   return (
-    <section className="panel grid grid-cols-1 gap-5 md:grid-cols-3">
+    <CollapsibleSection title="Provider & voice" className="grid grid-cols-1 gap-5 md:grid-cols-3" minHeight={220} maxHeight={640}>
       <label className="flex flex-col gap-2">
         <span className="field-label">Provider</span>
         <select
@@ -112,6 +113,6 @@ export function ProviderSelector() {
           </div>
         </div>
       ) : null}
-    </section>
+    </CollapsibleSection>
   );
 }

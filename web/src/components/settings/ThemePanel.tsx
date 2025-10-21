@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { usePreferenceStore, ThemePreference } from '@/modules/preferences/store';
 
 const THEMES: ThemePreference[] = ['system', 'light', 'dark'];
@@ -22,7 +23,7 @@ export function ThemePanel() {
   }, [theme]);
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Appearance" minHeight={200} maxHeight={600}>
       <h2 className="panel-title">Appearance</h2>
       <p className="panel-subtitle">Switch between system default, light, or dark themes.</p>
       <div className="mt-4 flex gap-3">
@@ -39,6 +40,6 @@ export function ThemePanel() {
           </button>
         ))}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useTTSStore } from '@/modules/tts/store';
 
 export function GenerateButton() {
@@ -15,7 +16,7 @@ export function GenerateButton() {
   const disabled = isGenerating || inputText.trim().length === 0 || exceedsLimit;
 
   return (
-    <div className="panel flex flex-col gap-4">
+    <CollapsibleSection title="Generate speech" className="flex flex-col gap-4" minHeight={200} maxHeight={560}>
       <button
         type="button"
         className="cta-button"
@@ -51,6 +52,6 @@ export function GenerateButton() {
           </div>
         </div>
       ) : null}
-    </div>
+    </CollapsibleSection>
   );
 }

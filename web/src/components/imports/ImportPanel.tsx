@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useImportStore } from '@/modules/imports/store';
 import { importFromUrl, buildImportedEntry } from '@/modules/imports/service';
 import { useTTSStore } from '@/modules/tts/store';
@@ -160,14 +161,14 @@ export function ImportPanel() {
 
   if (!hydrated) {
     return (
-      <section className="panel text-sm text-cocoa-600">
+      <CollapsibleSection title="Imports" className="text-sm text-cocoa-600" minHeight={320} maxHeight={960}>
         Loading imports…
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Imports" minHeight={320} maxHeight={960}>
       <h2 className="panel-title">Imports</h2>
       <p className="panel-subtitle">Fetch web content or stash manual notes for later narration.</p>
       <form className="mt-4 flex flex-col gap-4" onSubmit={handleImport}>
@@ -274,6 +275,6 @@ export function ImportPanel() {
       <div className="mt-6">
         <PipelineManager />
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

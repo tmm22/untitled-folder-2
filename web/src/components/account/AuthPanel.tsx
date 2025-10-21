@@ -2,6 +2,7 @@
 
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import { useMemo } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 
 function formatUserName(firstName?: string | null, lastName?: string | null, emailAddress?: string | null) {
   const name = [firstName?.trim(), lastName?.trim()].filter(Boolean).join(' ').trim();
@@ -22,7 +23,7 @@ export function AuthPanel() {
   }, [user?.firstName, user?.lastName, user?.primaryEmailAddress?.emailAddress]);
 
   return (
-    <section className="panel text-cocoa-900">
+    <CollapsibleSection title="Account access" className="text-cocoa-900">
       <header className="flex items-center justify-between gap-3">
         <div className="flex flex-col">
           <span className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-400">Account access</span>
@@ -55,6 +56,6 @@ export function AuthPanel() {
           You are connected. Usage and billing data are now linked to your Clerk account and stored in Convex.
         </p>
       </SignedIn>
-    </section>
+    </CollapsibleSection>
   );
 }
