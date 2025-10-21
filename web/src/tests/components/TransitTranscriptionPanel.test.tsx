@@ -58,11 +58,14 @@ describe('TransitTranscriptionPanel', () => {
     render(<TransitTranscriptionPanel />);
 
     expect(
-      await screen.findByText('Microphone recording is not supported in this browser. Use the upload option instead.'),
+      await screen.findByText('Recording is not supported in this browser. Upload audio files instead.'),
     ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('Ready')).toBeInTheDocument();
     });
+
+    expect(screen.getByRole('button', { name: 'Drag Capture audio' })).toBeInTheDocument();
+    expect(document.querySelector('[data-workspace-column="left"]')).not.toBeNull();
   });
 });
