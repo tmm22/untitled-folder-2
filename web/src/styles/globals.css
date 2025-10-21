@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
 
 :root {
   --color-scheme: light;
@@ -86,6 +85,63 @@ body {
 
   .action-button--accent {
     @apply border-transparent bg-accent-500 text-charcoal-900 hover:bg-accent-400 focus:ring-accent-500/60;
+  }
+
+  .collapsible-panel {
+    @apply relative flex flex-col gap-3;
+  }
+
+  .collapsible-panel--plain {
+    @apply rounded-2xl bg-transparent p-0;
+    border-width: 0;
+  }
+
+  .collapsible-panel__controls {
+    @apply flex items-center gap-2 rounded-full border border-cream-300/70 bg-cream-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-500;
+  }
+
+  .collapsible-panel__toggle {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-700 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60;
+  }
+
+  .collapsible-panel__chevron {
+    @apply text-base leading-none;
+  }
+
+  .collapsible-panel__label {
+    @apply whitespace-nowrap;
+  }
+
+  .collapsible-panel__spacer {
+    @apply flex-1;
+  }
+
+  .collapsible-panel__reset {
+    @apply rounded-full border border-cream-300 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-cocoa-500 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .collapsible-panel__content {
+    @apply relative mt-2 w-full overflow-hidden transition-[height,opacity] duration-200 ease-in-out;
+  }
+
+  .collapsible-panel__content-inner {
+    @apply h-full w-full;
+  }
+
+  .collapsible-panel--collapsed .collapsible-panel__content-inner {
+    @apply pointer-events-none;
+  }
+
+  .collapsible-panel__resize-handle {
+    @apply mt-2 flex h-3 w-full cursor-[ns-resize] items-center justify-center rounded-full border border-dashed border-cream-400 bg-cream-200/80 transition hover:border-accent-400 hover:bg-accent-200/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent-300;
+  }
+
+  .collapsible-panel__resize-grip {
+    @apply h-1 w-14 rounded-full bg-cream-500/80;
+  }
+
+  .collapsible-panel__resize-placeholder {
+    @apply mt-2 h-1 w-full;
   }
 }
 

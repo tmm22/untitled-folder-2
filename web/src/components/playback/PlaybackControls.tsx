@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, useCallback } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { getAudioEngine } from '@/lib/audio/AudioEngine';
 import { useTTSStore } from '@/modules/tts/store';
 import { useAudioSnapshot } from '@/modules/tts/hooks/useAudioSnapshot';
@@ -38,7 +39,7 @@ export function PlaybackControls() {
   }, []);
 
   return (
-    <section className="panel flex flex-col gap-5">
+    <CollapsibleSection title="Playback controls" className="flex flex-col gap-5" minHeight={240} maxHeight={640}>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -106,6 +107,6 @@ export function PlaybackControls() {
           <span className="text-xs text-cocoa-500">{Math.round(volume * 100)}%</span>
         </label>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

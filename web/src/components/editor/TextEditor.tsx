@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useTTSStore } from '@/modules/tts/store';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
@@ -19,7 +20,7 @@ export function TextEditor() {
   const limitReached = remaining < 0;
 
   return (
-    <div className="panel flex h-full flex-col gap-4">
+    <CollapsibleSection title="Script editor" className="flex h-full flex-col gap-4" minHeight={320} maxHeight={960}>
       <textarea
         className="field-input min-h-[280px] resize-none border-cream-400 bg-cream-50/90 p-4 text-base leading-relaxed"
         placeholder="Paste your script or type what you want to hear..."
@@ -35,6 +36,6 @@ export function TextEditor() {
           {numberFormatter.format(inputText.length)} / {numberFormatter.format(characterLimit)} ({numberFormatter.format(remaining)} remaining)
         </span>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

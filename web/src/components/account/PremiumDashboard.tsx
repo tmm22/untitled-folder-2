@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useAccountStore } from '@/modules/account/store';
 
 const statusColors: Record<string, string> = {
@@ -108,7 +109,7 @@ export function PremiumDashboard() {
   );
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Premium workspace">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="panel-title">Premium workspace</h2>
@@ -193,6 +194,6 @@ export function PremiumDashboard() {
         </div>
       )}
       {actionMessage && <p className="mt-5 text-sm text-cocoa-600">{actionMessage}</p>}
-    </section>
+    </CollapsibleSection>
   );
 }

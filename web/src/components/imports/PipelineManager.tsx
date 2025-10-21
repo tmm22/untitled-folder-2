@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import type { PipelineDefinition, PipelineStep } from '@/lib/pipelines/types';
 import { PipelineEditor, type PipelineDraft, type ProviderOption } from './PipelineEditor';
 import { usePipelineStore } from '@/modules/pipelines/store';
@@ -206,7 +207,7 @@ export function PipelineManager() {
   };
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Automation pipelines" minHeight={320} maxHeight={960}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="panel-title">Automation pipelines</h2>
@@ -332,6 +333,6 @@ export function PipelineManager() {
           isSaving={isSaving}
         />
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

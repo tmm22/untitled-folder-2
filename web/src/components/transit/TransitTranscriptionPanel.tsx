@@ -8,6 +8,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from 'react';
 import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } from '@/lib/audio/mediaRecorder';
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
@@ -32,6 +33,7 @@ import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
 import { ThemePanel } from '@/components/settings/ThemePanel';
 import { CompactPanel } from '@/components/settings/CompactPanel';
 import { NotificationPanel } from '@/components/settings/NotificationPanel';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -85,6 +87,42 @@ const SummaryActionItem = ({ item }: { item: TransitSummaryAction }) => {
     </li>
   );
 };
+
+const WorkspaceSection = ({
+  id,
+  title,
+  children,
+  className,
+  actions,
+  defaultCollapsed,
+  allowResize = true,
+  minHeight,
+  maxHeight,
+}: {
+  id?: string;
+  title: string;
+  children: ReactNode;
+  className?: string;
+  actions?: ReactNode;
+  defaultCollapsed?: boolean;
+  allowResize?: boolean;
+  minHeight?: number;
+  maxHeight?: number;
+}) => (
+  <CollapsibleSection
+    id={id}
+    title={title}
+    variant="plain"
+    className={className}
+    actions={actions}
+    defaultCollapsed={defaultCollapsed}
+    allowResize={allowResize}
+    minHeight={minHeight}
+    maxHeight={maxHeight}
+  >
+    {children}
+  </CollapsibleSection>
+);
 
 export function TransitTranscriptionPanel() {
   const stage = useTransitTranscriptionStore((state) => state.stage);
@@ -491,7 +529,11 @@ export function TransitTranscriptionPanel() {
   }, [historyActions, historyClearing, sortedHistoryRecords.length]);
 
   return (
-    <section className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-6 py-8 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)]">
+    <CollapsibleSection
+      title="Narration Studio"
+      className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-6 py-8 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)]"
+      allowResize={false}
+    >
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Narration Studio</p>
@@ -509,7 +551,11 @@ export function TransitTranscriptionPanel() {
         </button>
       </header>
 
-      <div className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+      <WorkspaceSection
+        title="Pipeline status"
+        className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+        allowResize={false}
+      >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-accent-500">Pipeline status</p>
@@ -528,18 +574,24 @@ export function TransitTranscriptionPanel() {
         {aggregatedError && (
           <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{aggregatedError}</p>
         )}
-      </div>
+      </WorkspaceSection>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
-          <div id="capture" className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-charcoal-900">Capture audio</h3>
-              {isRecording && (
+          <WorkspaceSection
+            id="capture"
+            title="Capture audio"
+            className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
+            actions={
+              isRecording ? (
                 <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.25em] text-red-500">
                   Recording…
                 </span>
-              )}
+              ) : null
+            }
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-charcoal-900">Capture audio</h3>
             </div>
             {isRecorderSupported ? (
               <div className="flex flex-col gap-3">
@@ -577,9 +629,12 @@ export function TransitTranscriptionPanel() {
                 Microphone recording is not supported in this browser. Use the upload option instead.
               </p>
             )}
-          </div>
+          </WorkspaceSection>
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+          <WorkspaceSection
+            title="Upload audio file"
+            className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
+          >
             <h3 className="text-sm font-semibold text-charcoal-900">Upload audio file</h3>
             <p className="text-xs text-charcoal-500">MP3, WAV, or M4A up to 25 MB.</p>
             <button
@@ -596,9 +651,13 @@ export function TransitTranscriptionPanel() {
               className="hidden"
               onChange={handleFilePick}
             />
-          </div>
+          </WorkspaceSection>
 
-          <div id="cleanup-controls" className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
+          <WorkspaceSection
+            id="cleanup-controls"
+            title="Cleanup instructions"
+            className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
+          >
             <h3 className="text-sm font-semibold text-charcoal-900">Cleanup instructions</h3>
             <p className="text-xs text-charcoal-500">
               Ask the assistant to polish each transcript—for example Australian English, professional tone, or meeting-ready notes.
@@ -644,14 +703,16 @@ export function TransitTranscriptionPanel() {
                 ? 'Cleanup runs automatically after transcription completes. The polished version appears in the Cleanup panel.'
                 : 'Add an instruction to generate a polished version alongside the raw transcript.'}
             </p>
-          </div>
+          </WorkspaceSection>
 
           <ImportPanel />
           <SnippetPanel />
 
-          <div id="transcript-history" className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
+          <WorkspaceSection
+            id="transcript-history"
+            title="Transcript history"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
+            actions={
               <button
                 type="button"
                 className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50 disabled:opacity-40"
@@ -660,6 +721,10 @@ export function TransitTranscriptionPanel() {
               >
                 Clear
               </button>
+            }
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
             </div>
             {historyStatus && <p className="mt-2 text-xs text-charcoal-500">{historyStatus}</p>}
             {!historyHydrated && <p className="mt-3 text-sm text-charcoal-500">Loading transcript history…</p>}
@@ -732,11 +797,17 @@ export function TransitTranscriptionPanel() {
                 </div>
               )
             )}
-          </div>
+          </WorkspaceSection>
         </div>
 
         <div className="flex flex-col gap-6">
-          <div id="transcript-view" className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <WorkspaceSection
+            id="transcript-view"
+            title="Transcript"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+            minHeight={240}
+            maxHeight={720}
+          >
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-charcoal-900">Transcript</h3>
               {record?.durationMs ? (
@@ -768,18 +839,24 @@ export function TransitTranscriptionPanel() {
                 ))}
               </ol>
             )}
-          </div>
+          </WorkspaceSection>
 
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <WorkspaceSection
+            title="Summary"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+          >
             <h3 className="text-sm font-semibold text-charcoal-900">Summary</h3>
             {summary?.summary ? (
               <p className="mt-2 text-sm text-charcoal-700">{summary.summary}</p>
             ) : (
               <p className="mt-2 text-sm text-charcoal-400">Insights will appear here after transcription.</p>
             )}
-          </div>
+          </WorkspaceSection>
 
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <WorkspaceSection
+            title="Cleanup result"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+          >
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-sm font-semibold text-charcoal-900">Cleanup result</h3>
               {cleanupResult ? (
@@ -810,9 +887,12 @@ export function TransitTranscriptionPanel() {
                 Add instructions to generate a polished version alongside the raw transcript.
               </p>
             )}
-          </div>
+          </WorkspaceSection>
 
-          <div className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
+          <WorkspaceSection
+            title="Action items"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+          >
             <h3 className="text-sm font-semibold text-charcoal-900">Action items</h3>
             {summary?.actionItems && summary.actionItems.length > 0 ? (
               <ul className="mt-2 space-y-2">
@@ -823,10 +903,13 @@ export function TransitTranscriptionPanel() {
             ) : (
               <p className="mt-2 text-sm text-charcoal-400">No action items detected.</p>
             )}
-          </div>
+          </WorkspaceSection>
 
           {summary?.scheduleRecommendation && (
-            <div className="rounded-2xl border border-accent-500/40 bg-accent-50/80 p-4 shadow-sm shadow-accent-200/50">
+            <WorkspaceSection
+              title="Suggested calendar event"
+              className="rounded-2xl border border-accent-500/40 bg-accent-50/80 p-4 shadow-sm shadow-accent-200/50"
+            >
               <h3 className="text-sm font-semibold text-accent-800">Suggested calendar event</h3>
               <p className="mt-2 text-sm text-accent-800">{summary.scheduleRecommendation.title}</p>
               {(summary.scheduleRecommendation.startWindow ||
@@ -842,15 +925,17 @@ export function TransitTranscriptionPanel() {
                   {summary.scheduleRecommendation.participants &&
                     summary.scheduleRecommendation.participants.length > 0 && (
                       <li>Participants: {summary.scheduleRecommendation.participants.join(', ')}</li>
-                    )}
+                  )}
                 </ul>
               )}
-            </div>
+            </WorkspaceSection>
           )}
 
-          <div id="calendar" className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60">
-            <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
+          <WorkspaceSection
+            id="calendar"
+            title="Calendar follow-up"
+            className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+            actions={
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${
                   calendarConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-charcoal-100 text-charcoal-600'
@@ -858,6 +943,10 @@ export function TransitTranscriptionPanel() {
               >
                 {calendarConnected ? 'Google calendar connected' : 'Not connected'}
               </span>
+            }
+          >
+            <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={handleConnectCalendar}
@@ -976,7 +1065,7 @@ export function TransitTranscriptionPanel() {
                 Event scheduled in Google Calendar.
               </p>
             )}
-          </div>
+          </WorkspaceSection>
         </div>
 
         <div id="tts-controls" className="flex flex-col gap-6">
@@ -1003,6 +1092,6 @@ export function TransitTranscriptionPanel() {
           </p>
         </div>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

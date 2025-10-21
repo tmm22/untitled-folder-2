@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { usePreferenceStore, CompactPreference } from '@/modules/preferences/store';
 
 const COMPACT_OPTIONS: Array<{ id: CompactPreference; label: string; description: string }> = [
@@ -22,7 +23,7 @@ export function CompactPanel() {
   }, [compactMode]);
 
   return (
-    <section className="panel">
+    <CollapsibleSection title="Compact layout" minHeight={220} maxHeight={680}>
       <h2 className="panel-title">Compact layout</h2>
       <p className="panel-subtitle">Match the macOS minimalist layout in the browser.</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -48,6 +49,6 @@ export function CompactPanel() {
           </button>
         ))}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
