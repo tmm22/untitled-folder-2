@@ -17,6 +17,7 @@ import type * as session from "../session.js";
 import type * as transit from "../transit.js";
 import type * as translations from "../translations.js";
 import type * as users from "../users.js";
+import type * as workspaceLayouts from "../workspaceLayouts.js";
 
 import type {
   ApiFromModules,
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   transit: typeof transit;
   translations: typeof translations;
   users: typeof users;
+  workspaceLayouts: typeof workspaceLayouts;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
