@@ -6,6 +6,7 @@ The web workspace powers rapid iteration on the studio UI. It includes content i
 - Record live microphone sessions or upload audio, then watch transcripts stream in with summaries and action items.
 - Apply cleanup instructions (built-in presets like Australian English, professional tone, meeting minutes, or fully custom prompts) to generate polished copies alongside the raw transcript.
 - Persist transcripts, summaries, and cleanup results to Convex for authenticated users or encrypted IndexedDB for guests, with Google Calendar follow-ups available once OAuth is connected.
+- Arrange panels to suit your workflow. Layouts persist per-account through Convex (via `/api/workspace-layout`), with an automatic local-storage cache when Convex is unavailable. Switching accounts mid-session rehydrates the correct layout once the new user is authenticated.
 
 ## Authentication & Data Layer
 
@@ -30,6 +31,8 @@ Set the following environment variables before running the app:
 After changing `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
 
 Signed-in users have generation history, managed provisioning state, and pipeline definitions synchronised through Convex. Guests continue to rely on browser storage, falling back to encrypted IndexedDB for history/snippets and in-memory stores for provisioning/session data. When Convex is unavailable, pipelines gracefully fall back to JSON or in-memory storage.
+
+Workspace layout persistence follows the same pattern: Convex stores the canonical snapshot, while the client-side repository falls back to a local cache in offline or unauthorised states. Server-to-client traffic always flows through the Next.js route to keep Convex admin keys out of the browser bundle.
 
 ## Pipeline Automation
 

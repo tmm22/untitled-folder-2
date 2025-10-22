@@ -176,4 +176,19 @@ export default defineSchema({
     scope: v.array(v.string()),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
+
+  workspace_layouts: defineTable({
+    userId: v.string(),
+    layout: v.object({
+      version: v.number(),
+      columns: v.array(
+        v.object({
+          id: v.string(),
+          panels: v.array(v.string()),
+        }),
+      ),
+    }),
+    version: v.number(),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
 });
