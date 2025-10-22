@@ -65,7 +65,7 @@ describe('TransitTranscriptionPanel', () => {
       expect(screen.getByText('Ready')).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('button', { name: 'Drag Capture audio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Move Capture audio' })).toBeInTheDocument();
     expect(document.querySelector('[data-workspace-column="left"]')).not.toBeNull();
   });
 });

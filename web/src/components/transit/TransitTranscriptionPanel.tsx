@@ -35,6 +35,7 @@ import { CompactPanel } from '@/components/settings/CompactPanel';
 import { NotificationPanel } from '@/components/settings/NotificationPanel';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { WorkspaceColumn } from '@/components/workspace/WorkspaceColumn';
+import { WorkspaceDragProvider } from '@/modules/workspaceLayout/dragContext';
 import { useWorkspaceLayoutStore, type WorkspacePanelId } from '@/modules/workspaceLayout/store';
 
 const stageLabels: Record<string, string> = {
@@ -1113,16 +1114,18 @@ export function TransitTranscriptionPanel() {
         )}
       </WorkspaceSection>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
-        <WorkspaceColumn columnId="left" panelIds={workspaceLayout.left} renderPanel={renderPanel} />
-        <WorkspaceColumn columnId="center" panelIds={workspaceLayout.center} renderPanel={renderPanel} />
-        <WorkspaceColumn
-          columnId="right"
-          panelIds={workspaceLayout.right}
-          renderPanel={renderPanel}
-          containerId="tts-controls"
-        />
-      </div>
+      <WorkspaceDragProvider>
+        <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
+          <WorkspaceColumn columnId="left" panelIds={workspaceLayout.left} renderPanel={renderPanel} />
+          <WorkspaceColumn columnId="center" panelIds={workspaceLayout.center} renderPanel={renderPanel} />
+          <WorkspaceColumn
+            columnId="right"
+            panelIds={workspaceLayout.right}
+            renderPanel={renderPanel}
+            containerId="tts-controls"
+          />
+        </div>
+      </WorkspaceDragProvider>
       {!hasResults && (
         <div className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/70 p-6 text-sm text-charcoal-600 shadow-sm shadow-charcoal-200/60">
           <p>
