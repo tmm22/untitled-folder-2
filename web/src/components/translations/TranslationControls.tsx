@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, FormEvent } from 'react';
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useTranslationHistoryStore } from '@/modules/translations/store';
 import type { TranslationHistoryState } from '@/modules/translations/store';
 import { useTTSStore } from '@/modules/tts/store';
@@ -44,25 +45,28 @@ function TranslationControlsInner() {
   };
 
   return (
-    <section className="rounded-3xl border border-charcoal-200 bg-cream-50 px-6 py-6 shadow-sm">
-      <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-charcoal-400">Translation</p>
-          <h2 className="text-lg font-semibold text-charcoal-900">Translate editor text before narration</h2>
+    <CollapsibleSection title="Translation" className="flex flex-col gap-5" minHeight={260} maxHeight={680}>
+      <div className="flex flex-col gap-3 rounded-2xl border border-cream-400/70 bg-cream-50/80 p-4 shadow-[0_18px_36px_-28px_rgba(96,68,48,0.55)] sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-cocoa-500">Prepare text</h3>
+          <p className="text-base font-semibold text-charcoal-900">Translate editor text before narration</p>
         </div>
-        <p className="mt-2 text-sm text-charcoal-500 sm:mt-0 sm:text-right">
-          Uses your configured OpenAI credentials. Results sync across your web sessions.
+        <p className="text-sm text-cocoa-600 sm:max-w-xs sm:text-right">
+          Uses your configured OpenAI credentials. Translations sync across your web sessions.
         </p>
-      </header>
+      </div>
 
-      <form className="mt-5 flex flex-col gap-5" onSubmit={handleSubmit}>
+      <form
+        className="flex flex-col gap-5 rounded-2xl border border-cream-300/80 bg-white/70 p-5 shadow-[0_25px_55px_-38px_rgba(96,68,48,0.4)]"
+        onSubmit={handleSubmit}
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex flex-col gap-2 text-sm font-medium text-charcoal-700 sm:flex-1">
-            Target language
+          <label className="flex flex-col gap-2 text-sm font-medium text-charcoal-800 sm:flex-1">
+            <span className="field-label">Target language</span>
             <select
               value={targetLanguageCode}
               onChange={(event) => setTargetLanguageCode(event.target.value)}
-              className="w-full rounded-xl border border-charcoal-200 bg-white px-3 py-2 text-sm font-normal text-charcoal-900 shadow-inner focus:border-charcoal-500 focus:outline-none"
+              className="field-input"
             >
               {availableLanguages.map((language) => (
                 <option key={language.code} value={language.code}>
@@ -71,7 +75,7 @@ function TranslationControlsInner() {
               ))}
             </select>
           </label>
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-charcoal-700">
+          <label className="inline-flex items-center gap-2 rounded-full border border-cream-400/80 bg-cream-100/60 px-4 py-2 text-sm font-medium text-charcoal-800 shadow-[0_12px_28px_-20px_rgba(96,68,48,0.4)]">
             <input
               type="checkbox"
               checked={keepOriginal}
@@ -83,22 +87,24 @@ function TranslationControlsInner() {
         </div>
 
         {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="rounded-xl border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-700 shadow-[0_15px_32px_-28px_rgba(206,91,91,0.5)]">
+            {error}
+          </p>
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <button
             type="submit"
             disabled={isDisabled}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-charcoal-900 px-4 py-2 text-sm font-semibold text-cream-50 transition hover:bg-charcoal-800 disabled:cursor-not-allowed disabled:bg-charcoal-300 sm:w-auto"
+            className="control-button control-button--primary w-full sm:w-auto"
           >
             {isLoading ? 'Translating…' : 'Translate text'}
           </button>
-          <p className="text-xs text-charcoal-500">
+          <p className="text-xs text-cocoa-600">
             Original text is {keepOriginal ? 'preserved for comparison.' : 'replaced with the translated version.'}
           </p>
         </div>
       </form>
-    </section>
+    </CollapsibleSection>
   );
 }

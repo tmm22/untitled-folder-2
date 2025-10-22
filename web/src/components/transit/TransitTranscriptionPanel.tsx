@@ -1208,7 +1208,8 @@ export function TransitTranscriptionPanel() {
     <WorkspaceSection
       id="tts-controls"
       title="Narration controls"
-      className="flex flex-col gap-6 rounded-3xl border border-charcoal-200/70 bg-white/90 p-6 shadow-sm shadow-charcoal-200/60"
+      className="flex flex-col gap-6 rounded-3xl border border-cream-400/80 bg-cream-50/90 p-6 shadow-[0_35px_90px_-60px_rgba(104,74,53,0.55)] backdrop-blur-sm"
+      allowResize={false}
     >
       <ProviderSelector />
       <TextEditor />
