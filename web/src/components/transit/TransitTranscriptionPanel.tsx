@@ -1370,7 +1370,7 @@ export function TransitTranscriptionPanel() {
   return (
     <CollapsibleSection
       title="Narration Studio"
-      className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-6 py-8 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)]"
+      className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-4 py-6 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)] sm:px-6 sm:py-8"
       allowResize={false}
     >
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -1383,7 +1383,7 @@ export function TransitTranscriptionPanel() {
         </div>
         <button
           type="button"
-          className="rounded-full border border-charcoal-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70"
+          className="w-full rounded-full border border-charcoal-300 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70 sm:w-auto"
           onClick={handleReset}
         >
           Reset workspace

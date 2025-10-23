@@ -97,11 +97,11 @@ body {
   }
 
   .collapsible-panel__controls {
-    @apply flex items-center gap-2 rounded-full border border-cream-300/70 bg-cream-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-500;
+    @apply flex flex-wrap items-center gap-2 rounded-2xl border border-cream-300/70 bg-cream-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-500 sm:flex-nowrap sm:gap-3 sm:rounded-full;
   }
 
   .collapsible-panel__toggle {
-    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-700 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60;
+    @apply inline-flex items-start gap-2 rounded-full px-3 py-1 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-700 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60 sm:items-center sm:text-center;
   }
 
   .collapsible-panel__chevron {
@@ -109,15 +109,15 @@ body {
   }
 
   .collapsible-panel__label {
-    @apply whitespace-nowrap;
+    @apply whitespace-normal leading-tight sm:whitespace-nowrap;
   }
 
   .collapsible-panel__spacer {
-    @apply flex-1;
+    @apply basis-full flex-1 sm:basis-auto;
   }
 
   .collapsible-panel__reset {
-    @apply rounded-full border border-cream-300 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-cocoa-500 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60 disabled:cursor-not-allowed disabled:opacity-40;
+    @apply w-full rounded-2xl border border-cream-300 px-3 py-1 text-center text-[11px] font-semibold uppercase tracking-[0.15em] text-cocoa-500 transition hover:bg-cream-200/70 hover:text-charcoal-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:rounded-full;
   }
 
   .collapsible-panel__content {

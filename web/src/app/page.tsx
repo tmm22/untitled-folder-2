@@ -41,13 +41,13 @@ export default function Home() {
   ];
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12 text-cocoa-900">
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-4 py-10 text-cocoa-900 sm:px-6 sm:py-12">
       <AccountBootstrapper />
-      <header className="rounded-3xl bg-charcoal-900 px-8 py-10 text-cream-50 shadow-[0_35px_70px_-35px_rgba(33,28,25,0.8)]">
+      <header className="rounded-3xl bg-charcoal-900 px-6 py-8 text-cream-50 shadow-[0_35px_70px_-35px_rgba(33,28,25,0.8)] sm:px-8 sm:py-10">
         <p className="text-xs font-semibold uppercase tracking-[0.4em] text-accent-300">
           Narration studio
         </p>
-        <h1 className="mt-3 text-4xl font-semibold text-cream-50 md:text-5xl">Transcribe, clean, and narrate in one flow</h1>
+        <h1 className="mt-3 text-3xl font-semibold text-cream-50 sm:text-4xl md:text-5xl">Transcribe, clean, and narrate in one flow</h1>
         <p className="mt-4 max-w-3xl text-base text-charcoal-200">
           Capture audio, polish transcripts with cleanup presets, and generate speech with your favourite providers — the unified workspace lives under one roof.
         </p>
