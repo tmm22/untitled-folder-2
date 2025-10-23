@@ -59,6 +59,7 @@
 
 ## Reference Material
 - `web/README.md` walks through the studio feature set—update it when UI flows or dependencies shift.
+- `Docs/project_maintenance_playbook.md` documents the long-term maintenance cadence, dependency workflows, and release procedures shared across the app and web workspaces.
 - `web/convex/README.md` covers Convex deployment steps and schema regeneration details.
 - Reuse assets from `src/tests/mocks/` and `src/tests/fixtures/` for deterministic test data; keep mocks colocated with the features they support.
 - Cross-check the native app guidance in the root `AGENTS.md`, `ARCHITECTURE.md`, and `IMPLEMENTATION_GUIDE.md` when building shared functionality.
