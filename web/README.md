@@ -1,6 +1,6 @@
 ## Overview
 
-The web workspace powers rapid iteration on the studio UI. It includes content imports, history management, pronunciation glossaries, batch queueing, and (now) configurable automation pipelines that chain Convex actions together.
+The web workspace powers rapid iteration on the studio UI. It includes content imports, history management, pronunciation glossaries, batch queueing, and (now) configurable automation pipelines that chain Convex actions together. For detailed architecture, development, and security guidelines see [agents.md](./agents.md).
 
 ### Transit Transcription Workspace
 - Record live microphone sessions or upload audio, then watch transcripts stream in with summaries and action items.
