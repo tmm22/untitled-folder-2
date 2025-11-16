@@ -13,7 +13,7 @@
     "test:e2e": "playwright test --config=playwright.config.ts"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.51.0",
+    "@clerk/clerk-react": "^5.55.0",
     "@clerk/nextjs": "^6.34.0",
     "@polar-sh/sdk": "^0.37.0",
     "@stablelib/random": "^2.0.1",
