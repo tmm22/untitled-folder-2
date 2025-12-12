@@ -21,7 +21,7 @@
     "@stablelib/xchacha20poly1305": "^2.0.1",
     "convex": "^1.28.0",
     "idb-keyval": "^6.2.2",
-    "next": "^15.5.7",
+    "next": "^15.5.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zustand": "^5.0.8"
