@@ -18,6 +18,13 @@ function readCookieValue(header: string | null, name: string): string | null {
   return entry ? entry.slice(name.length + 1) || null : null;
 }
 
+function isDevModeAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  return true;
+}
+
 function resolveFromAuthorization(header: string | null): RequestIdentity | null {
   if (!header || !header.startsWith('Bearer ')) {
     return null;
@@ -32,6 +39,10 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
     if (process.env.AUTH_DEV_TOKENS !== '1') {
       return null;
     }
+    if (!isDevModeAllowed()) {
+      console.error('[SECURITY] AUTH_DEV_TOKENS is set but ignored in production');
+      return null;
+    }
     return {
       userId: token.slice(devPrefix.length) || null,
       isVerified: true,
@@ -43,9 +54,14 @@ function resolveFromAuthorization(header: string | null): RequestIdentity | null
     return null;
   }
 
+  if (!isDevModeAllowed()) {
+    console.error('[SECURITY] AUTH_ASSUME_TRUST is set but ignored in production');
+    return null;
+  }
+
   return {
     userId: token,
-    isVerified: Boolean(process.env.AUTH_ASSUME_TRUST === '1'),
+    isVerified: true,
     source: 'authorization',
   };
 }

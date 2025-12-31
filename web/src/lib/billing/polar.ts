@@ -13,8 +13,18 @@ function resolvePlanId(planTier: string): string | null {
   return fallback ?? null;
 }
 
-function resolveSuccessUrl(): string {
-  return process.env.POLAR_CHECKOUT_SUCCESS_URL?.trim() ?? 'https://example.com/billing/success';
+function resolveSuccessUrl(): string | null {
+  const url = process.env.POLAR_CHECKOUT_SUCCESS_URL?.trim();
+  if (url) {
+    return url;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[BILLING] POLAR_CHECKOUT_SUCCESS_URL must be configured in production');
+    return null;
+  }
+
+  return 'http://localhost:3000/billing/success';
 }
 
 function resolveCustomerPortalFallback(): string | null {
@@ -52,10 +62,19 @@ export async function createCheckoutSession(request: CheckoutRequest): Promise<B
     };
   }
 
+  const successUrl = resolveSuccessUrl();
+  if (!successUrl) {
+    return {
+      ok: false,
+      url: null,
+      message: 'Polar checkout success URL not configured.',
+    };
+  }
+
   try {
     const checkout = await configuration.client.checkouts.create({
       products: [planId],
-      successUrl: resolveSuccessUrl(),
+      successUrl,
       metadata: buildCheckoutMetadata(request),
       externalCustomerId: request.userId,
     });

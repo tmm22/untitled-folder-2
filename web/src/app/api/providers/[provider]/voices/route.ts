@@ -9,6 +9,22 @@ type ProviderRouteContext = {
   }>;
 };
 
+function sanitizeErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'Unable to load voices';
+  }
+  if (error.message.includes('API key') || error.message.includes('401') || error.message.includes('403')) {
+    return 'Authentication failed. Please check your API key.';
+  }
+  if (error.message.includes('rate limit') || error.message.includes('429')) {
+    return 'Rate limit exceeded. Please try again later.';
+  }
+  if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+    return 'Request timed out. Please try again.';
+  }
+  return 'Unable to load voices';
+}
+
 export async function GET(request: Request, context: ProviderRouteContext) {
   const params = await context.params;
   const provider = params.provider as ProviderType | undefined;
@@ -27,9 +43,10 @@ export async function GET(request: Request, context: ProviderRouteContext) {
     const voices = await adapter.listVoices();
     return NextResponse.json(voices);
   } catch (error) {
+    console.error('Failed to load voices', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Unable to load voices',
+        error: sanitizeErrorMessage(error),
       },
       { status: 400 },
     );

@@ -1,6 +1,67 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
+const pipelineStepKind = v.union(
+  v.literal('clean'),
+  v.literal('summarise'),
+  v.literal('translate'),
+  v.literal('tone'),
+  v.literal('chunk'),
+  v.literal('queue'),
+);
+
+const pipelineStep = v.object({
+  id: v.string(),
+  kind: pipelineStepKind,
+  label: v.optional(v.string()),
+  options: v.object({
+    preserveQuotes: v.optional(v.boolean()),
+    normaliseWhitespace: v.optional(v.boolean()),
+    stripBullets: v.optional(v.boolean()),
+    bulletCount: v.optional(v.number()),
+    includeKeywords: v.optional(v.boolean()),
+    style: v.optional(v.union(v.literal('bullets'), v.literal('paragraph'))),
+    targetLanguage: v.optional(v.string()),
+    keepOriginal: v.optional(v.boolean()),
+    tone: v.optional(v.union(v.literal('neutral'), v.literal('friendly'), v.literal('formal'), v.literal('dramatic'))),
+    audienceHint: v.optional(v.string()),
+    strategy: v.optional(v.union(v.literal('paragraph'), v.literal('sentence'))),
+    maxCharacters: v.optional(v.number()),
+    joinShortSegments: v.optional(v.boolean()),
+    provider: v.optional(v.string()),
+    voicePreference: v.optional(v.union(v.literal('history'), v.literal('default'), v.literal('custom'))),
+    voiceId: v.optional(v.string()),
+    segmentDelayMs: v.optional(v.number()),
+  }),
+});
+
+const pipelineSchedule = v.object({
+  cron: v.string(),
+  description: v.optional(v.string()),
+});
+
+const pipelineDefaultSource = v.object({
+  kind: v.literal('url'),
+  value: v.string(),
+});
+
+const transcriptSegment = v.object({
+  start: v.number(),
+  end: v.number(),
+  text: v.string(),
+  confidence: v.optional(v.number()),
+});
+
+const credentialMetadata = v.object({
+  description: v.optional(v.string()),
+  source: v.optional(v.string()),
+});
+
+const translationMetadata = v.object({
+  model: v.optional(v.string()),
+  tokensUsed: v.optional(v.number()),
+});
+
 export default defineSchema({
   provisioning_credentials: defineTable({
     id: v.string(),
@@ -14,7 +75,7 @@ export default defineSchema({
     expiresAt: v.number(),
     status: v.string(),
     providerReference: v.optional(v.string()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(credentialMetadata),
     lastRotatedAt: v.optional(v.number()),
   })
     .index('by_credential_id', ['id'])
@@ -74,7 +135,7 @@ export default defineSchema({
     text: v.string(),
     createdAt: v.string(),
     durationMs: v.number(),
-    transcript: v.optional(v.any()),
+    transcript: v.optional(v.array(transcriptSegment)),
   })
     .index('by_user', ['userId'])
     .index('by_user_entry', ['userId', 'id']),
@@ -93,7 +154,7 @@ export default defineSchema({
     keepOriginalApplied: v.boolean(),
     adoptedAt: v.optional(v.string()),
     provider: v.string(),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(translationMetadata),
   })
     .index('by_account_document_seq', ['accountId', 'documentId', 'sequenceIndex'])
     .index('by_account_translation', ['accountId', 'translationId']),
@@ -108,9 +169,9 @@ export default defineSchema({
     id: v.string(),
     name: v.string(),
     description: v.optional(v.string()),
-    steps: v.array(v.any()),
-    schedule: v.optional(v.any()),
-    defaultSource: v.optional(v.any()),
+    steps: v.array(pipelineStep),
+    schedule: v.optional(pipelineSchedule),
+    defaultSource: v.optional(pipelineDefaultSource),
     webhookSecret: v.string(),
     createdAt: v.string(),
     updatedAt: v.string(),

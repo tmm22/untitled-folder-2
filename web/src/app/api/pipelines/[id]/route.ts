@@ -6,14 +6,14 @@ import {
 } from '../context';
 import { parseUpdatePayload } from '../_lib/validate';
 
-type PipelineParams = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_: Request, context: any): Promise<Response> {
-  const { params } = context as PipelineParams;
+export async function GET(_: Request, context: RouteContext): Promise<Response> {
+  const { id } = await context.params;
 
   const respondWithPipeline = async (): Promise<Response> => {
     const repository = getPipelineRepository();
-    const pipeline = await repository.get(params.id);
+    const pipeline = await repository.get(id);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
@@ -36,8 +36,8 @@ export async function GET(_: Request, context: any): Promise<Response> {
   }
 }
 
-export async function PATCH(request: Request, context: any): Promise<Response> {
-  const { params } = context as PipelineParams;
+export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
+  const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   let input;
   try {
@@ -62,7 +62,7 @@ export async function PATCH(request: Request, context: any): Promise<Response> {
 
   const performUpdate = async (): Promise<Response> => {
     const repository = getPipelineRepository();
-    const pipeline = await repository.update(params.id, input);
+    const pipeline = await repository.update(id, input);
     return NextResponse.json({ pipeline });
   };
 
@@ -88,12 +88,12 @@ export async function PATCH(request: Request, context: any): Promise<Response> {
   }
 }
 
-export async function DELETE(_: Request, context: any): Promise<Response> {
-  const { params } = context as PipelineParams;
+export async function DELETE(_: Request, context: RouteContext): Promise<Response> {
+  const { id } = await context.params;
 
   const performDelete = async (): Promise<Response> => {
     const repository = getPipelineRepository();
-    await repository.delete(params.id);
+    await repository.delete(id);
     return NextResponse.json({ success: true });
   };
 

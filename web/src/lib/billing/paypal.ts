@@ -7,6 +7,25 @@ import type { BillingPortalRequest, BillingResult, CheckoutRequest } from './typ
 
 const DEFAULT_SUCCESS_MESSAGE = 'Subscription updated.';
 
+function resolveReturnUrls(): { returnUrl: string; cancelUrl: string } | null {
+  const returnUrl = process.env.PAYPAL_SUCCESS_URL?.trim();
+  const cancelUrl = process.env.PAYPAL_CANCEL_URL?.trim();
+
+  if (returnUrl && cancelUrl) {
+    return { returnUrl, cancelUrl };
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[BILLING] PAYPAL_SUCCESS_URL and PAYPAL_CANCEL_URL must be configured in production');
+    return null;
+  }
+
+  return {
+    returnUrl: returnUrl ?? 'http://localhost:3000/billing/success',
+    cancelUrl: cancelUrl ?? 'http://localhost:3000/billing/cancel',
+  };
+}
+
 function resolvePlanId(planTier: string): string {
   const tierKey = `PAYPAL_PLAN_ID_${planTier.toUpperCase()}`;
   return process.env[tierKey]?.trim() ?? process.env.PAYPAL_PLAN_ID?.trim() ?? 'plan_placeholder';
@@ -26,12 +45,17 @@ export async function createCheckoutSession(request: CheckoutRequest): Promise<B
     return { ok: false, url: null, message: 'PayPal not configured; using application default upgrade flow.' };
   }
 
+  const urls = resolveReturnUrls();
+  if (!urls) {
+    return { ok: false, url: null, message: 'PayPal return URLs not configured.' };
+  }
+
   const payload: PayPalCreateSubscriptionRequest = {
     planId: resolvePlanId(request.planTier),
     userId: request.userId,
     planTier: request.planTier,
-    returnUrl: process.env.PAYPAL_SUCCESS_URL ?? 'https://example.com/billing/success',
-    cancelUrl: process.env.PAYPAL_CANCEL_URL ?? 'https://example.com/billing/cancel',
+    returnUrl: urls.returnUrl,
+    cancelUrl: urls.cancelUrl,
   };
 
   try {
