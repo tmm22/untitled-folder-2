@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
@@ -24,6 +24,17 @@ export interface PipelineRepository {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function safeSecretCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  try {
+    return timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+  } catch {
+    return false;
+  }
 }
 
 function applyUpdate(pipeline: PipelineDefinition, input: PipelineUpdateInput): PipelineDefinition {
@@ -60,7 +71,7 @@ export class InMemoryPipelineRepository implements PipelineRepository {
 
   async findByWebhookSecret(secret: string): Promise<PipelineDefinition | null> {
     for (const pipeline of this.pipelines.values()) {
-      if (pipeline.webhookSecret === secret) {
+      if (safeSecretCompare(pipeline.webhookSecret, secret)) {
         return pipeline;
       }
     }
@@ -176,7 +187,7 @@ export class JsonFilePipelineRepository implements PipelineRepository {
 
   async findByWebhookSecret(secret: string): Promise<PipelineDefinition | null> {
     const pipelines = await this.load();
-    return pipelines.find((pipeline) => pipeline.webhookSecret === secret) ?? null;
+    return pipelines.find((pipeline) => safeSecretCompare(pipeline.webhookSecret, secret)) ?? null;
   }
 
   async create(input: PipelineCreateInput): Promise<PipelineDefinition> {

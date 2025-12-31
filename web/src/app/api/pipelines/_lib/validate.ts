@@ -11,6 +11,27 @@ import type {
 
 const STEP_KINDS: PipelineStepKind[] = ['clean', 'summarise', 'translate', 'tone', 'chunk', 'queue'];
 
+interface UnvalidatedStep {
+  id?: unknown;
+  kind?: unknown;
+  label?: unknown;
+  options?: unknown;
+}
+
+interface UnvalidatedRunSource {
+  type?: unknown;
+  url?: unknown;
+  identifier?: unknown;
+  id?: unknown;
+}
+
+interface UnvalidatedRunPayload {
+  content?: unknown;
+  title?: unknown;
+  summary?: unknown;
+  source?: unknown;
+}
+
 function ensureString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw NextResponse.json({ error: `${field} must be a non-empty string` }, { status: 400 });
@@ -47,14 +68,14 @@ function cloneOptions<T>(value: T): T {
   return JSON.parse(JSON.stringify(value ?? {}));
 }
 
-function ensureStep(step: any): PipelineStep {
+function ensureStep(step: UnvalidatedStep): PipelineStep {
   if (!step || typeof step !== 'object') {
     throw NextResponse.json({ error: 'Invalid pipeline step' }, { status: 400 });
   }
   if (typeof step.id !== 'string' || step.id.trim().length === 0) {
     throw NextResponse.json({ error: 'Pipeline step requires an id' }, { status: 400 });
   }
-  if (!STEP_KINDS.includes(step.kind)) {
+  if (!STEP_KINDS.includes(step.kind as PipelineStepKind)) {
     throw NextResponse.json({ error: `Unsupported pipeline step kind: ${step.kind}` }, { status: 400 });
   }
   if (!step.options || typeof step.options !== 'object') {
@@ -65,7 +86,7 @@ function ensureStep(step: any): PipelineStep {
 
   return {
     id: step.id.trim(),
-    kind: step.kind,
+    kind: step.kind as PipelineStepKind,
     label: ensureOptionalString(step.label),
     options: normalizedOptions,
   } as PipelineStep;
@@ -80,8 +101,8 @@ function ensureRunSource(value: unknown): PipelineRunSource | undefined {
   if (typeof value !== 'object') {
     throw NextResponse.json({ error: 'source must be an object' }, { status: 400 });
   }
-  const candidate = value as any;
-  if (!SOURCE_TYPES.has(candidate.type)) {
+  const candidate = value as UnvalidatedRunSource;
+  if (!SOURCE_TYPES.has(candidate.type as PipelineRunSource['type'])) {
     throw NextResponse.json({ error: 'source.type is invalid' }, { status: 400 });
   }
 
@@ -94,7 +115,7 @@ function ensureRunSource(value: unknown): PipelineRunSource | undefined {
   }
 
   return {
-    type: candidate.type,
+    type: candidate.type as PipelineRunSource['type'],
     identifier,
   };
 }
@@ -166,7 +187,7 @@ export function parseRunPayload(body: unknown, pipelineId: string): PipelineRunI
   if (!body || typeof body !== 'object') {
     throw NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
-  const payload = body as any;
+  const payload = body as UnvalidatedRunPayload;
   const content = typeof payload.content === 'string' && payload.content.trim().length > 0
     ? payload.content.trim()
     : undefined;
