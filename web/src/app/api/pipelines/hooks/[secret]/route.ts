@@ -6,21 +6,67 @@ import {
 } from '../../context';
 import { parseRunPayload } from '../../_lib/validate';
 import { runPipelineOnServer } from '../../_lib/runner';
+import {
+  verifyWebhookSignature,
+  verifyWebhookTimestamp,
+  getWebhookHeaders,
+  isHmacRequired,
+} from '@/lib/pipelines/webhookAuth';
 
-type PipelineWebhookParams = { params: { secret: string } };
+type RouteContext = { params: Promise<{ secret: string }> };
 
-export async function POST(request: Request, context: any): Promise<Response> {
-  const { params } = context as PipelineWebhookParams;
-  const rawBody = await request.json().catch(() => ({}));
+interface WebhookRequestBody {
+  content?: string;
+  title?: string;
+  summary?: string;
+  source?: {
+    type: string;
+    url?: string;
+    identifier?: string;
+    id?: string;
+  };
+}
+
+export async function POST(request: Request, context: RouteContext): Promise<Response> {
+  const { secret } = await context.params;
+
+  const rawBodyText = await request.text();
+  let rawBody: WebhookRequestBody;
+  try {
+    rawBody = rawBodyText ? JSON.parse(rawBodyText) : {};
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
   const executeWebhook = async (): Promise<Response> => {
     const repository = getPipelineRepository();
-    const pipeline = await repository.findByWebhookSecret(params.secret);
+    const pipeline = await repository.findByWebhookSecret(secret);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 
-    const bodyWithDefaults: any = { ...rawBody };
+    const { signature, timestamp } = getWebhookHeaders(request);
+
+    if (isHmacRequired() || signature) {
+      const signatureResult = verifyWebhookSignature(
+        pipeline.webhookSecret,
+        rawBodyText,
+        signature,
+        timestamp,
+      );
+      if (!signatureResult.valid) {
+        return NextResponse.json({ error: signatureResult.error }, { status: 401 });
+      }
+    }
+
+    if (timestamp) {
+      const timestampResult = verifyWebhookTimestamp(timestamp);
+      if (!timestampResult.valid) {
+        return NextResponse.json({ error: timestampResult.error }, { status: 401 });
+      }
+    }
+
+    const bodyWithDefaults: WebhookRequestBody = { ...rawBody };
     if (
       (!rawBody || (typeof rawBody === 'object' && !rawBody.content && !rawBody.source)) &&
       pipeline.defaultSource?.kind === 'url'
