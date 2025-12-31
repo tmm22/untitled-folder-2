@@ -24,22 +24,17 @@ vi.mock('@/lib/auth/identity', () => ({
 let PATCH: typeof import('@/app/api/account/route').PATCH;
 
 describe('PATCH /api/account security', () => {
-  const originalEnvSecret = process.env.ACCOUNT_UPDATE_SECRET;
-
   beforeEach(async () => {
+    vi.unstubAllEnvs(); // Ensure clean state
     getAccountRepositoryMock.mockClear();
     updateAccountMock.mockClear();
     resolveIdentityMock.mockReturnValue({ userId: 'user-123', isVerified: true, source: 'clerk' });
     PATCH = (await import('@/app/api/account/route')).PATCH;
-    delete process.env.ACCOUNT_UPDATE_SECRET;
+    vi.stubEnv('ACCOUNT_UPDATE_SECRET', undefined); // Explicitly unset it
   });
 
   afterEach(() => {
-    if (originalEnvSecret !== undefined) {
-      process.env.ACCOUNT_UPDATE_SECRET = originalEnvSecret;
-    } else {
-      delete process.env.ACCOUNT_UPDATE_SECRET;
-    }
+    vi.unstubAllEnvs();
   });
 
   const buildRequest = (body: unknown, headers: Record<string, string> = {}) =>
@@ -61,7 +56,7 @@ describe('PATCH /api/account security', () => {
   });
 
   it('rejects updates with missing token header', async () => {
-    process.env.ACCOUNT_UPDATE_SECRET = 'test-secret';
+    vi.stubEnv('ACCOUNT_UPDATE_SECRET', 'test-secret');
     const response = await PATCH(
       buildRequest({ planTier: 'starter', billingStatus: 'active' as AccountPayload['billingStatus'] }),
     );
@@ -70,7 +65,7 @@ describe('PATCH /api/account security', () => {
   });
 
   it('rejects updates with invalid token header', async () => {
-    process.env.ACCOUNT_UPDATE_SECRET = 'test-secret';
+    vi.stubEnv('ACCOUNT_UPDATE_SECRET', 'test-secret');
     const response = await PATCH(
       buildRequest(
         { planTier: 'starter', billingStatus: 'active' as AccountPayload['billingStatus'] },
@@ -82,7 +77,7 @@ describe('PATCH /api/account security', () => {
   });
 
   it('accepts updates with valid credentials', async () => {
-    process.env.ACCOUNT_UPDATE_SECRET = 'test-secret';
+    vi.stubEnv('ACCOUNT_UPDATE_SECRET', 'test-secret');
     const response = await PATCH(
       buildRequest(
         { planTier: 'starter', billingStatus: 'active' as AccountPayload['billingStatus'] },

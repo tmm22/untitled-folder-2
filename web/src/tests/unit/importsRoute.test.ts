@@ -5,11 +5,10 @@ let POST: typeof import('@/app/api/imports/route').POST;
 const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
 const originalFetch = globalThis.fetch;
 
-vi.mock('node:dns/promises', async () => {
-  const actual = await vi.importActual<typeof import('node:dns/promises')>('node:dns/promises');
+vi.mock('node:dns/promises', () => {
   return {
-    ...actual,
     lookup: lookupMock,
+    default: { lookup: lookupMock },
   };
 });
 
