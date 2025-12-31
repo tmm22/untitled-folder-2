@@ -54,7 +54,7 @@
 
 ## Deployment
 - `bun run build` must pass on Node 18+ (or Bun runtime); fix lint and type errors locally before pushing.
-- Deploy to Vercel or a Node-compatible host with the full env variable set: Clerk keys, Convex URL/admin key, billing provider secrets, and pipeline fallbacks where needed.
+- Deploy to Vercel (configured via `vercel.json`) or a Node-compatible host with the full env variable set: Clerk keys, Convex URL/admin key, billing provider secrets, and pipeline fallbacks where needed.
 - Bump `web/package.json` using `npm version` (or manually) and document release notes in `Docs/WEB_VERSIONING.md`; bundle metadata appears in the footer badge.
 
 ## Reference Material
