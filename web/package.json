@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.55.0",
-    "@clerk/nextjs": "^6.34.0",
+    "@clerk/nextjs": "^6.36.5",
     "@polar-sh/sdk": "^0.37.0",
     "@stablelib/random": "^2.0.1",
     "@stablelib/wipe": "^2.0.1",
@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -35,7 +36,6 @@
     "@types/node": "^24",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@tailwindcss/postcss": "^4.1.18",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.10",
     "fake-indexeddb": "^6.2.2",
