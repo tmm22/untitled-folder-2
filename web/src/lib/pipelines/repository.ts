@@ -306,12 +306,12 @@ export class ConvexPipelineRepository implements PipelineRepository {
 
   async get(id: string): Promise<PipelineDefinition | null> {
     const result = await this.query(api.pipelines.get, { id });
-    return result.pipeline ?? null;
+    return (result.pipeline as PipelineDefinition | undefined) ?? null;
   }
 
   async findByWebhookSecret(secret: string): Promise<PipelineDefinition | null> {
     const result = await this.query(api.pipelines.findByWebhookSecret, { secret });
-    return result.pipeline ?? null;
+    return (result.pipeline as PipelineDefinition | undefined) ?? null;
   }
 
   async create(input: PipelineCreateInput): Promise<PipelineDefinition> {
@@ -319,7 +319,7 @@ export class ConvexPipelineRepository implements PipelineRepository {
     if (!result.pipeline) {
       throw new Error('Convex pipelines request failed: empty pipeline response');
     }
-    return result.pipeline;
+    return result.pipeline as PipelineDefinition;
   }
 
   async update(id: string, input: PipelineUpdateInput): Promise<PipelineDefinition> {
@@ -327,7 +327,7 @@ export class ConvexPipelineRepository implements PipelineRepository {
     if (!result.pipeline) {
       throw new Error('Convex pipelines request failed: pipeline not found');
     }
-    return result.pipeline;
+    return result.pipeline as PipelineDefinition;
   }
 
   async delete(id: string): Promise<void> {
