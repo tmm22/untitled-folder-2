@@ -121,6 +121,9 @@
 - Deploy to Vercel (configured via `vercel.json`) or a Node-compatible host with the full env variable set: Clerk keys, Convex URL/admin key, billing provider secrets, and pipeline fallbacks where needed.
 - Bump `web/package.json` using `npm version` (or manually) and document release notes in `Docs/WEB_VERSIONING.md`; bundle metadata appears in the footer badge.
 
+## Graphite Workflow (Required)
+See the root `AGENTS.md` for Graphite CLI commands. Use `gt submit` instead of `git push` or `gh pr create` for all PRs.
+
 ## Reference Material
 - `web/README.md` walks through the studio feature set—update it when UI flows or dependencies shift.
 - `Docs/project_maintenance_playbook.md` documents the long-term maintenance cadence, dependency workflows, and release procedures shared across the app and web workspaces.

@@ -15,6 +15,26 @@ All new functionality needs corresponding XCTest coverage under `Tests/`. Mirror
 ## Commit & Pull Request Guidelines
 This workspace currently lacks Git history; once the repo is initialised, keep commit subjects concise, imperative, and ≤72 characters (e.g., `feat: add compact layout toggle`). Explain the why in the body when changes are non-trivial. Pull requests should include: summary of behaviour change, list of affected modules, test evidence (`swift test`), and screenshots or screen recordings for UI adjustments. Link related issues or product specs to keep review context intact.
 
+## Graphite Workflow (Required)
+This repository uses Graphite for stacked PRs. Agents MUST use Graphite CLI (`gt`) commands instead of standard Git/GitHub commands:
+
+| Instead of... | Use... |
+|---------------|--------|
+| `git checkout -b feature` | `gt create feature` |
+| `git push` | `gt submit` |
+| `gh pr create` | `gt submit` (creates PR automatically) |
+| `git rebase` | `gt sync` |
+| `git merge` | `gt merge` |
+
+### Key Commands
+- `gt create <branch-name>` - Create a new stacked branch
+- `gt submit` - Push and create/update PRs for the stack
+- `gt sync` - Sync with trunk and restack branches
+- `gt log` - View the current stack
+- `gt checkout <branch>` - Switch branches within the stack
+
+Never use `git push origin` or `gh pr create` directly.
+
 ## Security & Configuration Tips
 Never commit real API keys—configuration lives in macOS Keychain via `KeychainManager`. When sharing sample settings, redact secrets and use obvious placeholders (`ELEVENLABS_API_KEY`). Verify new network capabilities against `TextToSpeechApp.entitlements`; request only the minimal sandbox permissions needed. Review `Info.plist` strings whenever user-facing permissions text changes.
 All outbound network calls must go through the ephemeral `SecureURLSession` helper so responses and cookies stay in memory only. The sandbox entitlements are limited to `com.apple.security.network.client` and user-selected read/write access—avoid reintroducing Downloads or microphone permissions unless a feature strictly requires them.
