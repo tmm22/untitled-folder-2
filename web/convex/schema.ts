@@ -55,6 +55,8 @@ const transcriptSegment = v.object({
 const credentialMetadata = v.object({
   description: v.optional(v.string()),
   source: v.optional(v.string()),
+  planTier: v.optional(v.string()),
+  scopes: v.optional(v.array(v.string())),
 });
 
 const translationMetadata = v.object({

@@ -4,6 +4,8 @@ import { v } from 'convex/values';
 type CredentialMetadata = {
   description?: string;
   source?: string;
+  planTier?: string;
+  scopes?: string[];
 };
 
 type CredentialRecord = {
@@ -35,6 +37,8 @@ const credentialMetadataValidator = v.optional(
   v.object({
     description: v.optional(v.string()),
     source: v.optional(v.string()),
+    planTier: v.optional(v.string()),
+    scopes: v.optional(v.array(v.string())),
   }),
 );
 
