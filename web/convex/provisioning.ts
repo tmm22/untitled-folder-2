@@ -1,6 +1,11 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 
+type CredentialMetadata = {
+  description?: string;
+  source?: string;
+};
+
 type CredentialRecord = {
   id: string;
   userId: string;
@@ -13,7 +18,7 @@ type CredentialRecord = {
   expiresAt: number;
   status: string;
   providerReference?: string;
-  metadata?: unknown;
+  metadata?: CredentialMetadata;
   lastRotatedAt?: number;
 };
 
@@ -25,6 +30,13 @@ type UsageRecord = {
   costMinorUnits: number;
   recordedAt: number;
 };
+
+const credentialMetadataValidator = v.optional(
+  v.object({
+    description: v.optional(v.string()),
+    source: v.optional(v.string()),
+  }),
+);
 
 export const saveCredential = mutation({
   args: {
@@ -40,7 +52,7 @@ export const saveCredential = mutation({
       expiresAt: v.number(),
       status: v.string(),
       providerReference: v.optional(v.string()),
-      metadata: v.optional(v.any()),
+      metadata: credentialMetadataValidator,
       lastRotatedAt: v.optional(v.number()),
     }),
   },

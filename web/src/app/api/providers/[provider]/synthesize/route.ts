@@ -22,6 +22,28 @@ type ProvisioningUsageRecorder = {
   }) => Promise<unknown>;
 };
 
+function sanitizeSynthesisError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'Failed to synthesize speech';
+  }
+  if (error.message.includes('API key') || error.message.includes('401') || error.message.includes('403')) {
+    return 'Authentication failed. Please check your API key.';
+  }
+  if (error.message.includes('rate limit') || error.message.includes('429')) {
+    return 'Rate limit exceeded. Please try again later.';
+  }
+  if (error.message.includes('quota') || error.message.includes('limit exceeded')) {
+    return 'Usage quota exceeded.';
+  }
+  if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+    return 'Request timed out. Please try again.';
+  }
+  if (error.message.includes('voice') && error.message.includes('not found')) {
+    return 'The selected voice is not available.';
+  }
+  return 'Failed to synthesize speech';
+}
+
 export async function POST(request: Request, context: ProviderRouteContext) {
   const params = await context.params;
   const provider = params.provider as ProviderType | undefined;
@@ -75,9 +97,10 @@ export async function POST(request: Request, context: ProviderRouteContext) {
 
     return NextResponse.json(result);
   } catch (error) {
+    console.error('Failed to synthesize speech', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to synthesize speech',
+        error: sanitizeSynthesisError(error),
       },
       { status: 500 },
     );

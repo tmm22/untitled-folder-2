@@ -7,15 +7,15 @@ import {
 import { parseRunPayload } from '../../_lib/validate';
 import { runPipelineOnServer } from '../../_lib/runner';
 
-type PipelineRunParams = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(request: Request, context: any): Promise<Response> {
-  const { params } = context as PipelineRunParams;
+export async function POST(request: Request, context: RouteContext): Promise<Response> {
+  const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
 
   const executeRun = async (): Promise<Response> => {
     const repository = getPipelineRepository();
-    const pipeline = await repository.get(params.id);
+    const pipeline = await repository.get(id);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
