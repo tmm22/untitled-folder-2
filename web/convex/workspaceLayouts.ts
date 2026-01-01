@@ -4,6 +4,11 @@ import type { Doc } from './_generated/dataModel';
 
 type WorkspaceLayoutDoc = Doc<'workspace_layouts'>;
 
+const tabSchema = v.object({
+  id: v.string(),
+  panels: v.array(v.string()),
+});
+
 const columnSchema = v.object({
   id: v.string(),
   panels: v.array(v.string()),
@@ -11,7 +16,9 @@ const columnSchema = v.object({
 
 const layoutSchema = v.object({
   version: v.number(),
-  columns: v.array(columnSchema),
+  tabs: v.optional(v.array(tabSchema)),
+  columns: v.optional(v.array(columnSchema)),
+  activeTabId: v.optional(v.string()),
 });
 
 const mapDoc = (doc: WorkspaceLayoutDoc) => ({

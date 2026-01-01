@@ -17,7 +17,6 @@ vi.mock('@/lib/workspaceLayout/repository', () => {
   };
 });
 
-// Import after mocks are registered.
 import { useWorkspaceLayoutStore } from '@/modules/workspaceLayout/store';
 
 const mockRepository = (globalThis as {
@@ -40,6 +39,7 @@ describe('workspace layout store', () => {
     useWorkspaceLayoutStore.setState((state) => ({
       ...state,
       layout: cloneDefaultLayout(),
+      activeTabId: DEFAULT_WORKSPACE_LAYOUT.activeTabId ?? 'capture',
       hydratedForUserId: undefined,
       pendingUserId: undefined,
       hydrationRequestId: undefined,
@@ -74,11 +74,14 @@ describe('workspace layout store', () => {
 
     pending.get('user_a')?.resolve({
       version: CURRENT_WORKSPACE_LAYOUT_VERSION,
-      columns: [
-        { id: 'left', panelIds: ['pipelineStatus'] },
-        { id: 'center', panelIds: [] },
-        { id: 'right', panelIds: [] },
-        { id: 'full', panelIds: [] },
+      activeTabId: 'capture',
+      tabs: [
+        { id: 'capture', panelIds: ['captureAudio'] },
+        { id: 'transcript', panelIds: [] },
+        { id: 'calendar', panelIds: [] },
+        { id: 'narration', panelIds: [] },
+        { id: 'history', panelIds: [] },
+        { id: 'settings', panelIds: [] },
       ],
     });
     await requestA;
@@ -90,11 +93,14 @@ describe('workspace layout store', () => {
 
     pending.get('user_b')?.resolve({
       version: CURRENT_WORKSPACE_LAYOUT_VERSION,
-      columns: [
-        { id: 'left', panelIds: ['captureAudio'] },
-        { id: 'center', panelIds: [] },
-        { id: 'right', panelIds: ['ttsControls'] },
-        { id: 'full', panelIds: ['pipelineStatus'] },
+      activeTabId: 'narration',
+      tabs: [
+        { id: 'capture', panelIds: ['uploadAudio'] },
+        { id: 'transcript', panelIds: [] },
+        { id: 'calendar', panelIds: [] },
+        { id: 'narration', panelIds: ['voiceSettings', 'scriptEditor'] },
+        { id: 'history', panelIds: [] },
+        { id: 'settings', panelIds: [] },
       ],
     });
     await requestB;
@@ -104,7 +110,9 @@ describe('workspace layout store', () => {
     expect(state.pendingUserId).toBeUndefined();
     expect(state.isHydrating).toBe(false);
 
-    const leftColumn = state.layout.columns.find((column) => column.id === 'left');
-    expect(leftColumn?.panelIds).toContain('captureAudio');
+    const captureTab = state.layout.tabs.find((tab) => tab.id === 'capture');
+    expect(captureTab?.panelIds).toContain('uploadAudio');
+    const narrationTab = state.layout.tabs.find((tab) => tab.id === 'narration');
+    expect(narrationTab?.panelIds).toContain('voiceSettings');
   });
 });

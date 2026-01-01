@@ -44,10 +44,11 @@ describe('workspace layout route', () => {
   it('loads workspace layout for authenticated users', async () => {
     __setMockServerAuthState({ userId: 'user_2' });
     const snapshot: WorkspaceLayoutSnapshot = {
-      version: 2,
-      columns: [
-        { id: 'left', panelIds: ['pipelineStatus'] },
-        { id: 'right', panelIds: ['ttsControls'] },
+      version: 3,
+      activeTabId: 'capture',
+      tabs: [
+        { id: 'capture', panelIds: ['captureAudio', 'uploadAudio'] },
+        { id: 'narration', panelIds: ['voiceSettings', 'scriptEditor'] },
       ],
     };
     mockRepository.load.mockResolvedValue(snapshot);
@@ -56,9 +57,10 @@ describe('workspace layout route', () => {
     expect(response.status).toBe(200);
     expect(mockRepository.load).toHaveBeenCalledWith('user_2');
 
-    const payload = (await response.json()) as { layout: { columns: Array<{ id: string; panels: string[] }> } };
-    expect(payload.layout.columns[0].panels).toEqual(['pipelineStatus']);
-    expect(payload.layout.columns[1].panels).toEqual(['ttsControls']);
+    const payload = (await response.json()) as { layout: { tabs: Array<{ id: string; panels: string[] }>; activeTabId?: string } };
+    expect(payload.layout.tabs[0].panels).toEqual(['captureAudio', 'uploadAudio']);
+    expect(payload.layout.tabs[1].panels).toEqual(['voiceSettings', 'scriptEditor']);
+    expect(payload.layout.activeTabId).toBe('capture');
   });
 
   it('rejects save requests with mismatched user ids', async () => {
@@ -70,8 +72,8 @@ describe('workspace layout route', () => {
         body: JSON.stringify({
           userId: 'user_4',
           layout: {
-            version: 2,
-            columns: [],
+            version: 3,
+            tabs: [],
           },
         }),
       }),
@@ -89,8 +91,8 @@ describe('workspace layout route', () => {
         method: 'POST',
         body: JSON.stringify({
           layout: {
-            version: '2',
-            columns: [],
+            version: '3',
+            tabs: [],
           },
         }),
       }),
@@ -109,10 +111,11 @@ describe('workspace layout route', () => {
         method: 'POST',
         body: JSON.stringify({
           layout: {
-            version: 2,
-            columns: [
-              { id: 'left', panels: ['pipelineStatus'] },
-              { id: 'right', panels: ['ttsControls'] },
+            version: 3,
+            activeTabId: 'capture',
+            tabs: [
+              { id: 'capture', panels: ['captureAudio'] },
+              { id: 'narration', panels: ['voiceSettings'] },
             ],
           },
         }),
@@ -121,10 +124,11 @@ describe('workspace layout route', () => {
 
     expect(response.status).toBe(200);
     expect(mockRepository.save).toHaveBeenCalledWith('user_6', {
-      version: 2,
-      columns: [
-        { id: 'left', panelIds: ['pipelineStatus'] },
-        { id: 'right', panelIds: ['ttsControls'] },
+      version: 3,
+      activeTabId: 'capture',
+      tabs: [
+        { id: 'capture', panelIds: ['captureAudio'] },
+        { id: 'narration', panelIds: ['voiceSettings'] },
       ],
     });
   });

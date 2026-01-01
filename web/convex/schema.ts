@@ -244,12 +244,23 @@ export default defineSchema({
     userId: v.string(),
     layout: v.object({
       version: v.number(),
-      columns: v.array(
-        v.object({
-          id: v.string(),
-          panels: v.array(v.string()),
-        }),
+      tabs: v.optional(
+        v.array(
+          v.object({
+            id: v.string(),
+            panels: v.array(v.string()),
+          }),
+        ),
       ),
+      columns: v.optional(
+        v.array(
+          v.object({
+            id: v.string(),
+            panels: v.array(v.string()),
+          }),
+        ),
+      ),
+      activeTabId: v.optional(v.string()),
     }),
     version: v.number(),
     updatedAt: v.number(),

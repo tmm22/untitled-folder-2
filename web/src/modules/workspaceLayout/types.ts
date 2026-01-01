@@ -1,6 +1,6 @@
 'use client';
 
-export type WorkspaceColumnId = 'full' | 'left' | 'center' | 'right';
+export type WorkspaceTabId = 'capture' | 'transcript' | 'calendar' | 'narration' | 'history' | 'settings';
 
 export type WorkspacePanelId =
   | 'pipelineStatus'
@@ -16,19 +16,48 @@ export type WorkspacePanelId =
   | 'actionItems'
   | 'suggestedCalendarEvent'
   | 'calendarFollowUp'
-  | 'ttsControls';
+  | 'voiceSettings'
+  | 'scriptEditor'
+  | 'playbackControls'
+  | 'batchQueue'
+  | 'pronunciationPanel'
+  | 'ttsHistory'
+  | 'translationHistory'
+  | 'credentialsPanel'
+  | 'themePanel'
+  | 'compactPanel'
+  | 'notificationPanel';
 
-export interface WorkspaceLayoutColumn {
-  id: WorkspaceColumnId;
+export interface WorkspaceLayoutTab {
+  id: WorkspaceTabId;
   panelIds: WorkspacePanelId[];
 }
 
 export interface WorkspaceLayoutSnapshot {
   version: number;
-  columns: WorkspaceLayoutColumn[];
+  tabs: WorkspaceLayoutTab[];
+  activeTabId?: WorkspaceTabId;
 }
 
-export const CURRENT_WORKSPACE_LAYOUT_VERSION = 2;
+export const CURRENT_WORKSPACE_LAYOUT_VERSION = 3;
+
+export const ALL_WORKSPACE_TAB_IDS: WorkspaceTabId[] = [
+  'capture',
+  'transcript',
+  'calendar',
+  'narration',
+  'history',
+  'settings',
+];
+
+export const TAB_LABELS: Record<WorkspaceTabId, string> = {
+  capture: 'Capture',
+  transcript: 'Transcript',
+  calendar: 'Calendar',
+  narration: 'Narration',
+  history: 'History',
+  settings: 'Settings',
+};
 
 export const ALL_WORKSPACE_PANEL_IDS: WorkspacePanelId[] = [
   'pipelineStatus',
@@ -44,27 +73,58 @@ export const ALL_WORKSPACE_PANEL_IDS: WorkspacePanelId[] = [
   'actionItems',
   'suggestedCalendarEvent',
   'calendarFollowUp',
-  'ttsControls',
+  'voiceSettings',
+  'scriptEditor',
+  'playbackControls',
+  'batchQueue',
+  'pronunciationPanel',
+  'ttsHistory',
+  'translationHistory',
+  'credentialsPanel',
+  'themePanel',
+  'compactPanel',
+  'notificationPanel',
 ];
 
 export const DEFAULT_WORKSPACE_LAYOUT: WorkspaceLayoutSnapshot = {
   version: CURRENT_WORKSPACE_LAYOUT_VERSION,
-  columns: [
+  activeTabId: 'capture',
+  tabs: [
     {
-      id: 'full',
-      panelIds: ['pipelineStatus'],
+      id: 'capture',
+      panelIds: ['captureAudio', 'uploadAudio', 'importPanel', 'snippetPanel'],
     },
     {
-      id: 'left',
-      panelIds: ['captureAudio', 'uploadAudio', 'cleanupInstructions', 'importPanel', 'snippetPanel', 'transcriptHistory'],
+      id: 'transcript',
+      panelIds: ['transcriptView', 'summary', 'cleanupResult', 'actionItems', 'cleanupInstructions'],
     },
     {
-      id: 'center',
-      panelIds: ['transcriptView', 'summary', 'cleanupResult', 'actionItems', 'suggestedCalendarEvent', 'calendarFollowUp'],
+      id: 'calendar',
+      panelIds: ['suggestedCalendarEvent', 'calendarFollowUp'],
     },
     {
-      id: 'right',
-      panelIds: ['ttsControls'],
+      id: 'narration',
+      panelIds: ['voiceSettings', 'scriptEditor', 'playbackControls', 'batchQueue', 'pronunciationPanel'],
+    },
+    {
+      id: 'history',
+      panelIds: ['transcriptHistory', 'ttsHistory', 'translationHistory'],
+    },
+    {
+      id: 'settings',
+      panelIds: ['credentialsPanel', 'themePanel', 'compactPanel', 'notificationPanel'],
     },
   ],
 };
+
+export type LegacyWorkspaceColumnId = 'full' | 'left' | 'center' | 'right';
+
+export interface LegacyWorkspaceLayoutColumn {
+  id: LegacyWorkspaceColumnId;
+  panelIds: string[];
+}
+
+export interface LegacyWorkspaceLayoutSnapshot {
+  version: number;
+  columns: LegacyWorkspaceLayoutColumn[];
+}

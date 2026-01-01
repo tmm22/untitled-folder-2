@@ -35,8 +35,9 @@ import { ThemePanel } from '@/components/settings/ThemePanel';
 import { CompactPanel } from '@/components/settings/CompactPanel';
 import { NotificationPanel } from '@/components/settings/NotificationPanel';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
+import { WorkspaceTabBar } from '@/components/shared/WorkspaceTabBar';
 import { useWorkspaceLayoutStore } from '@/modules/workspaceLayout/store';
-import { ALL_WORKSPACE_PANEL_IDS, type WorkspaceColumnId, type WorkspacePanelId } from '@/modules/workspaceLayout/types';
+import { ALL_WORKSPACE_PANEL_IDS, ALL_WORKSPACE_TAB_IDS, type WorkspaceTabId, type WorkspacePanelId } from '@/modules/workspaceLayout/types';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -175,18 +176,20 @@ export function TransitTranscriptionPanel() {
   const ttsError = useTTSStore((state) => state.errorMessage);
   const setTTSInputText = useTTSStore((state) => state.actions.setInputText);
   const layout = useWorkspaceLayoutStore((state) => state.layout);
+  const activeTabId = useWorkspaceLayoutStore((state) => state.activeTabId);
   const layoutIsHydrating = useWorkspaceLayoutStore((state) => state.isHydrating);
   const layoutIsSaving = useWorkspaceLayoutStore((state) => state.isSaving);
   const layoutError = useWorkspaceLayoutStore((state) => state.error);
   const hydrateLayout = useWorkspaceLayoutStore((state) => state.actions.hydrate);
   const movePanel = useWorkspaceLayoutStore((state) => state.actions.movePanel);
+  const setActiveTab = useWorkspaceLayoutStore((state) => state.actions.setActiveTab);
   const resetLayout = useWorkspaceLayoutStore((state) => state.actions.reset);
   const setLayoutError = useWorkspaceLayoutStore((state) => state.actions.setError);
 
   const trimmedCleanupInstruction = cleanupInstruction.trim();
   const hasCleanupInstruction = trimmedCleanupInstruction.length > 0;
   const [draggedPanel, setDraggedPanel] = useState<WorkspacePanelId | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ columnId: WorkspaceColumnId; index: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ tabId: WorkspaceTabId; index: number } | null>(null);
 
 
   useEffect(() => {
@@ -479,17 +482,11 @@ export function TransitTranscriptionPanel() {
   const sortedHistoryRecords = useMemo(() => {
     return [...historyRecords].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }, [historyRecords]);
-  const layoutColumns = useMemo(() => {
-    const map = new Map<WorkspaceColumnId, WorkspacePanelId[]>();
-    layout.columns.forEach((column) => {
-      map.set(column.id as WorkspaceColumnId, [...column.panelIds]);
-    });
-    return map;
-  }, [layout]);
-  const fullWidthPanels = layoutColumns.get('full') ?? [];
-  const leftColumnPanels = layoutColumns.get('left') ?? [];
-  const centerColumnPanels = layoutColumns.get('center') ?? [];
-  const rightColumnPanels = layoutColumns.get('right') ?? [];
+
+  const activeTabPanels = useMemo(() => {
+    const tab = layout.tabs.find((t) => t.id === activeTabId);
+    return tab?.panelIds ?? [];
+  }, [layout, activeTabId]);
 
   const handleReset = useCallback(() => {
     actions.reset();
@@ -597,7 +594,7 @@ export function TransitTranscriptionPanel() {
   }, []);
 
   const handleZoneDragOver = useCallback(
-    (columnId: WorkspaceColumnId, index: number) =>
+    (tabId: WorkspaceTabId, index: number) =>
       (event: React.DragEvent<HTMLDivElement>) => {
         const panelId = resolveDraggedPanelId(event);
         if (!panelId) {
@@ -606,24 +603,24 @@ export function TransitTranscriptionPanel() {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         setDropTarget((previous) => {
-          if (previous && previous.columnId === columnId && previous.index === index) {
+          if (previous && previous.tabId === tabId && previous.index === index) {
             return previous;
           }
-          return { columnId, index };
+          return { tabId, index };
         });
       },
     [resolveDraggedPanelId],
   );
 
   const handleZoneDrop = useCallback(
-    (columnId: WorkspaceColumnId, index: number) =>
+    (tabId: WorkspaceTabId, index: number) =>
       (event: React.DragEvent<HTMLDivElement>) => {
         const panelId = resolveDraggedPanelId(event);
         if (!panelId) {
           return;
         }
         event.preventDefault();
-        movePanel(panelId, columnId, index);
+        movePanel(panelId, tabId, index);
         setDropTarget(null);
         setDraggedPanel(null);
       },
@@ -631,13 +628,13 @@ export function TransitTranscriptionPanel() {
   );
 
   const handleZoneDragLeave = useCallback(
-    (columnId: WorkspaceColumnId, index: number) =>
+    (tabId: WorkspaceTabId, index: number) =>
       () => {
         setDropTarget((previous) => {
           if (!previous) {
             return previous;
           }
-          if (previous.columnId === columnId && previous.index === index) {
+          if (previous.tabId === tabId && previous.index === index) {
             return null;
           }
           return previous;
@@ -1204,25 +1201,114 @@ export function TransitTranscriptionPanel() {
     </WorkspaceSection>
   );
 
-  const renderTTSControlsSection = () => (
+  const renderVoiceSettingsSection = () => (
     <WorkspaceSection
-      id="tts-controls"
-      title="Narration controls"
-      className="flex flex-col gap-6 rounded-3xl border border-cream-400/80 bg-cream-50/90 p-6 shadow-[0_35px_90px_-60px_rgba(104,74,53,0.55)] backdrop-blur-sm"
-      allowResize={false}
+      id="voice-settings"
+      title="Voice settings"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
     >
       <ProviderSelector />
+    </WorkspaceSection>
+  );
+
+  const renderScriptEditorSection = () => (
+    <WorkspaceSection
+      id="script-editor"
+      title="Script editor"
+      className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <TextEditor />
       <TranslationControls />
       <GenerateButton />
+    </WorkspaceSection>
+  );
+
+  const renderPlaybackControlsSection = () => (
+    <WorkspaceSection
+      id="playback-controls"
+      title="Playback"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <PlaybackControls />
+    </WorkspaceSection>
+  );
+
+  const renderBatchQueueSection = () => (
+    <WorkspaceSection
+      id="batch-queue"
+      title="Batch queue"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <BatchPanel />
+    </WorkspaceSection>
+  );
+
+  const renderPronunciationPanelSection = () => (
+    <WorkspaceSection
+      id="pronunciation"
+      title="Pronunciation"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <PronunciationPanel />
+    </WorkspaceSection>
+  );
+
+  const renderTTSHistorySection = () => (
+    <WorkspaceSection
+      id="tts-history"
+      title="TTS history"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <HistoryPanel />
+    </WorkspaceSection>
+  );
+
+  const renderTranslationHistorySection = () => (
+    <WorkspaceSection
+      id="translation-history"
+      title="Translation history"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <TranslationHistoryPanel />
+    </WorkspaceSection>
+  );
+
+  const renderCredentialsPanelSection = () => (
+    <WorkspaceSection
+      id="credentials"
+      title="API credentials"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <CredentialsPanel />
+    </WorkspaceSection>
+  );
+
+  const renderThemePanelSection = () => (
+    <WorkspaceSection
+      id="theme"
+      title="Theme"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <ThemePanel />
+    </WorkspaceSection>
+  );
+
+  const renderCompactPanelSection = () => (
+    <WorkspaceSection
+      id="compact"
+      title="Compact mode"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <CompactPanel />
+    </WorkspaceSection>
+  );
+
+  const renderNotificationPanelSection = () => (
+    <WorkspaceSection
+      id="notifications"
+      title="Notifications"
+      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
+    >
       <NotificationPanel />
     </WorkspaceSection>
   );
@@ -1241,7 +1327,17 @@ export function TransitTranscriptionPanel() {
     actionItems: renderActionItemsSection,
     suggestedCalendarEvent: renderSuggestedCalendarEventSection,
     calendarFollowUp: renderCalendarFollowUpSection,
-    ttsControls: renderTTSControlsSection,
+    voiceSettings: renderVoiceSettingsSection,
+    scriptEditor: renderScriptEditorSection,
+    playbackControls: renderPlaybackControlsSection,
+    batchQueue: renderBatchQueueSection,
+    pronunciationPanel: renderPronunciationPanelSection,
+    ttsHistory: renderTTSHistorySection,
+    translationHistory: renderTranslationHistorySection,
+    credentialsPanel: renderCredentialsPanelSection,
+    themePanel: renderThemePanelSection,
+    compactPanel: renderCompactPanelSection,
+    notificationPanel: renderNotificationPanelSection,
   };
 
   const renderPanel = (panelId: WorkspacePanelId) => {
@@ -1254,7 +1350,7 @@ export function TransitTranscriptionPanel() {
   };
 
   const WorkspaceDropZone = ({
-    columnId,
+    tabId,
     index,
     isActive,
     isVisible,
@@ -1263,7 +1359,7 @@ export function TransitTranscriptionPanel() {
     onDragLeave,
     label,
   }: {
-    columnId: WorkspaceColumnId;
+    tabId: WorkspaceTabId;
     index: number;
     isActive: boolean;
     isVisible: boolean;
@@ -1280,7 +1376,7 @@ export function TransitTranscriptionPanel() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         onDragLeave={onDragLeave}
-        data-column-id={columnId}
+        data-tab-id={tabId}
         data-drop-index={index}
         className={`flex items-center justify-center rounded-xl border border-dashed border-charcoal-300 bg-charcoal-50/40 text-xs text-charcoal-500 transition ${
           isActive ? 'border-accent-500 bg-accent-50/80 text-accent-700 shadow-inner shadow-accent-200/40' : ''
@@ -1294,7 +1390,7 @@ export function TransitTranscriptionPanel() {
 
   const DraggableWorkspacePanel = ({
     panelId,
-    columnId,
+    tabId,
     index,
     isDragging,
     onDragStart,
@@ -1302,7 +1398,7 @@ export function TransitTranscriptionPanel() {
     children,
   }: {
     panelId: WorkspacePanelId;
-    columnId: WorkspaceColumnId;
+    tabId: WorkspaceTabId;
     index: number;
     isDragging: boolean;
     onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
@@ -1314,7 +1410,7 @@ export function TransitTranscriptionPanel() {
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-panel-id={panelId}
-      data-column-id={columnId}
+      data-tab-id={tabId}
       data-index={index}
       className={`cursor-move transition ${isDragging ? 'opacity-50' : 'opacity-100'}`}
     >
@@ -1322,31 +1418,36 @@ export function TransitTranscriptionPanel() {
     </div>
   );
 
-  const WorkspaceColumn = ({
-    columnId,
+  const WorkspaceTabContent = ({
+    tabId,
     panelIds,
     isHydrating,
   }: {
-    columnId: WorkspaceColumnId;
+    tabId: WorkspaceTabId;
     panelIds: WorkspacePanelId[];
     isHydrating: boolean;
   }) => (
-    <div className="flex flex-col gap-4">
+    <div
+      role="tabpanel"
+      id={`workspace-tabpanel-${tabId}`}
+      aria-labelledby={`workspace-tab-${tabId}`}
+      className="flex flex-col gap-4"
+    >
       <WorkspaceDropZone
-        columnId={columnId}
+        tabId={tabId}
         index={0}
-        isActive={dropTarget?.columnId === columnId && dropTarget.index === 0}
+        isActive={dropTarget?.tabId === tabId && dropTarget.index === 0}
         isVisible={Boolean(draggedPanel) || isHydrating || panelIds.length === 0}
-        onDragOver={handleZoneDragOver(columnId, 0)}
-        onDrop={handleZoneDrop(columnId, 0)}
-        onDragLeave={handleZoneDragLeave(columnId, 0)}
+        onDragOver={handleZoneDragOver(tabId, 0)}
+        onDrop={handleZoneDrop(tabId, 0)}
+        onDragLeave={handleZoneDragLeave(tabId, 0)}
         label={panelIds.length === 0 ? 'Drop panels here' : undefined}
       />
       {panelIds.map((panelId, index) => (
-        <Fragment key={`${columnId}-${panelId}`}>
+        <Fragment key={`${tabId}-${panelId}`}>
           <DraggableWorkspacePanel
             panelId={panelId}
-            columnId={columnId}
+            tabId={tabId}
             index={index}
             onDragStart={handleDragStartPanel(panelId)}
             onDragEnd={handleDragEndPanel}
@@ -1355,18 +1456,19 @@ export function TransitTranscriptionPanel() {
             {renderPanel(panelId)}
           </DraggableWorkspacePanel>
           <WorkspaceDropZone
-            columnId={columnId}
+            tabId={tabId}
             index={index + 1}
-            isActive={dropTarget?.columnId === columnId && dropTarget.index === index + 1}
+            isActive={dropTarget?.tabId === tabId && dropTarget.index === index + 1}
             isVisible={Boolean(draggedPanel) || isHydrating}
-            onDragOver={handleZoneDragOver(columnId, index + 1)}
-            onDrop={handleZoneDrop(columnId, index + 1)}
-            onDragLeave={handleZoneDragLeave(columnId, index + 1)}
+            onDragOver={handleZoneDragOver(tabId, index + 1)}
+            onDrop={handleZoneDrop(tabId, index + 1)}
+            onDragLeave={handleZoneDragLeave(tabId, index + 1)}
           />
         </Fragment>
       ))}
     </div>
   );
+
   return (
     <CollapsibleSection
       title="Narration Studio"
@@ -1409,17 +1511,28 @@ export function TransitTranscriptionPanel() {
         <p className="mt-3 text-xs text-charcoal-500">Saving layout…</p>
       )}
 
-      <div className="mt-6 flex flex-col gap-4">
-        <WorkspaceColumn columnId="full" panelIds={fullWidthPanels} isHydrating={layoutIsHydrating} />
+      <div className="mt-6">
+        {renderPipelineStatusSection()}
       </div>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px] lg:grid-cols-[300px_minmax(0,1fr)]">
-        <WorkspaceColumn columnId="left" panelIds={leftColumnPanels} isHydrating={layoutIsHydrating} />
-        <WorkspaceColumn columnId="center" panelIds={centerColumnPanels} isHydrating={layoutIsHydrating} />
-        <WorkspaceColumn columnId="right" panelIds={rightColumnPanels} isHydrating={layoutIsHydrating} />
+      <div className="mt-6">
+        <WorkspaceTabBar
+          tabs={ALL_WORKSPACE_TAB_IDS}
+          activeTab={activeTabId}
+          onTabChange={setActiveTab}
+          disabled={layoutIsHydrating}
+        />
       </div>
 
-      {!hasResults && (
+      <div className="mt-6">
+        <WorkspaceTabContent
+          tabId={activeTabId}
+          panelIds={activeTabPanels}
+          isHydrating={layoutIsHydrating}
+        />
+      </div>
+
+      {!hasResults && activeTabId === 'capture' && (
         <div className="mt-6 rounded-2xl border border-charcoal-200/70 bg-white/70 p-6 text-sm text-charcoal-600 shadow-sm shadow-charcoal-200/60">
           <p>
             Start a recording or upload audio to populate the transcript. Cleanup instructions, summaries, action items, and calendar tools will activate automatically.

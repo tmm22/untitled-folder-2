@@ -1,10 +1,16 @@
-import type { WorkspaceLayoutColumn, WorkspaceLayoutSnapshot } from '@/modules/workspaceLayout/types';
+import type { WorkspaceLayoutTab, WorkspaceLayoutSnapshot, WorkspaceTabId } from '@/modules/workspaceLayout/types';
 
 export interface WorkspaceLayoutRepository {
   load(userId: string): Promise<WorkspaceLayoutSnapshot | null>;
   save(userId: string, layout: WorkspaceLayoutSnapshot): Promise<void>;
   clear(userId: string): Promise<void>;
 }
+
+export type RawWorkspaceLayoutTab = {
+  id: string;
+  panels?: string[];
+  panelIds?: string[];
+};
 
 export type RawWorkspaceLayoutColumn = {
   id: string;
@@ -14,15 +20,18 @@ export type RawWorkspaceLayoutColumn = {
 
 export type RawWorkspaceLayout = {
   version: number;
-  columns: RawWorkspaceLayoutColumn[];
+  tabs?: RawWorkspaceLayoutTab[];
+  columns?: RawWorkspaceLayoutColumn[];
+  activeTabId?: string;
 };
 
 type ConvexWorkspaceLayoutPayload = {
   version: number;
-  columns: {
+  tabs: {
     id: string;
     panels: string[];
   }[];
+  activeTabId?: string;
 };
 
 function isStringArray(value: unknown): value is string[] {
@@ -34,44 +43,51 @@ export function parseWorkspaceLayoutSnapshot(layout: unknown): WorkspaceLayoutSn
     return null;
   }
 
-  const { version, columns } = layout as Partial<RawWorkspaceLayout>;
-  if (typeof version !== 'number' || !Array.isArray(columns)) {
+  const { version, tabs, columns, activeTabId } = layout as Partial<RawWorkspaceLayout>;
+  if (typeof version !== 'number') {
     return null;
   }
 
-  const normalizedColumns: WorkspaceLayoutColumn[] = [];
+  const rawItems = tabs ?? columns;
+  if (!Array.isArray(rawItems)) {
+    return null;
+  }
 
-  for (const column of columns) {
-    if (!column || typeof column !== 'object') {
+  const normalizedTabs: WorkspaceLayoutTab[] = [];
+
+  for (const item of rawItems) {
+    if (!item || typeof item !== 'object') {
       return null;
     }
 
-    const { id, panelIds, panels } = column as RawWorkspaceLayoutColumn;
+    const { id, panelIds, panels } = item as RawWorkspaceLayoutTab;
     const nextPanelIds = panelIds ?? panels;
 
     if (typeof id !== 'string' || !isStringArray(nextPanelIds)) {
       return null;
     }
 
-    normalizedColumns.push({
-      id: id as WorkspaceLayoutColumn['id'],
-      panelIds: nextPanelIds as WorkspaceLayoutColumn['panelIds'],
+    normalizedTabs.push({
+      id: id as WorkspaceLayoutTab['id'],
+      panelIds: nextPanelIds as WorkspaceLayoutTab['panelIds'],
     });
   }
 
   return {
     version,
-    columns: normalizedColumns,
+    tabs: normalizedTabs,
+    activeTabId: typeof activeTabId === 'string' ? (activeTabId as WorkspaceTabId) : undefined,
   };
 }
 
 export function serializeWorkspaceLayoutSnapshot(layout: WorkspaceLayoutSnapshot): ConvexWorkspaceLayoutPayload {
   return {
     version: layout.version,
-    columns: layout.columns.map(({ id, panelIds }) => ({
+    tabs: layout.tabs.map(({ id, panelIds }) => ({
       id,
       panels: [...panelIds],
     })),
+    activeTabId: layout.activeTabId,
   };
 }
 

@@ -3,16 +3,19 @@
 import { create } from 'zustand';
 import {
   ALL_WORKSPACE_PANEL_IDS,
+  ALL_WORKSPACE_TAB_IDS,
   CURRENT_WORKSPACE_LAYOUT_VERSION,
   DEFAULT_WORKSPACE_LAYOUT,
-  type WorkspaceColumnId,
+  type LegacyWorkspaceLayoutSnapshot,
   type WorkspaceLayoutSnapshot,
   type WorkspacePanelId,
+  type WorkspaceTabId,
 } from './types';
 import { getWorkspaceLayoutRepository } from '@/lib/workspaceLayout/repository';
 
 interface WorkspaceLayoutState {
   layout: WorkspaceLayoutSnapshot;
+  activeTabId: WorkspaceTabId;
   hydratedForUserId?: string;
   pendingUserId?: string;
   hydrationRequestId?: number;
@@ -21,7 +24,8 @@ interface WorkspaceLayoutState {
   error?: string;
   actions: {
     hydrate: (userId: string | null | undefined) => Promise<void>;
-    movePanel: (panelId: WorkspacePanelId, targetColumnId: WorkspaceColumnId, targetIndex: number) => void;
+    movePanel: (panelId: WorkspacePanelId, targetTabId: WorkspaceTabId, targetIndex: number) => void;
+    setActiveTab: (tabId: WorkspaceTabId) => void;
     reset: () => Promise<void>;
     setError: (message: string | undefined) => void;
   };
@@ -31,63 +35,183 @@ const repository = getWorkspaceLayoutRepository();
 
 let hydrationRequestCounter = 0;
 
-const defaultColumnForPanel = (() => {
-  const lookup = new Map<WorkspacePanelId, WorkspaceColumnId>();
-  DEFAULT_WORKSPACE_LAYOUT.columns.forEach((column) => {
-    column.panelIds.forEach((panelId) => lookup.set(panelId, column.id));
+const defaultTabForPanel = (() => {
+  const lookup = new Map<WorkspacePanelId, WorkspaceTabId>();
+  DEFAULT_WORKSPACE_LAYOUT.tabs.forEach((tab) => {
+    tab.panelIds.forEach((panelId) => lookup.set(panelId, tab.id));
   });
   return lookup;
 })();
+
+const LEGACY_PANEL_TO_TAB_MAPPING: Record<string, WorkspaceTabId> = {
+  pipelineStatus: 'capture',
+  captureAudio: 'capture',
+  uploadAudio: 'capture',
+  importPanel: 'capture',
+  snippetPanel: 'capture',
+  cleanupInstructions: 'transcript',
+  transcriptView: 'transcript',
+  summary: 'transcript',
+  cleanupResult: 'transcript',
+  actionItems: 'transcript',
+  suggestedCalendarEvent: 'calendar',
+  calendarFollowUp: 'calendar',
+  ttsControls: 'narration',
+  transcriptHistory: 'history',
+};
 
 function cloneLayout(layout: WorkspaceLayoutSnapshot): WorkspaceLayoutSnapshot {
   return JSON.parse(JSON.stringify(layout)) as WorkspaceLayoutSnapshot;
 }
 
-function normaliseLayout(source: WorkspaceLayoutSnapshot | null | undefined): WorkspaceLayoutSnapshot {
-  if (!source || source.version !== CURRENT_WORKSPACE_LAYOUT_VERSION) {
+function migrateFromV2(legacy: LegacyWorkspaceLayoutSnapshot): WorkspaceLayoutSnapshot {
+  const tabMap = new Map<WorkspaceTabId, WorkspacePanelId[]>();
+  ALL_WORKSPACE_TAB_IDS.forEach((tabId) => tabMap.set(tabId, []));
+
+  const seen = new Set<string>();
+
+  legacy.columns.forEach((column) => {
+    column.panelIds.forEach((panelId) => {
+      if (seen.has(panelId)) return;
+      seen.add(panelId);
+
+      if (panelId === 'ttsControls') {
+        return;
+      }
+
+      const targetTab = LEGACY_PANEL_TO_TAB_MAPPING[panelId];
+      if (targetTab && ALL_WORKSPACE_PANEL_IDS.includes(panelId as WorkspacePanelId)) {
+        const tabPanels = tabMap.get(targetTab) ?? [];
+        tabPanels.push(panelId as WorkspacePanelId);
+        tabMap.set(targetTab, tabPanels);
+      }
+    });
+  });
+
+  const newPanels: WorkspacePanelId[] = [
+    'voiceSettings',
+    'scriptEditor',
+    'playbackControls',
+    'batchQueue',
+    'pronunciationPanel',
+    'ttsHistory',
+    'translationHistory',
+    'credentialsPanel',
+    'themePanel',
+    'compactPanel',
+    'notificationPanel',
+  ];
+
+  newPanels.forEach((panelId) => {
+    const targetTab = defaultTabForPanel.get(panelId);
+    if (targetTab) {
+      const tabPanels = tabMap.get(targetTab) ?? [];
+      if (!tabPanels.includes(panelId)) {
+        tabPanels.push(panelId);
+        tabMap.set(targetTab, tabPanels);
+      }
+    }
+  });
+
+  ALL_WORKSPACE_PANEL_IDS.forEach((panelId) => {
+    if (panelId === 'pipelineStatus') return;
+
+    let found = false;
+    tabMap.forEach((panels) => {
+      if (panels.includes(panelId)) found = true;
+    });
+
+    if (!found) {
+      const targetTab = defaultTabForPanel.get(panelId) ?? 'settings';
+      const tabPanels = tabMap.get(targetTab) ?? [];
+      tabPanels.push(panelId);
+      tabMap.set(targetTab, tabPanels);
+    }
+  });
+
+  return {
+    version: CURRENT_WORKSPACE_LAYOUT_VERSION,
+    activeTabId: 'capture',
+    tabs: ALL_WORKSPACE_TAB_IDS.map((tabId) => ({
+      id: tabId,
+      panelIds: tabMap.get(tabId) ?? [],
+    })),
+  };
+}
+
+function normaliseLayout(source: unknown): WorkspaceLayoutSnapshot {
+  if (!source || typeof source !== 'object') {
     return cloneLayout(DEFAULT_WORKSPACE_LAYOUT);
   }
 
-  const seen = new Set<WorkspacePanelId>();
-  const columnMap = new Map<WorkspaceColumnId, WorkspacePanelId[]>();
+  const sourceObj = source as Record<string, unknown>;
 
-  DEFAULT_WORKSPACE_LAYOUT.columns.forEach((column) => {
-    columnMap.set(column.id, []);
+  if (typeof sourceObj.version !== 'number') {
+    return cloneLayout(DEFAULT_WORKSPACE_LAYOUT);
+  }
+
+  if (sourceObj.version < CURRENT_WORKSPACE_LAYOUT_VERSION && 'columns' in sourceObj) {
+    return migrateFromV2(sourceObj as unknown as LegacyWorkspaceLayoutSnapshot);
+  }
+
+  if (sourceObj.version !== CURRENT_WORKSPACE_LAYOUT_VERSION) {
+    return cloneLayout(DEFAULT_WORKSPACE_LAYOUT);
+  }
+
+  const typedSource = sourceObj as unknown as WorkspaceLayoutSnapshot;
+
+  const seen = new Set<WorkspacePanelId>();
+  const tabMap = new Map<WorkspaceTabId, WorkspacePanelId[]>();
+
+  ALL_WORKSPACE_TAB_IDS.forEach((tabId) => {
+    tabMap.set(tabId, []);
   });
 
-  source.columns.forEach((column) => {
-    if (!columnMap.has(column.id as WorkspaceColumnId)) {
+  (typedSource.tabs ?? []).forEach((tab) => {
+    if (!ALL_WORKSPACE_TAB_IDS.includes(tab.id as WorkspaceTabId)) {
       return;
     }
     const nextPanels: WorkspacePanelId[] = [];
-    column.panelIds.forEach((panelId) => {
-      if (!ALL_WORKSPACE_PANEL_IDS.includes(panelId) || seen.has(panelId)) {
+    (tab.panelIds ?? []).forEach((panelId) => {
+      if (!ALL_WORKSPACE_PANEL_IDS.includes(panelId) || seen.has(panelId) || panelId === 'pipelineStatus') {
         return;
       }
       nextPanels.push(panelId);
       seen.add(panelId);
     });
-    columnMap.set(column.id as WorkspaceColumnId, nextPanels);
+    tabMap.set(tab.id as WorkspaceTabId, nextPanels);
   });
 
-  const missing = ALL_WORKSPACE_PANEL_IDS.filter((panelId) => !seen.has(panelId));
+  const missing = ALL_WORKSPACE_PANEL_IDS.filter(
+    (panelId) => panelId !== 'pipelineStatus' && !seen.has(panelId),
+  );
   missing.forEach((panelId) => {
-    const fallbackColumn = defaultColumnForPanel.get(panelId) ?? 'right';
-    const target = columnMap.get(fallbackColumn) ?? [];
+    const fallbackTab = defaultTabForPanel.get(panelId) ?? 'settings';
+    const target = tabMap.get(fallbackTab) ?? [];
     target.push(panelId);
-    columnMap.set(fallbackColumn, target);
+    tabMap.set(fallbackTab, target);
   });
+
+  const activeTabId =
+    typedSource.activeTabId && ALL_WORKSPACE_TAB_IDS.includes(typedSource.activeTabId)
+      ? typedSource.activeTabId
+      : 'capture';
 
   return {
     version: CURRENT_WORKSPACE_LAYOUT_VERSION,
-    columns: DEFAULT_WORKSPACE_LAYOUT.columns.map((column) => ({
-      id: column.id,
-      panelIds: columnMap.get(column.id) ?? [],
+    activeTabId,
+    tabs: ALL_WORKSPACE_TAB_IDS.map((tabId) => ({
+      id: tabId,
+      panelIds: tabMap.get(tabId) ?? [],
     })),
   };
 }
 
-async function persistLayout(userId: string | undefined, layout: WorkspaceLayoutSnapshot, set: (partial: Partial<WorkspaceLayoutState>) => void) {
+async function persistLayout(
+  userId: string | undefined,
+  layout: WorkspaceLayoutSnapshot,
+  set: (partial: Partial<WorkspaceLayoutState>) => void,
+) {
   if (!userId) {
     return;
   }
@@ -104,6 +228,7 @@ async function persistLayout(userId: string | undefined, layout: WorkspaceLayout
 
 export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) => ({
   layout: cloneLayout(DEFAULT_WORKSPACE_LAYOUT),
+  activeTabId: DEFAULT_WORKSPACE_LAYOUT.activeTabId ?? 'capture',
   hydratedForUserId: undefined,
   pendingUserId: undefined,
   hydrationRequestId: undefined,
@@ -116,6 +241,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
       if (!normalized) {
         set({
           layout: cloneLayout(DEFAULT_WORKSPACE_LAYOUT),
+          activeTabId: DEFAULT_WORKSPACE_LAYOUT.activeTabId ?? 'capture',
           hydratedForUserId: undefined,
           pendingUserId: undefined,
           hydrationRequestId: undefined,
@@ -149,6 +275,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
         }
         set({
           layout,
+          activeTabId: layout.activeTabId ?? 'capture',
           hydratedForUserId: normalized,
           error: undefined,
         });
@@ -160,6 +287,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
         }
         set({
           layout: cloneLayout(DEFAULT_WORKSPACE_LAYOUT),
+          activeTabId: DEFAULT_WORKSPACE_LAYOUT.activeTabId ?? 'capture',
           hydratedForUserId: normalized,
           error: 'Workspace layout could not be loaded. Using default arrangement.',
         });
@@ -174,44 +302,61 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
         }
       }
     },
-    movePanel: (panelId, targetColumnId, targetIndex) => {
+    movePanel: (panelId, targetTabId, targetIndex) => {
       const state = get();
       const { layout } = state;
-      const sourceColumn = layout.columns.find((column) => column.panelIds.includes(panelId));
-      const sourceColumnId = sourceColumn?.id;
-      const sourceIndex = sourceColumn ? sourceColumn.panelIds.indexOf(panelId) : -1;
-      const columns = layout.columns.map((column) => ({
-        ...column,
-        panelIds: column.panelIds.filter((id) => id !== panelId),
+      const sourceTab = layout.tabs.find((tab) => tab.panelIds.includes(panelId));
+      const sourceTabId = sourceTab?.id;
+      const sourceIndex = sourceTab ? sourceTab.panelIds.indexOf(panelId) : -1;
+      const tabs = layout.tabs.map((tab) => ({
+        ...tab,
+        panelIds: tab.panelIds.filter((id) => id !== panelId),
       }));
-      const targetColumn = columns.find((column) => column.id === targetColumnId);
-      if (!targetColumn) {
+      const targetTab = tabs.find((tab) => tab.id === targetTabId);
+      if (!targetTab) {
         return;
       }
-      let desiredIndex = Math.max(0, Math.min(targetColumn.panelIds.length, targetIndex));
-      if (sourceColumnId === targetColumnId && sourceIndex >= 0 && targetIndex > sourceIndex) {
-        desiredIndex = Math.max(0, Math.min(targetColumn.panelIds.length, targetIndex - 1));
+      let desiredIndex = Math.max(0, Math.min(targetTab.panelIds.length, targetIndex));
+      if (sourceTabId === targetTabId && sourceIndex >= 0 && targetIndex > sourceIndex) {
+        desiredIndex = Math.max(0, Math.min(targetTab.panelIds.length, targetIndex - 1));
       }
-      if (sourceColumnId === targetColumnId && sourceIndex === desiredIndex) {
+      if (sourceTabId === targetTabId && sourceIndex === desiredIndex) {
         return;
       }
-      targetColumn.panelIds = [
-        ...targetColumn.panelIds.slice(0, desiredIndex),
+      targetTab.panelIds = [
+        ...targetTab.panelIds.slice(0, desiredIndex),
         panelId,
-        ...targetColumn.panelIds.slice(desiredIndex),
+        ...targetTab.panelIds.slice(desiredIndex),
       ];
       const nextLayout: WorkspaceLayoutSnapshot = {
         version: CURRENT_WORKSPACE_LAYOUT_VERSION,
-        columns,
+        activeTabId: state.activeTabId,
+        tabs,
       };
       set({ layout: nextLayout });
+      void persistLayout(get().hydratedForUserId, nextLayout, set);
+    },
+    setActiveTab: (tabId) => {
+      const state = get();
+      if (state.activeTabId === tabId) {
+        return;
+      }
+      const nextLayout: WorkspaceLayoutSnapshot = {
+        ...state.layout,
+        activeTabId: tabId,
+      };
+      set({ activeTabId: tabId, layout: nextLayout });
       void persistLayout(get().hydratedForUserId, nextLayout, set);
     },
     reset: async () => {
       const state = get();
       const userId = state.hydratedForUserId;
       const nextLayout = cloneLayout(DEFAULT_WORKSPACE_LAYOUT);
-      set({ layout: nextLayout, error: undefined });
+      set({
+        layout: nextLayout,
+        activeTabId: DEFAULT_WORKSPACE_LAYOUT.activeTabId ?? 'capture',
+        error: undefined,
+      });
       if (!userId) {
         return;
       }
