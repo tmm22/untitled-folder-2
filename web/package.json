@@ -44,7 +44,7 @@
     "postcss": "^8",
     "tailwindcss": "^4.1.17",
     "typescript": "^5",
-    "vitest": "^4.0.3",
+    "vitest": "^4.0.17",
     "whatwg-fetch": "^3.6.20"
   }
 }
