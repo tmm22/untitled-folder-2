@@ -1,6 +1,6 @@
 'use client';
 
-import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
+import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
 import { useMemo } from 'react';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 
@@ -16,7 +16,9 @@ function formatUserName(firstName?: string | null, lastName?: string | null, ema
 }
 
 export function AuthPanel() {
-  const { user } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const showSignedIn = isLoaded && isSignedIn;
+  const showSignedOut = isLoaded && !isSignedIn;
 
   const displayName = useMemo(() => {
     return formatUserName(user?.firstName, user?.lastName, user?.primaryEmailAddress?.emailAddress ?? null);
@@ -30,11 +32,13 @@ export function AuthPanel() {
           <h2 className="text-lg font-semibold text-charcoal-900">Authenticate to sync usage and history</h2>
         </div>
         <div className="flex items-center gap-3">
-          <SignedIn>
-            <span className="text-sm text-cocoa-600">{displayName}</span>
-            <UserButton appearance={{ elements: { userButtonAvatarBox: 'h-8 w-8' } }} />
-          </SignedIn>
-          <SignedOut>
+          {showSignedIn ? (
+            <>
+              <span className="text-sm text-cocoa-600">{displayName}</span>
+              <UserButton appearance={{ elements: { userButtonAvatarBox: 'h-8 w-8' } }} />
+            </>
+          ) : null}
+          {showSignedOut ? (
             <SignInButton mode="modal">
               <button
                 type="button"
@@ -43,19 +47,19 @@ export function AuthPanel() {
                 Sign in
               </button>
             </SignInButton>
-          </SignedOut>
+          ) : null}
         </div>
       </header>
-      <SignedOut>
+      {showSignedOut ? (
         <p className="mt-3 text-sm text-cocoa-600">
           Sign in to unlock managed provisioning, synchronize your preferences, and access your premium usage limits.
         </p>
-      </SignedOut>
-      <SignedIn>
+      ) : null}
+      {showSignedIn ? (
         <p className="mt-3 text-sm text-cocoa-600">
           You are connected. Usage and billing data are now linked to your Clerk account and stored in Convex.
         </p>
-      </SignedIn>
+      ) : null}
     </CollapsibleSection>
   );
 }

@@ -40,9 +40,12 @@ export const useAuth = () => ({
   userId: state.userId,
 });
 
-export const useUser = () => ({ user: state.user });
+export const useUser = () => ({
+  isLoaded: state.isLoaded,
+  isSignedIn: state.isSignedIn,
+  user: state.user,
+});
 
 export function __setMockClerkState(next: Partial<ClerkAuthState>) {
   Object.assign(state, next);
 }
-
