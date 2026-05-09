@@ -143,6 +143,8 @@ export function TransitTranscriptionPanel() {
   const progress = useTransitTranscriptionStore((state) => state.progress);
   const transcriptText = useTransitTranscriptionStore((state) => state.transcriptText);
   const title = useTransitTranscriptionStore((state) => state.title);
+  const realtimeSessionReady = useTransitTranscriptionStore((state) => state.realtimeSessionReady);
+  const realtimeSessionError = useTransitTranscriptionStore((state) => state.realtimeSessionError);
   const actions = useTransitTranscriptionStore((state) => state.actions);
   const historyRecords = useTransitTranscriptionHistoryStore((state) => state.records);
   const historyHydrated = useTransitTranscriptionHistoryStore((state) => state.hydrated);
@@ -666,6 +668,16 @@ export function TransitTranscriptionPanel() {
       </div>
       {aggregatedError && (
         <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{aggregatedError}</p>
+      )}
+      {!aggregatedError && realtimeSessionError && (
+        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {realtimeSessionError}
+        </p>
+      )}
+      {realtimeSessionReady && (
+        <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          Realtime session is active for this run.
+        </p>
       )}
     </WorkspaceSection>
   );

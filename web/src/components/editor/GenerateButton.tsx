@@ -8,6 +8,8 @@ export function GenerateButton() {
   const isGenerating = useTTSStore((state) => state.isGenerating);
   const inputText = useTTSStore((state) => state.inputText);
   const errorMessage = useTTSStore((state) => state.errorMessage);
+  const realtimeSessionReady = useTTSStore((state) => state.realtimeSessionReady);
+  const realtimeSessionError = useTTSStore((state) => state.realtimeSessionError);
   const characterLimit = useTTSStore((state) => state.characterLimit);
   const { generate, clearError } = useTTSStore((state) => state.actions);
   const [hasAttempted, setHasAttempted] = useState(false);
@@ -52,6 +54,16 @@ export function GenerateButton() {
           </div>
         </div>
       ) : null}
+      {!errorMessage && !exceedsLimit && realtimeSessionReady && (
+        <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          Realtime voice session is active for OpenAI requests.
+        </p>
+      )}
+      {!errorMessage && !exceedsLimit && realtimeSessionError && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          {realtimeSessionError}
+        </p>
+      )}
     </CollapsibleSection>
   );
 }
