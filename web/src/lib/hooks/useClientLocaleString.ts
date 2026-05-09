@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 type DateLike = string | number | Date | null | undefined;
 
@@ -23,6 +23,26 @@ const computeFallback = (value: DateLike, fallback?: string): string => {
   return date.toISOString();
 };
 
+const formatLocaleDate = (
+  value: DateLike,
+  options?: Intl.DateTimeFormatOptions,
+  fallback?: string,
+): string => {
+  const date = normaliseDate(value);
+  if (!date) {
+    return fallback ?? '';
+  }
+
+  try {
+    return options ? new Intl.DateTimeFormat(undefined, options).format(date) : date.toLocaleString();
+  } catch (error) {
+    console.warn('Failed to format date with locale options, falling back to ISO.', error);
+    return date.toISOString();
+  }
+};
+
+const subscribeToLocaleChanges = () => () => {};
+
 const serializeOptions = (options?: Intl.DateTimeFormatOptions): string | null => {
   if (!options) {
     return null;
@@ -43,8 +63,6 @@ export function useClientLocaleString(
   options?: Intl.DateTimeFormatOptions,
   fallback?: string,
 ): string {
-  const [formatted, setFormatted] = useState(() => computeFallback(value, fallback));
-
   const optionsKey = useMemo(() => serializeOptions(options), [options]);
   const stableOptions = useMemo(() => {
     if (!optionsKey) {
@@ -57,25 +75,15 @@ export function useClientLocaleString(
     }
   }, [optionsKey]);
 
-  useEffect(() => {
-    const date = normaliseDate(value);
-    if (!date) {
-      const replacement = fallback ?? '';
-      setFormatted((prev) => (prev === replacement ? prev : replacement));
-      return;
-    }
+  const fallbackValue = useMemo(() => computeFallback(value, fallback), [value, fallback]);
+  const localeValue = useMemo(
+    () => formatLocaleDate(value, stableOptions, fallback),
+    [value, fallback, stableOptions],
+  );
 
-    try {
-      const next = stableOptions
-        ? new Intl.DateTimeFormat(undefined, stableOptions).format(date)
-        : date.toLocaleString();
-      setFormatted((prev) => (prev === next ? prev : next));
-    } catch (error) {
-      console.warn('Failed to format date with locale options, falling back to ISO.', error);
-      const fallbackIso = date.toISOString();
-      setFormatted((prev) => (prev === fallbackIso ? prev : fallbackIso));
-    }
-  }, [value, fallback, stableOptions]);
-
-  return formatted;
+  return useSyncExternalStore(
+    subscribeToLocaleChanges,
+    () => localeValue,
+    () => fallbackValue,
+  );
 }
