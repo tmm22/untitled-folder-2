@@ -2119,19 +2119,6 @@ class TTSViewModel: ObservableObject {
         UserDefaults.standard.set(appearancePreference.rawValue, forKey: "appearancePreference")
     }
 
-    @MainActor deinit {
-        batchTask?.cancel()
-        previewTask?.cancel()
-        articleSummaryTask?.cancel()
-        elevenLabsVoiceTask?.cancel()
-        managedProvisioningTask?.cancel()
-        transcriptionTask?.cancel()
-        if let url = transcriptionRecorder.cancelRecording() {
-            try? FileManager.default.removeItem(at: url)
-        }
-        transcriptionRecordingTimer?.invalidate()
-        transcriptionRecordingTimer = nil
-    }
 }
 
 // MARK: - ElevenLabs Prompting Helpers

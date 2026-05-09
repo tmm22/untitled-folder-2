@@ -139,12 +139,7 @@ class AudioPlayerService: NSObject, ObservableObject {
         timer?.invalidate()
         timer = nil
     }
-    
-    // MARK: - Cleanup
-    @MainActor deinit {
-        timer?.invalidate()
-        audioPlayer?.stop()
-    }
+
 }
 
 // MARK: - AVAudioPlayerDelegate

@@ -1,12 +1,4 @@
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
-import { FlatCompat } from '@eslint/eslintrc';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 
 const config = [
   {
@@ -19,9 +11,7 @@ const config = [
       'convex/_generated/**',
     ],
   },
-  ...compat.config({
-    extends: ['next/core-web-vitals'],
-  }),
+  ...nextCoreWebVitals,
 ];
 
 export default config;

@@ -38,12 +38,6 @@ export function ImportPanel() {
     void hydrate();
   }, [hydrate]);
 
-  useEffect(() => {
-    if (pipelineError) {
-      setStatus(pipelineError);
-    }
-  }, [pipelineError]);
-
   const handleImport = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -167,6 +161,8 @@ export function ImportPanel() {
     );
   }
 
+  const displayedStatus = pipelineError ?? status;
+
   return (
     <CollapsibleSection title="Imports" minHeight={320} maxHeight={960}>
       <h2 className="panel-title">Imports</h2>
@@ -270,7 +266,7 @@ export function ImportPanel() {
         ))}
       </div>
 
-      {status && <p className="mt-4 text-sm text-cocoa-600">{status}</p>}
+      {displayedStatus && <p className="mt-4 text-sm text-cocoa-600">{displayedStatus}</p>}
 
       <div className="mt-6">
         <PipelineManager />
