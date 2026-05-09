@@ -538,13 +538,6 @@ class TTSViewModel: ObservableObject {
                 .openAI: OpenAITranscriptionService(),
                 .googleChirp2: GoogleTranscriptionService()
             ]
-        } else {
-            if resolvedTranscriptionServices[.openAI] == nil {
-                resolvedTranscriptionServices[.openAI] = OpenAITranscriptionService()
-            }
-            if resolvedTranscriptionServices[.googleChirp2] == nil {
-                resolvedTranscriptionServices[.googleChirp2] = GoogleTranscriptionService()
-            }
         }
         self.transcriptionServices = resolvedTranscriptionServices
         self.defaultTranscriptionProvider = defaultTranscriptionProvider
