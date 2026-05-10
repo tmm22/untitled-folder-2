@@ -10,6 +10,7 @@ import type {
   TransitTranscriptionSource,
 } from '@/modules/transitTranscription/types';
 import { streamTransitTranscription } from './service';
+import { createTransitRealtimeSession } from './realtimeService';
 import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
 
 type TransitStage =
@@ -48,6 +49,8 @@ export interface TransitTranscriptionState {
   languageHint?: string;
   cleanupInstruction: string;
   cleanupLabel?: string;
+  realtimeSessionReady: boolean;
+  realtimeSessionError?: string;
   actions: {
     reset: () => void;
     setSource: (source: TransitTranscriptionSource) => void;
@@ -79,6 +82,8 @@ const initialState: Omit<TransitTranscriptionState, 'actions'> = {
   languageHint: undefined,
   cleanupInstruction: '',
   cleanupLabel: undefined,
+  realtimeSessionReady: false,
+  realtimeSessionError: undefined,
 };
 
 export const useTransitTranscriptionStore = create<TransitTranscriptionState & InternalState>((set, get) => ({
@@ -109,7 +114,14 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
       if (controller) {
         controller.abort();
       }
-      set({ stage: 'idle', isStreaming: false, progress: 0, controller: undefined });
+      set({
+        stage: 'idle',
+        isStreaming: false,
+        progress: 0,
+        controller: undefined,
+        realtimeSessionReady: false,
+        realtimeSessionError: undefined,
+      });
     },
     loadFromHistory: (record) => {
       const { cleanupInstruction, cleanupLabel } = get();
@@ -129,6 +141,8 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
         source: record.source,
         cleanupInstruction: record.cleanup?.instruction ?? cleanupInstruction,
         cleanupLabel: record.cleanup?.label ?? cleanupLabel,
+        realtimeSessionReady: false,
+        realtimeSessionError: undefined,
       });
     },
     submit: async ({ file, title }) => {
@@ -152,9 +166,22 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
         progress: STAGE_PROGRESS.uploading,
         controller,
         title: title ?? state.title ?? '',
+        realtimeSessionReady: false,
+        realtimeSessionError: undefined,
       });
 
       try {
+        try {
+          await createTransitRealtimeSession({ languageHint });
+          set({ realtimeSessionReady: true, realtimeSessionError: undefined });
+        } catch (realtimeError) {
+          set({
+            realtimeSessionReady: false,
+            realtimeSessionError:
+              realtimeError instanceof Error ? realtimeError.message : 'Realtime unavailable; using batch transcription.',
+          });
+        }
+
         const normalizedCleanupInstruction = cleanupInstruction.trim();
         const cleanupInstructionToSend = normalizedCleanupInstruction.length > 0 ? normalizedCleanupInstruction : undefined;
         const cleanupLabelToSend = cleanupInstructionToSend ? cleanupLabel : undefined;

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
 import { transcribeAudioWithOpenAI } from '@/lib/transit/openaiTranscription';
 import { applyTranscriptCleanup, generateTranscriptInsights } from '@/lib/pipelines/openai';
+import { OpenAIClientError, OpenAIUnavailableError } from '@/lib/openai/client';
 import {
   type TransitCleanupResult,
   type TransitStreamPayload,
@@ -14,6 +15,34 @@ import { getTransitTranscriptionRepository } from '@/lib/transit/repository';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const encoder = new TextEncoder();
+
+function sanitizeTranscriptionError(error: unknown): string {
+  if (error instanceof OpenAIUnavailableError) {
+    return 'OpenAI is not configured for transcription.';
+  }
+
+  if (error instanceof OpenAIClientError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'OpenAI authentication failed. Check your API key.';
+    }
+    if (error.status === 413) {
+      return 'Audio file exceeds provider limits. Use a smaller file.';
+    }
+    if (error.status === 415) {
+      return 'Unsupported audio format. Please upload a common audio format such as WAV or MP3.';
+    }
+    if (error.status === 429) {
+      return 'OpenAI rate limit exceeded. Please retry in a moment.';
+    }
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Transcription failed';
+}
 
 function normalizeSource(value: FormDataEntryValue | null): TransitTranscriptionSource {
   const normalized = typeof value === 'string' ? value.trim() : '';
@@ -181,8 +210,7 @@ export async function POST(request: Request) {
         sendEvent(controller, { event: 'status', data: { stage: 'complete' } });
         sendEvent(controller, { event: 'complete', data: record });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : typeof error === 'string' ? error : 'Transcription failed';
+        const message = sanitizeTranscriptionError(error);
         sendEvent(controller, { event: 'error', data: { message } });
       } finally {
         controller.close();

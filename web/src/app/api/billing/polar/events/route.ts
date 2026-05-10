@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
+import { validatePolarEvent, PolarWebhookVerificationError } from '@/app/api/_lib/polarWebhook';
 import { getAccountRepository } from '@/app/api/account/context';
 import { getProvisioningOrchestrator, getProvisioningStore } from '@/app/api/provisioning/context';
 import { hasProvisioningAccess } from '@/lib/provisioning/access';
@@ -231,10 +231,14 @@ export async function POST(request: Request) {
 
   let event: PolarWebhookEvent;
   try {
-    const validated = validateEvent(rawBody, headersToObject(request.headers), secret);
+    const validated = validatePolarEvent<PolarWebhookEvent>(
+      rawBody,
+      headersToObject(request.headers),
+      secret,
+    );
     event = validated as PolarWebhookEvent;
   } catch (error) {
-    if (error instanceof WebhookVerificationError) {
+    if (error instanceof PolarWebhookVerificationError) {
       emitWebhookLog('warn', 'signature_validation_failed', {
         reason: error.message,
       });

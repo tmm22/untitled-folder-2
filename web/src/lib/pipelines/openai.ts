@@ -1,3 +1,9 @@
+import {
+  OpenAIClient,
+  OpenAIUnavailableError,
+} from '@/lib/openai/client';
+export { OpenAIUnavailableError };
+
 interface ChatMessage {
   role: 'system' | 'user';
   content: string;
@@ -23,19 +29,15 @@ export interface TranscriptInsights {
 }
 
 interface ChatCompletionOptions {
-  maxTokens?: number;
+  maxOutputTokens?: number;
   temperature?: number;
   apiKey?: string | null;
-}
-
-const OPENAI_CHAT_URL = process.env.OPENAI_CHAT_COMPLETIONS_URL?.trim() || 'https://api.openai.com/v1/chat/completions';
-const OPENAI_MODEL = process.env.OPENAI_PIPELINE_MODEL?.trim() || 'gpt-4o-mini';
-
-export class OpenAIUnavailableError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'OpenAIUnavailableError';
-  }
+  responseFormat?: {
+    type: 'json_schema';
+    name: string;
+    schema: Record<string, unknown>;
+    strict?: boolean;
+  };
 }
 
 function getApiKey(): string | null {
@@ -43,40 +45,25 @@ function getApiKey(): string | null {
 }
 
 export function isOpenAIConfigured(): boolean {
-  return Boolean(getApiKey());
+  return OpenAIClient.isConfigured();
 }
 
 async function callChatCompletion(messages: ChatMessage[], options: ChatCompletionOptions = {}): Promise<string | null> {
-  const apiKey = options.apiKey?.trim() || getApiKey();
-  if (!apiKey) {
+  const apiKey = options.apiKey?.trim() ?? getApiKey();
+  if (!apiKey || apiKey.length === 0) {
     throw new OpenAIUnavailableError('OpenAI API key is not configured');
   }
 
-  const response = await fetch(OPENAI_CHAT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages,
-      max_tokens: options?.maxTokens ?? 180,
-      temperature: options?.temperature ?? 0.3,
-    }),
+  const client = new OpenAIClient({ apiKey });
+  const content = await client.generateText(messages, {
+    maxOutputTokens: options.maxOutputTokens ?? 180,
+    temperature: options.temperature ?? 0.3,
+    responseFormat: options.responseFormat,
   });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`OpenAI request failed (${response.status}): ${body}`);
-  }
-
-  const payload = await response.json();
-  const content = payload.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') {
+  if (!content) {
     return null;
   }
-  return content.trim();
+  return content;
 }
 
 export interface SummariseOptions {
@@ -113,7 +100,7 @@ export async function summariseText(text: string, options: SummariseOptions = {}
           content: text.slice(0, 6000),
         },
       ],
-      { maxTokens: style === 'paragraph' ? 220 : 180 },
+      { maxOutputTokens: style === 'paragraph' ? 220 : 180 },
     );
     return content ?? undefined;
   } catch (error) {
@@ -144,7 +131,7 @@ export async function translateText(text: string, options: TranslateOptions): Pr
           content: text,
         },
       ],
-      { maxTokens: Math.min(2000, Math.round(text.length * 1.2)), apiKey: options.apiKey ?? undefined },
+      { maxOutputTokens: Math.min(2000, Math.round(text.length * 1.2)), apiKey: options.apiKey ?? undefined },
     );
 
     if (!result) {
@@ -186,7 +173,7 @@ export async function adjustTone(text: string, options: ToneOptions): Promise<st
         },
       ],
       {
-        maxTokens: Math.min(2000, Math.round(text.length * 1.1)),
+        maxOutputTokens: Math.min(2000, Math.round(text.length * 1.1)),
         temperature: 0.5,
       },
     );
@@ -240,7 +227,7 @@ export async function applyTranscriptCleanup(
         },
       ],
       {
-        maxTokens: Math.min(3000, Math.round(transcriptSample.length * 1.1)),
+        maxOutputTokens: Math.min(3000, Math.round(transcriptSample.length * 1.1)),
         temperature: 0.3,
       },
     );
@@ -262,10 +249,136 @@ export async function applyTranscriptCleanup(
 const TRANSCRIPT_INSIGHT_PROMPT = `You are an assistant that analyses transit operations transcripts. Return a minified JSON object with this exact shape:
 {
   "summary": string,
-  "actionItems": Array<{ "text": string, "ownerHint"?: string, "dueDateHint"?: string }>,
-  "scheduleRecommendation": { "title": string, "startWindow"?: string, "durationMinutes"?: number, "participants"?: string[] } | null
+  "actionItems": Array<{ "text": string, "ownerHint": string | null, "dueDateHint": string | null }>,
+  "scheduleRecommendation": { "title": string, "startWindow": string | null, "durationMinutes": number | null, "participants": string[] | null } | null
 }
-Keep actionItems to at most 5 clear items. Leave optional fields out or null if unknown.`;
+Keep actionItems to at most 5 clear items. For unknown values, use null instead of omitting keys.`;
+
+const TRANSCRIPT_INSIGHT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'actionItems', 'scheduleRecommendation'],
+  properties: {
+    summary: { type: 'string' },
+    actionItems: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['text', 'ownerHint', 'dueDateHint'],
+        properties: {
+          text: { type: 'string' },
+          ownerHint: {
+            anyOf: [{ type: 'string' }, { type: 'null' }],
+          },
+          dueDateHint: {
+            anyOf: [{ type: 'string' }, { type: 'null' }],
+          },
+        },
+      },
+    },
+    scheduleRecommendation: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['title', 'startWindow', 'durationMinutes', 'participants'],
+          properties: {
+            title: { type: 'string' },
+            startWindow: {
+              anyOf: [{ type: 'string' }, { type: 'null' }],
+            },
+            durationMinutes: {
+              anyOf: [{ type: 'number' }, { type: 'null' }],
+            },
+            participants: {
+              anyOf: [
+                {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                { type: 'null' },
+              ],
+            },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
+  },
+};
+
+function normaliseTranscriptInsights(parsed: unknown, fallbackSummary: string): TranscriptInsights {
+  if (!parsed || typeof parsed !== 'object') {
+    return {
+      summary: fallbackSummary,
+      actionItems: [],
+      scheduleRecommendation: null,
+    };
+  }
+
+  const payload = parsed as Partial<TranscriptInsights>;
+  const summary = typeof payload.summary === 'string' ? payload.summary.trim() : fallbackSummary;
+  const actionItems = Array.isArray(payload.actionItems)
+    ? payload.actionItems
+        .map((item) => {
+          if (!item || typeof item !== 'object') {
+            return null;
+          }
+          const text = typeof item.text === 'string' ? item.text.trim() : '';
+          if (!text) {
+            return null;
+          }
+          const ownerHint =
+            typeof item.ownerHint === 'string' && item.ownerHint.trim().length > 0
+              ? item.ownerHint.trim()
+              : undefined;
+          const dueDateHint =
+            typeof item.dueDateHint === 'string' && item.dueDateHint.trim().length > 0
+              ? item.dueDateHint.trim()
+              : undefined;
+          const candidate: TranscriptInsightAction = { text };
+          if (ownerHint) {
+            candidate.ownerHint = ownerHint;
+          }
+          if (dueDateHint) {
+            candidate.dueDateHint = dueDateHint;
+          }
+          return candidate;
+        })
+        .filter((item): item is TranscriptInsightAction => item !== null)
+        .slice(0, 5)
+    : [];
+
+  const schedule = payload.scheduleRecommendation as Partial<TranscriptScheduleRecommendation> | null | undefined;
+  const normalizedSchedule =
+    schedule && typeof schedule === 'object'
+      ? {
+          title: typeof schedule.title === 'string' ? schedule.title.trim() : '',
+          startWindow:
+            typeof schedule.startWindow === 'string' && schedule.startWindow.trim().length > 0
+              ? schedule.startWindow.trim()
+              : undefined,
+          durationMinutes:
+            typeof schedule.durationMinutes === 'number' && Number.isFinite(schedule.durationMinutes)
+              ? Math.max(0, Math.round(schedule.durationMinutes))
+              : undefined,
+          participants: Array.isArray(schedule.participants)
+            ? schedule.participants
+                .map((participant) =>
+                  typeof participant === 'string' ? participant.trim() : '',
+                )
+                .filter((participant) => participant.length > 0)
+            : undefined,
+        }
+      : null;
+
+  return {
+    summary,
+    actionItems,
+    scheduleRecommendation: normalizedSchedule && normalizedSchedule.title ? normalizedSchedule : null,
+  };
+}
 
 export async function generateTranscriptInsights(transcript: string): Promise<TranscriptInsights | null> {
   if (!transcript.trim()) {
@@ -294,8 +407,14 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
         },
       ],
       {
-        maxTokens: 400,
+        maxOutputTokens: 400,
         temperature: 0.2,
+        responseFormat: {
+          type: 'json_schema',
+          name: 'transcript_insights',
+          schema: TRANSCRIPT_INSIGHT_SCHEMA,
+          strict: true,
+        },
       },
     );
 
@@ -308,73 +427,11 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
     }
 
     try {
-      const parsed = JSON.parse(response) as TranscriptInsights;
-      const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
-      const actionItems = Array.isArray(parsed.actionItems)
-        ? parsed.actionItems
-            .map((item) => {
-              if (!item || typeof item !== 'object') {
-                return null;
-              }
-              const text = typeof item.text === 'string' ? item.text.trim() : '';
-              if (!text) {
-                return null;
-              }
-              const ownerHint =
-                typeof item.ownerHint === 'string' && item.ownerHint.trim().length > 0
-                  ? item.ownerHint.trim()
-                  : undefined;
-              const dueDateHint =
-                typeof item.dueDateHint === 'string' && item.dueDateHint.trim().length > 0
-                  ? item.dueDateHint.trim()
-                  : undefined;
-              const candidate: TranscriptInsightAction = { text };
-              if (ownerHint) {
-                candidate.ownerHint = ownerHint;
-              }
-              if (dueDateHint) {
-                candidate.dueDateHint = dueDateHint;
-              }
-              return candidate;
-            })
-            .filter((item): item is TranscriptInsightAction => item !== null)
-        : [];
-
-      const schedule = parsed.scheduleRecommendation;
-      const normalizedSchedule =
-        schedule && typeof schedule === 'object'
-          ? {
-              title: typeof schedule.title === 'string' ? schedule.title.trim() : '',
-              startWindow:
-                typeof schedule.startWindow === 'string' && schedule.startWindow.trim().length > 0
-                  ? schedule.startWindow.trim()
-                  : undefined,
-              durationMinutes:
-                typeof schedule.durationMinutes === 'number' && Number.isFinite(schedule.durationMinutes)
-                  ? Math.max(0, Math.round(schedule.durationMinutes))
-                  : undefined,
-              participants: Array.isArray(schedule.participants)
-                ? schedule.participants
-                    .map((participant) =>
-                      typeof participant === 'string' ? participant.trim() : '',
-                    )
-                    .filter((participant) => participant.length > 0)
-                : undefined,
-            }
-          : null;
-
-      return {
-        summary,
-        actionItems,
-        scheduleRecommendation: normalizedSchedule && normalizedSchedule.title ? normalizedSchedule : null,
-      };
+      const parsed = JSON.parse(response) as unknown;
+      return normaliseTranscriptInsights(parsed, '');
     } catch (parseError) {
       console.warn('Failed to parse transcript insight response', parseError);
-      return {
-        summary: response.trim(),
-        actionItems: [],
-        scheduleRecommendation: null,
-      };
+      return normaliseTranscriptInsights(null, response.trim());
     }
   } catch (error) {
     if (error instanceof OpenAIUnavailableError) {

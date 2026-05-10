@@ -11,6 +11,7 @@ import {
 import { useHistoryStore } from '@/modules/history/store';
 import { usePronunciationStore } from '@/modules/pronunciation/store';
 import { fetchVoices, synthesizeSpeech } from './services/ttsService';
+import { createTTSRealtimeSession } from './services/realtimeService';
 import { providerRegistry } from './providerRegistry';
 import type {
   AudioSettings,
@@ -53,6 +54,8 @@ interface TTSBaseState {
   defaultSettingsByProvider: Record<ProviderType, AudioSettings>;
   playbackMode: PlaybackMode;
   browserSpeechState?: BrowserSpeechState;
+  realtimeSessionReady: boolean;
+  realtimeSessionError?: string;
 }
 
 interface TTSActions {
@@ -99,6 +102,8 @@ const baseState: TTSBaseState = {
   defaultSettingsByProvider: initialDefaultSettings,
   playbackMode: 'audio',
   browserSpeechState: undefined,
+  realtimeSessionReady: false,
+  realtimeSessionError: undefined,
 };
 
 const computeState = (state: TTSBaseState): TTSComputedState => {
@@ -144,6 +149,8 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
         playbackSpeed: descriptor.defaultSettings.speed,
         playbackMode: 'audio',
         browserSpeechState: undefined,
+        realtimeSessionReady: false,
+        realtimeSessionError: undefined,
       }));
       await get().actions.loadVoices(provider);
     },
@@ -434,6 +441,32 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       }));
 
       try {
+        if (state.selectedProvider === 'openAI') {
+          try {
+            await createTTSRealtimeSession(state.selectedProvider, voice.id);
+            set((prev) => ({
+              ...prev,
+              realtimeSessionReady: true,
+              realtimeSessionError: undefined,
+            }));
+          } catch (realtimeError) {
+            set((prev) => ({
+              ...prev,
+              realtimeSessionReady: false,
+              realtimeSessionError:
+                realtimeError instanceof Error
+                  ? realtimeError.message
+                  : 'Realtime TTS unavailable; falling back to standard synthesis.',
+            }));
+          }
+        } else {
+          set((prev) => ({
+            ...prev,
+            realtimeSessionReady: false,
+            realtimeSessionError: undefined,
+          }));
+        }
+
         const response = await synthesizeSpeech(state.selectedProvider, payload);
         const engine = getAudioEngine();
         await engine.loadFromBase64(response.audioBase64, response.audioContentType);

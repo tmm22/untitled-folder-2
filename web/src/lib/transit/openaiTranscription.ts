@@ -1,7 +1,7 @@
-const OPENAI_TRANSCRIPTION_URL =
-  process.env.OPENAI_TRANSCRIPTIONS_URL?.trim() || 'https://api.openai.com/v1/audio/transcriptions';
+import { OpenAIClient } from '@/lib/openai/client';
+
 const OPENAI_TRANSCRIPTION_MODEL =
-  process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'whisper-1';
+  process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-transcribe';
 
 interface OpenAITranscriptSegment {
   id: number;
@@ -35,30 +35,6 @@ export interface TranscriptionResult {
   raw: OpenAITranscriptPayload;
 }
 
-function resolveApiKey(): string {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) {
-    throw new Error('OpenAI API key is not configured for transcription');
-  }
-  return key;
-}
-
-function buildFormData(input: TranscriptionInput): FormData {
-  const formData = new FormData();
-  formData.append('model', OPENAI_TRANSCRIPTION_MODEL);
-  formData.append('response_format', 'verbose_json');
-  formData.append('temperature', '0');
-  formData.append('timestamp_granularities[]', 'segment');
-
-  if (input.language) {
-    formData.append('language', input.language);
-  }
-
-  const blob = input.file instanceof File ? input.file : new File([input.file], input.fileName, { type: input.mimeType });
-  formData.append('file', blob, input.fileName);
-  return formData;
-}
-
 function toMilliseconds(value: number | undefined): number {
   if (!value || !Number.isFinite(value)) {
     return 0;
@@ -67,26 +43,28 @@ function toMilliseconds(value: number | undefined): number {
 }
 
 export async function transcribeAudioWithOpenAI(input: TranscriptionInput): Promise<TranscriptionResult> {
-  const apiKey = resolveApiKey();
-  const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: buildFormData(input),
-  });
-
-  if (!response.ok) {
-    const errorPayload = await response.text().catch(() => '');
-    throw new Error(`OpenAI transcription failed (${response.status}): ${errorPayload}`);
-  }
-
-  const payload = (await response.json()) as OpenAITranscriptPayload;
-  const segments = Array.isArray(payload.segments) ? payload.segments : [];
+  const client = new OpenAIClient();
+  const payload = (await client.createTranscription({
+    file: input.file,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    language: input.language,
+    model: OPENAI_TRANSCRIPTION_MODEL,
+  })) as OpenAITranscriptPayload;
+  const segments = Array.isArray(payload.segments)
+    ? payload.segments.filter((segment) => {
+        return (
+          segment &&
+          typeof segment.text === 'string' &&
+          typeof segment.start === 'number' &&
+          typeof segment.end === 'number'
+        );
+      })
+    : [];
 
   return {
-    text: payload.text ?? '',
-    language: payload.language ?? null,
+    text: typeof payload.text === 'string' ? payload.text : '',
+    language: typeof payload.language === 'string' ? payload.language : null,
     durationMs: toMilliseconds(payload.duration),
     segments,
     raw: payload,
