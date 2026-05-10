@@ -249,10 +249,10 @@ export async function applyTranscriptCleanup(
 const TRANSCRIPT_INSIGHT_PROMPT = `You are an assistant that analyses transit operations transcripts. Return a minified JSON object with this exact shape:
 {
   "summary": string,
-  "actionItems": Array<{ "text": string, "ownerHint"?: string, "dueDateHint"?: string }>,
-  "scheduleRecommendation": { "title": string, "startWindow"?: string, "durationMinutes"?: number, "participants"?: string[] } | null
+  "actionItems": Array<{ "text": string, "ownerHint": string | null, "dueDateHint": string | null }>,
+  "scheduleRecommendation": { "title": string, "startWindow": string | null, "durationMinutes": number | null, "participants": string[] | null } | null
 }
-Keep actionItems to at most 5 clear items. Leave optional fields out or null if unknown.`;
+Keep actionItems to at most 5 clear items. For unknown values, use null instead of omitting keys.`;
 
 const TRANSCRIPT_INSIGHT_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -265,11 +265,15 @@ const TRANSCRIPT_INSIGHT_SCHEMA: Record<string, unknown> = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['text'],
+        required: ['text', 'ownerHint', 'dueDateHint'],
         properties: {
           text: { type: 'string' },
-          ownerHint: { type: 'string' },
-          dueDateHint: { type: 'string' },
+          ownerHint: {
+            anyOf: [{ type: 'string' }, { type: 'null' }],
+          },
+          dueDateHint: {
+            anyOf: [{ type: 'string' }, { type: 'null' }],
+          },
         },
       },
     },
@@ -278,14 +282,23 @@ const TRANSCRIPT_INSIGHT_SCHEMA: Record<string, unknown> = {
         {
           type: 'object',
           additionalProperties: false,
-          required: ['title'],
+          required: ['title', 'startWindow', 'durationMinutes', 'participants'],
           properties: {
             title: { type: 'string' },
-            startWindow: { type: 'string' },
-            durationMinutes: { type: 'number' },
+            startWindow: {
+              anyOf: [{ type: 'string' }, { type: 'null' }],
+            },
+            durationMinutes: {
+              anyOf: [{ type: 'number' }, { type: 'null' }],
+            },
             participants: {
-              type: 'array',
-              items: { type: 'string' },
+              anyOf: [
+                {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                { type: 'null' },
+              ],
             },
           },
         },

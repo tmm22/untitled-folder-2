@@ -4,7 +4,7 @@ import type { Mock } from 'vitest';
 class MockWebhookVerificationError extends Error {}
 
 const {
-  validateEventMock,
+  validatePolarEventMock,
   getAccountRepositoryMock,
   getProvisioningOrchestratorMock,
   getProvisioningStoreMock,
@@ -12,7 +12,7 @@ const {
 } = vi.hoisted(() => {
   const issueCredential = vi.fn();
   return {
-    validateEventMock: vi.fn(),
+    validatePolarEventMock: vi.fn(),
     getAccountRepositoryMock: vi.fn(() => ({
       getOrCreate: vi.fn(async () => ({
         userId: 'acct_123',
@@ -34,9 +34,9 @@ const {
   };
 });
 
-vi.mock('@polar-sh/sdk/webhooks', () => ({
-  validateEvent: validateEventMock,
-  WebhookVerificationError: MockWebhookVerificationError,
+vi.mock('@/app/api/_lib/polarWebhook', () => ({
+  validatePolarEvent: validatePolarEventMock,
+  PolarWebhookVerificationError: MockWebhookVerificationError,
 }));
 
 vi.mock('@/app/api/account/context', () => ({
@@ -67,12 +67,12 @@ describe('Polar webhook route', () => {
     delete process.env.POLAR_WEBHOOK_SECRET;
     const response = await POST(new Request('http://localhost/api/billing/polar/events', { method: 'POST' }));
     expect(response.status).toBe(500);
-    expect(validateEventMock).not.toHaveBeenCalled();
+    expect(validatePolarEventMock).not.toHaveBeenCalled();
   });
 
   it('returns 401 when signature validation fails', async () => {
     process.env.POLAR_WEBHOOK_SECRET = 'secret';
-    validateEventMock.mockImplementation(() => {
+    validatePolarEventMock.mockImplementation(() => {
       throw new MockWebhookVerificationError('invalid');
     });
 
@@ -91,7 +91,7 @@ describe('Polar webhook route', () => {
     process.env.POLAR_WEBHOOK_SECRET = 'secret';
     process.env.POLAR_PLAN_ID_STARTER = 'prod_starter';
 
-    validateEventMock.mockReturnValue({
+    validatePolarEventMock.mockReturnValue({
       id: 'evt_1',
       type: 'subscription.active',
       data: {

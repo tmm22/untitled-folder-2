@@ -186,6 +186,11 @@ function extractTextFromResponsesPayload(payload: unknown): string {
   return chunks.join('\n').trim();
 }
 
+function supportsVerboseTranscriptionResponse(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  return normalized.startsWith('whisper');
+}
+
 export class OpenAIClient {
   private readonly apiKey: string;
 
@@ -208,10 +213,14 @@ export class OpenAIClient {
   async createTranscription(input: OpenAITranscriptionInput): Promise<OpenAITranscriptionResponse> {
     const url = process.env.OPENAI_TRANSCRIPTIONS_URL?.trim() || DEFAULT_TRANSCRIPTIONS_URL;
     const formData = new FormData();
-    formData.append('model', input.model?.trim() || process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || DEFAULT_TRANSCRIPTION_MODEL);
-    formData.append('response_format', 'verbose_json');
+    const model = input.model?.trim() || process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || DEFAULT_TRANSCRIPTION_MODEL;
+    const useVerboseResponse = supportsVerboseTranscriptionResponse(model);
+    formData.append('model', model);
+    formData.append('response_format', useVerboseResponse ? 'verbose_json' : 'json');
     formData.append('temperature', '0');
-    formData.append('timestamp_granularities[]', 'segment');
+    if (useVerboseResponse) {
+      formData.append('timestamp_granularities[]', 'segment');
+    }
 
     if (input.language) {
       formData.append('language', input.language);
