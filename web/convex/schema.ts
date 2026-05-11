@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { pipelineDefaultSource, pipelineSchedule, pipelineStep, transcriptSegment } from './validators';
+import { generationTranscript, pipelineDefaultSource, pipelineSchedule, pipelineStep } from './validators';
 
 const credentialMetadata = v.object({
   description: v.optional(v.string()),
@@ -88,7 +88,7 @@ export default defineSchema({
     text: v.string(),
     createdAt: v.string(),
     durationMs: v.number(),
-    transcript: v.optional(v.array(transcriptSegment)),
+    transcript: v.optional(generationTranscript),
   })
     .index('by_user', ['userId'])
     .index('by_user_entry', ['userId', 'id']),

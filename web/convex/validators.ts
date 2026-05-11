@@ -51,3 +51,8 @@ export const transcriptSegment = v.object({
   confidence: v.optional(v.number()),
 });
 
+export const generationTranscript = v.object({
+  srt: v.optional(v.string()),
+  vtt: v.optional(v.string()),
+});
+
