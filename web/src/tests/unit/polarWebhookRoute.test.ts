@@ -34,8 +34,12 @@ const {
   };
 });
 
-vi.mock('@polar-sh/sdk/webhooks', () => ({
-  validateEvent: validateEventMock,
+vi.mock('standardwebhooks', () => ({
+  Webhook: class MockWebhook {
+    verify(body: Buffer | string, headers: Record<string, string>) {
+      return validateEventMock(body, headers, process.env.POLAR_WEBHOOK_SECRET);
+    }
+  },
   WebhookVerificationError: MockWebhookVerificationError,
 }));
 

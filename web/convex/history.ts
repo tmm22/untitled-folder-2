@@ -1,7 +1,7 @@
 import { query, mutation, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
-import { transcriptSegment } from './validators';
+import { generationTranscript } from './validators';
 
 const MAX_HISTORY_ENTRIES = 200;
 
@@ -65,7 +65,7 @@ export const record = mutation({
       text: v.string(),
       createdAt: v.string(),
       durationMs: v.number(),
-      transcript: v.optional(v.array(transcriptSegment)),
+      transcript: v.optional(generationTranscript),
     }),
   },
   handler: async (ctx, { entry }) => {

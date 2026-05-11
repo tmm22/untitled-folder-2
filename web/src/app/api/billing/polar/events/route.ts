@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
+import { Webhook, WebhookVerificationError } from 'standardwebhooks';
 import { getAccountRepository } from '@/app/api/account/context';
 import { getProvisioningOrchestrator, getProvisioningStore } from '@/app/api/provisioning/context';
 import { hasProvisioningAccess } from '@/lib/provisioning/access';
@@ -74,6 +74,12 @@ function headersToObject(headers: Headers): Record<string, string> {
     record[key] = existing ? `${existing},${value}` : value;
   });
   return record;
+}
+
+function validatePolarEvent(body: Buffer, headers: Record<string, string>, secret: string): PolarWebhookEvent {
+  const base64Secret = Buffer.from(secret, 'utf-8').toString('base64');
+  const webhook = new Webhook(base64Secret);
+  return webhook.verify(body, headers) as PolarWebhookEvent;
 }
 
 function resolveAccountId(subscription: PolarSubscription | undefined): string | null {
@@ -231,8 +237,7 @@ export async function POST(request: Request) {
 
   let event: PolarWebhookEvent;
   try {
-    const validated = validateEvent(rawBody, headersToObject(request.headers), secret);
-    event = validated as PolarWebhookEvent;
+    event = validatePolarEvent(rawBody, headersToObject(request.headers), secret);
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
       emitWebhookLog('warn', 'signature_validation_failed', {
