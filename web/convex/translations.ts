@@ -7,6 +7,11 @@ type TranslationDoc = Doc<'translations'>;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
+const translationMetadata = v.object({
+  model: v.optional(v.string()),
+  tokensUsed: v.optional(v.number()),
+});
+
 const sanitizeLimit = (value: number | undefined): number => {
   const limit = Number.isFinite(value) ? Math.floor(value as number) : DEFAULT_PAGE_SIZE;
   return Math.max(1, Math.min(limit, MAX_PAGE_SIZE));
@@ -121,7 +126,7 @@ export const create = mutation({
       translatedText: v.string(),
       keepOriginalApplied: v.boolean(),
       provider: v.string(),
-      metadata: v.optional(v.any()),
+      metadata: v.optional(translationMetadata),
     }),
   },
   handler: async (ctx, { accountId, documentId, payload }) => {

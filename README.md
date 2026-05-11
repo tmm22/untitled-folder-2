@@ -75,30 +75,30 @@ The app automatically chunks scripts that exceed these limits and stitches the a
 The repository now includes a browser-based workspace under `web/` that will reach feature parity with the macOS build over time. It ships as a Next.js 14 + React 18 app with Tailwind styling and Zustand state management.
 
 ### Prerequisites
-- Node.js 18 or newer (validated with Node 20/23)
-- npm (bundled with Node)
+- Node.js 22 or newer for the Next.js toolchain
+- Bun 1.3.5 or newer for package management and scripts
 
 ### Getting Started
 ```bash
 cd web
-npm install
+bun install
 
 # Copy environment template and fill in Convex + billing keys
 cp .env.local.example .env.local
 # then edit .env.local with your deployment details
 
 # Launch the development server
-npm run dev
+bun run dev
 ```
 Visit http://localhost:3000 to use the workspace. The workspace already supports provider selection, text editing with live character counting, secure provider proxy routes (with mock synthesis fallback when keys are unavailable), playback controls, and a shared state foundation for history, batch, and glossary features.
 
 ### Quality Checks
 ```bash
 # Lint the project
-npm run lint
+bun run lint
 
 # Run the Vitest suite (unit + integration)
-npm run test
+bun run test
 ```
 
 ### Managed Provisioning Configuration

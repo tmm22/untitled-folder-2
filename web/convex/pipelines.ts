@@ -1,6 +1,7 @@
 import { query, mutation, type DatabaseReader } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
+import { pipelineDefaultSource, pipelineSchedule, pipelineStep } from './validators';
 
 type PipelineDoc = Doc<'pipelines'>;
 
@@ -33,16 +34,14 @@ function mapPipeline(doc: PipelineDoc) {
 async function loadPipelineById(db: DatabaseReader, id: string): Promise<PipelineDoc | null> {
   return await db
     .query('pipelines')
-    .withIndex('by_pipeline_id')
-    .filter((q) => q.eq(q.field('id'), id))
+    .withIndex('by_pipeline_id', (q) => q.eq('id', id))
     .first();
 }
 
 async function loadPipelineBySecret(db: DatabaseReader, secret: string): Promise<PipelineDoc | null> {
   return await db
     .query('pipelines')
-    .withIndex('by_webhook_secret')
-    .filter((q) => q.eq(q.field('webhookSecret'), secret))
+    .withIndex('by_webhook_secret', (q) => q.eq('webhookSecret', secret))
     .first();
 }
 
@@ -86,9 +85,9 @@ export const create = mutation({
     input: v.object({
       name: v.string(),
       description: v.optional(v.string()),
-      steps: v.array(v.any()),
-      schedule: v.optional(v.any()),
-      defaultSource: v.optional(v.any()),
+      steps: v.array(pipelineStep),
+      schedule: v.optional(pipelineSchedule),
+      defaultSource: v.optional(pipelineDefaultSource),
     }),
   },
   handler: async (ctx, { input }) => {
@@ -121,9 +120,9 @@ export const update = mutation({
     input: v.object({
       name: v.optional(v.string()),
       description: v.optional(v.string()),
-      steps: v.optional(v.array(v.any())),
-      schedule: v.optional(v.union(v.any(), v.null())),
-      defaultSource: v.optional(v.union(v.any(), v.null())),
+      steps: v.optional(v.array(pipelineStep)),
+      schedule: v.optional(v.union(pipelineSchedule, v.null())),
+      defaultSource: v.optional(v.union(pipelineDefaultSource, v.null())),
       rotateSecret: v.optional(v.boolean()),
     }),
   },

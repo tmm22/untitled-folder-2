@@ -20,7 +20,7 @@ Set the following secrets in your deployment platform (and in `web/.env.local` f
 Create `web/.env.local` with the variables above. Never commit `.env.local`.
 
 ### Deployment steps (Vercel example)
-1. `npm install && npm run lint && npm test`
+1. `bun install --frozen-lockfile && bun run lint && bun run test`
 2. `vercel env add` the secrets above (or configure via dashboard).
 3. `vercel --prod` to deploy once secrets are in place.
 4. After rotation/update of any secret, redeploy to propagate.

@@ -3,6 +3,21 @@ interface ChatMessage {
   content: string;
 }
 
+interface OpenAIResponseContent {
+  type?: string;
+  text?: string;
+}
+
+interface OpenAIResponseOutput {
+  type?: string;
+  content?: OpenAIResponseContent[];
+}
+
+interface OpenAIResponsesPayload {
+  output_text?: string;
+  output?: OpenAIResponseOutput[];
+}
+
 interface TranscriptInsightAction {
   text: string;
   ownerHint?: string;
@@ -22,13 +37,13 @@ export interface TranscriptInsights {
   scheduleRecommendation?: TranscriptScheduleRecommendation | null;
 }
 
-interface ChatCompletionOptions {
+interface OpenAIResponseOptions {
   maxTokens?: number;
   temperature?: number;
   apiKey?: string | null;
 }
 
-const OPENAI_CHAT_URL = process.env.OPENAI_CHAT_COMPLETIONS_URL?.trim() || 'https://api.openai.com/v1/chat/completions';
+const OPENAI_RESPONSES_URL = process.env.OPENAI_RESPONSES_URL?.trim() || 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = process.env.OPENAI_PIPELINE_MODEL?.trim() || 'gpt-4o-mini';
 
 export class OpenAIUnavailableError extends Error {
@@ -46,13 +61,13 @@ export function isOpenAIConfigured(): boolean {
   return Boolean(getApiKey());
 }
 
-async function callChatCompletion(messages: ChatMessage[], options: ChatCompletionOptions = {}): Promise<string | null> {
+async function callOpenAIResponse(messages: ChatMessage[], options: OpenAIResponseOptions = {}): Promise<string | null> {
   const apiKey = options.apiKey?.trim() || getApiKey();
   if (!apiKey) {
     throw new OpenAIUnavailableError('OpenAI API key is not configured');
   }
 
-  const response = await fetch(OPENAI_CHAT_URL, {
+  const response = await fetch(OPENAI_RESPONSES_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -60,8 +75,11 @@ async function callChatCompletion(messages: ChatMessage[], options: ChatCompleti
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      messages,
-      max_tokens: options?.maxTokens ?? 180,
+      input: messages.map((message) => ({
+        role: message.role === 'system' ? 'developer' : message.role,
+        content: message.content,
+      })),
+      max_output_tokens: options?.maxTokens ?? 180,
       temperature: options?.temperature ?? 0.3,
     }),
   });
@@ -71,12 +89,16 @@ async function callChatCompletion(messages: ChatMessage[], options: ChatCompleti
     throw new Error(`OpenAI request failed (${response.status}): ${body}`);
   }
 
-  const payload = await response.json();
-  const content = payload.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') {
-    return null;
+  const payload = (await response.json()) as OpenAIResponsesPayload;
+  if (typeof payload.output_text === 'string') {
+    return payload.output_text.trim();
   }
-  return content.trim();
+
+  const content = payload.output
+    ?.flatMap((item) => item.content ?? [])
+    .find((item) => item.type === 'output_text' && typeof item.text === 'string')?.text;
+
+  return typeof content === 'string' ? content.trim() : null;
 }
 
 export interface SummariseOptions {
@@ -102,7 +124,7 @@ export async function summariseText(text: string, options: SummariseOptions = {}
       ? ' Append a short list of 3 keywords in bold at the end.'
       : '';
 
-    const content = await callChatCompletion(
+    const content = await callOpenAIResponse(
       [
         {
           role: 'system',
@@ -133,7 +155,7 @@ export interface TranslateOptions {
 
 export async function translateText(text: string, options: TranslateOptions): Promise<string> {
   try {
-    const result = await callChatCompletion(
+    const result = await callOpenAIResponse(
       [
         {
           role: 'system',
@@ -174,7 +196,7 @@ export async function adjustTone(text: string, options: ToneOptions): Promise<st
     const audienceInstruction = options.audienceHint
       ? `The intended audience is: ${options.audienceHint}.`
       : '';
-    const result = await callChatCompletion(
+    const result = await callOpenAIResponse(
       [
         {
           role: 'system',
@@ -227,7 +249,7 @@ export async function applyTranscriptCleanup(
   const transcriptSample = text.length > MAX_CLEANUP_TEXT_LENGTH ? text.slice(0, MAX_CLEANUP_TEXT_LENGTH) : text;
 
   try {
-    const response = await callChatCompletion(
+    const response = await callOpenAIResponse(
       [
         {
           role: 'system',
@@ -285,7 +307,7 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
   }
 
   try {
-    const response = await callChatCompletion(
+    const response = await callOpenAIResponse(
       [
         { role: 'system', content: TRANSCRIPT_INSIGHT_PROMPT },
         {

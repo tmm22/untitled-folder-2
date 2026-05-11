@@ -81,8 +81,9 @@ export const findActiveCredential = query({
   handler: async (ctx, { userId, provider }) => {
     const credential = await ctx.db
       .query('provisioning_credentials')
-      .withIndex('by_user_provider', (q) => q.eq('userId', userId).eq('provider', provider))
-      .filter((q) => q.eq(q.field('status'), 'active'))
+      .withIndex('by_user_provider_status', (q) =>
+        q.eq('userId', userId).eq('provider', provider).eq('status', 'active'),
+      )
       .order('desc')
       .first();
 
