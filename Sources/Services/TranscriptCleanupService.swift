@@ -11,7 +11,7 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
     private let keychain: KeychainManager
     private let managedProvisioningClient: ManagedProvisioningClient
     private var activeManagedCredential: ManagedCredential?
-    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let endpoint = URL(string: "https://api.openai.com/v1/responses")!
     private let model = "gpt-4o-mini"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
@@ -35,12 +35,10 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
-        let body = ChatCompletionRequest(
+        let body = ResponsesRequest(
             model: model,
-            messages: [
-                .init(role: "system", content: Self.cleanupSystemPrompt),
-                .init(role: "user", content: Self.cleanupUserPrompt(instruction: trimmedInstruction, transcript: transcript))
-            ],
+            instructions: Self.cleanupSystemPrompt,
+            input: Self.cleanupUserPrompt(instruction: trimmedInstruction, transcript: transcript),
             temperature: 0.3
         )
 
@@ -55,8 +53,8 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
 
             switch httpResponse.statusCode {
             case 200:
-                let payload = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let output = payload.choices.first?.message.content?.trimmingCharacters(in: .whitespacesAndNewlines),
+                let payload = try JSONDecoder().decode(ResponsesPayload.self, from: data)
+                guard let output = payload.textOutput?.trimmingCharacters(in: .whitespacesAndNewlines),
                       !output.isEmpty else {
                     throw TTSError.apiError("Cleanup response missing content")
                 }
@@ -103,38 +101,40 @@ private extension TranscriptCleanupService {
         return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 
-    struct ChatCompletionRequest: Codable {
-        struct Message: Codable {
-            let role: String
-            let content: String
-        }
-
-        struct ResponseFormat: Codable {
-            let type: String
-        }
-
+    struct ResponsesRequest: Codable {
         let model: String
-        let messages: [Message]
+        let instructions: String
+        let input: String
         let temperature: Double
-
-        enum CodingKeys: String, CodingKey {
-            case model
-            case messages
-            case temperature
-        }
     }
 
-    struct ChatCompletionResponse: Codable {
-        struct Choice: Codable {
-            struct Message: Codable {
-                let role: String
-                let content: String?
+    struct ResponsesPayload: Codable {
+        struct OutputItem: Codable {
+            struct Content: Codable {
+                let type: String?
+                let text: String?
             }
 
-            let message: Message
+            let content: [Content]?
         }
 
-        let choices: [Choice]
+        let outputText: String?
+        let output: [OutputItem]?
+
+        var textOutput: String? {
+            if let outputText {
+                return outputText
+            }
+            return output?
+                .flatMap { $0.content ?? [] }
+                .first(where: { $0.type == "output_text" && $0.text != nil })?
+                .text
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case outputText = "output_text"
+            case output
+        }
     }
 
     static let cleanupSystemPrompt = "You rewrite transcripts according to the provided instructions. Return the cleaned transcript only, ready for narration."

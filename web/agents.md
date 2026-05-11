@@ -12,7 +12,7 @@
 - `src/tests/` Vitest unit, component, integration suites plus mocks and fixtures; Playwright specs live under `tests/e2e/`.
 
 ## Development Workflow
-- Install dependencies with `bun install` inside `web/`; keep `bun.lockb` checked in for reproducible builds.
+- Install dependencies with `bun install` inside `web/`; keep the text `bun.lock` checked in for reproducible builds.
 - Copy `.env.local.example` to `.env.local` and fill in Clerk, Convex, billing, and Google credentials without committing real secrets.
 - Launch the UI with `bun run dev`; start `bunx convex dev` in a second terminal when working against live Convex functions.
 - Use `bun run build` to verify production bundles and `bun run start` to serve the output locally.
@@ -117,7 +117,7 @@
 - Never log or expose user credentials, API keys, or tokens in error messages or responses.
 
 ## Deployment
-- `bun run build` must pass on Node 18+ (or Bun runtime); fix lint and type errors locally before pushing.
+- `bun run build` must pass on Node 22+ (or the pinned Bun runtime); fix lint and type errors locally before pushing.
 - Deploy to Vercel (configured via `vercel.json`) or a Node-compatible host with the full env variable set: Clerk keys, Convex URL/admin key, billing provider secrets, and pipeline fallbacks where needed.
 - Bump `web/package.json` using `npm version` (or manually) and document release notes in `Docs/WEB_VERSIONING.md`; bundle metadata appears in the footer badge.
 
