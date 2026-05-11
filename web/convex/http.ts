@@ -1,6 +1,7 @@
 import { httpRouter } from 'convex/server';
 import { httpAction } from './_generated/server';
 import { api } from './_generated/api';
+import type { FunctionArgs, FunctionReference } from 'convex/server';
 
 const router = httpRouter();
 
@@ -130,9 +131,15 @@ function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), { ...init, headers });
 }
 
+async function readArgs<FuncRef extends FunctionReference<'query' | 'mutation', 'public'>>(
+  request: Request,
+): Promise<FunctionArgs<FuncRef>> {
+  return (await request.json()) as FunctionArgs<FuncRef>;
+}
+
 const updateAccountHandler = httpAction(async (ctx, request) => {
   requireAdmin(request);
-  const body = (await request.json()) as any;
+  const body = await readArgs<typeof api.account.updateAccount>(request);
   const result = await executeWithLogging('/account/updateAccount', () =>
     ctx.runMutation(api.account.updateAccount, body),
   );
@@ -144,7 +151,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.provisioning.saveCredential>(request);
     const result = await executeWithLogging('/provisioning/save', () =>
       ctx.runMutation(api.provisioning.saveCredential, body),
     );
@@ -157,7 +164,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.provisioning.findActiveCredential>(request);
     const result = await executeWithLogging('/provisioning/findActive', () =>
       ctx.runQuery(api.provisioning.findActiveCredential, body),
     );
@@ -170,7 +177,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.provisioning.markCredentialRevoked>(request);
     const result = await executeWithLogging('/provisioning/markRevoked', () =>
       ctx.runMutation(api.provisioning.markCredentialRevoked, body),
     );
@@ -195,7 +202,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.provisioning.recordUsage>(request);
     const result = await executeWithLogging('/provisioning/recordUsage', () =>
       ctx.runMutation(api.provisioning.recordUsage, body),
     );
@@ -208,7 +215,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.provisioning.listUsage>(request);
     const result = await executeWithLogging('/provisioning/listUsage', () =>
       ctx.runQuery(api.provisioning.listUsage, body),
     );
@@ -221,7 +228,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.account.getOrCreate>(request);
     const result = await executeWithLogging('/account/getOrCreate', () =>
       ctx.runMutation(api.account.getOrCreate, body),
     );
@@ -246,7 +253,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.account.recordUsage>(request);
     const result = await executeWithLogging('/account/recordUsage', () =>
       ctx.runMutation(api.account.recordUsage, body),
     );
@@ -259,7 +266,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.history.list>(request);
     const result = await executeWithLogging('/history/list', () => ctx.runQuery(api.history.list, body));
     return json(result);
   }),
@@ -270,7 +277,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.history.record>(request);
     const result = await executeWithLogging('/history/record', () =>
       ctx.runMutation(api.history.record, body),
     );
@@ -283,7 +290,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.history.remove>(request);
     const result = await executeWithLogging('/history/remove', () =>
       ctx.runMutation(api.history.remove, body),
     );
@@ -296,7 +303,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.history.clear>(request);
     const result = await executeWithLogging('/history/clear', () =>
       ctx.runMutation(api.history.clear, body),
     );
@@ -309,7 +316,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.users.ensureUser>(request);
     const result = await executeWithLogging('/users/ensure', () =>
       ctx.runMutation(api.users.ensureUser, body),
     );
@@ -322,7 +329,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.users.getUser>(request);
     const result = await executeWithLogging('/users/get', () => ctx.runQuery(api.users.getUser, body));
     return json(result);
   }),
@@ -333,7 +340,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.session.save>(request);
     const result = await executeWithLogging('/session/save', () => ctx.runMutation(api.session.save, body));
     return json(result);
   }),
@@ -344,7 +351,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.session.get>(request);
     const result = await executeWithLogging('/session/get', () => ctx.runQuery(api.session.get, body));
     return json(result);
   }),
@@ -355,7 +362,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.session.deleteSession>(request);
     const result = await executeWithLogging('/session/delete', () =>
       ctx.runMutation(api.session.deleteSession, body),
     );
@@ -368,7 +375,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.session.prune>(request);
     const result = await executeWithLogging('/session/prune', () =>
       ctx.runMutation(api.session.prune, body),
     );
@@ -393,7 +400,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.get>(request);
     const result = await executeWithLogging('/pipelines/get', () => ctx.runQuery(api.pipelines.get, body));
     return json(result);
   }),
@@ -404,7 +411,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.findByWebhookSecret>(request);
     const result = await executeWithLogging('/pipelines/findByWebhookSecret', () =>
       ctx.runQuery(api.pipelines.findByWebhookSecret, body),
     );
@@ -417,7 +424,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.create>(request);
     const result = await executeWithLogging('/pipelines/create', () =>
       ctx.runMutation(api.pipelines.create, body),
     );
@@ -430,7 +437,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.update>(request);
     const result = await executeWithLogging('/pipelines/update', () =>
       ctx.runMutation(api.pipelines.update, body),
     );
@@ -443,7 +450,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.remove>(request);
     const result = await executeWithLogging('/pipelines/delete', () =>
       ctx.runMutation(api.pipelines.remove, body),
     );
@@ -456,7 +463,7 @@ router.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     requireAdmin(request);
-    const body = (await request.json()) as any;
+    const body = await readArgs<typeof api.pipelines.recordRun>(request);
     const result = await executeWithLogging('/pipelines/recordRun', () =>
       ctx.runMutation(api.pipelines.recordRun, body),
     );

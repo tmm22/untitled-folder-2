@@ -11,7 +11,7 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
     private let keychain: KeychainManager
     private let managedProvisioningClient: ManagedProvisioningClient
     private var activeManagedCredential: ManagedCredential?
-    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let endpoint = URL(string: "https://api.openai.com/v1/responses")!
     private let model = "gpt-4o-mini"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
@@ -35,14 +35,12 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
         request.timeoutInterval = 45
 
         let prompt = Self.transcriptInsightPrompt
-        let body = ChatCompletionRequest(
+        let body = ResponsesRequest(
             model: model,
-            messages: [
-                .init(role: "system", content: prompt.system),
-                .init(role: "user", content: String(transcript.prefix(8_000)))
-            ],
+            instructions: prompt.system,
+            input: String(transcript.prefix(8_000)),
             temperature: 0.2,
-            responseFormat: .init(type: "json_object")
+            text: .jsonObject
         )
 
         request.httpBody = try JSONEncoder().encode(body)
@@ -56,8 +54,8 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
 
             switch httpResponse.statusCode {
             case 200:
-                let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content,
+                let decoded = try JSONDecoder().decode(ResponsesPayload.self, from: data)
+                guard let content = decoded.textOutput,
                       let payloadData = content.data(using: .utf8) else {
                     throw TTSError.apiError("Transcript insight response missing content")
                 }
@@ -131,39 +129,51 @@ private extension TranscriptInsightsService {
         return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 
-    struct ChatCompletionRequest: Codable {
-        struct Message: Codable {
-            let role: String
-            let content: String
-        }
-
-        struct ResponseFormat: Codable {
-            let type: String
-
-            enum CodingKeys: String, CodingKey {
-                case type
-            }
-        }
-
+    struct ResponsesRequest: Codable {
         let model: String
-        let messages: [Message]
+        let instructions: String
+        let input: String
         let temperature: Double
-        let responseFormat: ResponseFormat
+        let text: TextConfiguration
 
-        enum CodingKeys: String, CodingKey {
-            case model
-            case messages
-            case temperature
-            case responseFormat = "response_format"
+        struct TextConfiguration: Codable {
+            struct Format: Codable {
+                let type: String
+            }
+
+            let format: Format
+
+            static let jsonObject = TextConfiguration(format: .init(type: "json_object"))
         }
     }
 
-    struct ChatCompletionResponse: Codable {
-        struct Choice: Codable {
-            let message: ChatCompletionRequest.Message
+    struct ResponsesPayload: Codable {
+        struct OutputItem: Codable {
+            struct Content: Codable {
+                let type: String?
+                let text: String?
+            }
+
+            let content: [Content]?
         }
 
-        let choices: [Choice]
+        let outputText: String?
+        let output: [OutputItem]?
+
+        var textOutput: String? {
+            if let outputText {
+                return outputText
+            }
+            return output?
+                .flatMap { $0.content ?? [] }
+                .first(where: { $0.type == "output_text" && $0.text != nil })?
+                .text
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case outputText = "output_text"
+            case output
+        }
     }
 
     struct TranscriptInsightsPayload: Codable {

@@ -6,7 +6,7 @@ final class OpenAITranslationService: TextTranslationService {
     private let keychain: KeychainManager
     private let managedProvisioningClient: ManagedProvisioningClient
     private var activeManagedCredential: ManagedCredential?
-    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let endpoint = URL(string: "https://api.openai.com/v1/responses")!
     private let model = "gpt-4o-mini"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
@@ -38,14 +38,12 @@ final class OpenAITranslationService: TextTranslationService {
         TEXT: \(text)
         """
 
-        let body = ChatCompletionRequest(
+        let body = ResponsesRequest(
             model: model,
-            messages: [
-                .init(role: "system", content: "You translate text and respond strictly with the requested JSON."),
-                .init(role: "user", content: prompt)
-            ],
+            instructions: "You translate text and respond strictly with the requested JSON.",
+            input: prompt,
             temperature: 0,
-            responseFormat: .init(type: "json_object")
+            text: .jsonObject
         )
 
         request.httpBody = try JSONEncoder().encode(body)
@@ -59,8 +57,8 @@ final class OpenAITranslationService: TextTranslationService {
 
             switch httpResponse.statusCode {
             case 200:
-                let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content,
+                let decoded = try JSONDecoder().decode(ResponsesPayload.self, from: data)
+                guard let content = decoded.textOutput,
                       let payloadData = content.data(using: .utf8) else {
                     throw TTSError.apiError("Translation response missing content")
                 }
@@ -96,39 +94,51 @@ final class OpenAITranslationService: TextTranslationService {
     }
 }
 
-private struct ChatCompletionRequest: Codable {
+private struct ResponsesRequest: Codable {
     let model: String
-    let messages: [ChatMessage]
+    let instructions: String
+    let input: String
     let temperature: Double
-    let responseFormat: ResponseFormat
+    let text: TextConfiguration
 
-    struct ChatMessage: Codable {
-        let role: String
-        let content: String
-    }
-
-    struct ResponseFormat: Codable {
-        let type: String
-
-        enum CodingKeys: String, CodingKey {
-            case type
+    struct TextConfiguration: Codable {
+        struct Format: Codable {
+            let type: String
         }
-    }
 
-    enum CodingKeys: String, CodingKey {
-        case model
-        case messages
-        case temperature
-        case responseFormat = "response_format"
+        let format: Format
+
+        static let jsonObject = TextConfiguration(format: .init(type: "json_object"))
     }
 }
 
-private struct ChatCompletionResponse: Codable {
-    struct Choice: Codable {
-        let message: ChatCompletionRequest.ChatMessage
+private struct ResponsesPayload: Codable {
+    struct OutputItem: Codable {
+        struct Content: Codable {
+            let type: String?
+            let text: String?
+        }
+
+        let content: [Content]?
     }
 
-    let choices: [Choice]
+    let outputText: String?
+    let output: [OutputItem]?
+
+    var textOutput: String? {
+        if let outputText {
+            return outputText
+        }
+        return output?
+            .flatMap { $0.content ?? [] }
+            .first(where: { $0.type == "output_text" && $0.text != nil })?
+            .text
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case outputText = "output_text"
+        case output
+    }
 }
 
 private struct TranslationPayload: Codable {

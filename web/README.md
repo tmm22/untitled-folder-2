@@ -28,7 +28,7 @@ Set the following environment variables before running the app:
 - `TRANSIT_CALENDAR_DEFAULT_TIMEZONE` – (Optional) IANA zone identifier; defaults to `UTC` when omitted.
 - `TRANSIT_CALENDAR_POST_CONNECT_REDIRECT` – (Optional) override for the OAuth callback redirect URL (defaults to `/transit`).
 
-After changing `convex/schema.ts` run `npx convex dev` in `web/` to regenerate `_generated` types.
+After changing `convex/schema.ts` run `bunx convex dev --once` in `web/` to regenerate `_generated` types.
 
 Signed-in users have generation history, managed provisioning state, and pipeline definitions synchronised through Convex. Guests continue to rely on browser storage, falling back to encrypted IndexedDB for history/snippets and in-memory stores for provisioning/session data. When Convex is unavailable, pipelines gracefully fall back to JSON or in-memory storage.
 
@@ -60,8 +60,8 @@ Automation pipelines let you chain multiple post-processing steps after an impor
 Start the dev server with:
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to load the studio. Hot reloading is enabled.
@@ -71,7 +71,7 @@ Visit [http://localhost:3000](http://localhost:3000) to load the studio. Hot rel
 The project uses Vitest. Run the suite with:
 
 ```bash
-npm test
+bun run test
 ```
 
 Notable new suites:

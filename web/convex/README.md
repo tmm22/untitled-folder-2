@@ -9,6 +9,13 @@ below, then reference their endpoints through `CONVEX_URL`.
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 
+const credentialMetadata = v.object({
+  description: v.optional(v.string()),
+  source: v.optional(v.string()),
+  planTier: v.optional(v.string()),
+  scopes: v.optional(v.array(v.string())),
+});
+
 export const saveCredential = mutation({
   args: {
     record: v.object({
@@ -23,7 +30,7 @@ export const saveCredential = mutation({
       expiresAt: v.number(),
       status: v.string(),
       providerReference: v.optional(v.string()),
-      metadata: v.optional(v.any()),
+      metadata: v.optional(credentialMetadata),
       lastRotatedAt: v.optional(v.number()),
     }),
   },
