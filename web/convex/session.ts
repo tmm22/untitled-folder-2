@@ -1,4 +1,4 @@
-import { mutation, query } from './_generated/server';
+import { internalMutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -16,7 +16,7 @@ function mapSession(doc: Doc<'sessions'>): SessionRecord {
   };
 }
 
-export const save = mutation({
+export const save = internalMutation({
   args: {
     record: v.object({
       id: v.string(),
@@ -40,7 +40,7 @@ export const save = mutation({
   },
 });
 
-export const get = query({
+export const get = internalQuery({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
@@ -52,7 +52,7 @@ export const get = query({
   },
 });
 
-export const deleteSession = mutation({
+export const deleteSession = internalMutation({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
@@ -68,13 +68,15 @@ export const deleteSession = mutation({
   },
 });
 
-export const prune = mutation({
+const PRUNE_BATCH_SIZE = 500;
+
+export const prune = internalMutation({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
     const expired = await ctx.db
       .query('sessions')
-      .filter((q) => q.lt(q.field('expiresAt'), now))
-      .collect();
+      .withIndex('by_expires_at', (q) => q.lt('expiresAt', now))
+      .take(PRUNE_BATCH_SIZE);
 
     await Promise.all(expired.map((session) => ctx.db.delete(session._id)));
     return { result: expired.length };

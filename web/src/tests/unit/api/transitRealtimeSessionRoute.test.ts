@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateRealtimeSession, MockOpenAIClientError, MockOpenAIUnavailableError } = vi.hoisted(() => {
-  class HoistedOpenAIClientError extends Error {
-    status?: number;
-    constructor(message: string, options?: { status?: number }) {
-      super(message);
-      this.status = options?.status;
+const { mockCreateRealtimeSession, mockResolveRequestIdentity, MockOpenAIClientError, MockOpenAIUnavailableError } =
+  vi.hoisted(() => {
+    class HoistedOpenAIClientError extends Error {
+      status?: number;
+      constructor(message: string, options?: { status?: number }) {
+        super(message);
+        this.status = options?.status;
+      }
     }
-  }
-  class HoistedOpenAIUnavailableError extends Error {}
-  return {
-    mockCreateRealtimeSession: vi.fn(),
-    MockOpenAIClientError: HoistedOpenAIClientError,
-    MockOpenAIUnavailableError: HoistedOpenAIUnavailableError,
-  };
-});
+    class HoistedOpenAIUnavailableError extends Error {}
+    return {
+      mockCreateRealtimeSession: vi.fn(),
+      mockResolveRequestIdentity: vi.fn(),
+      MockOpenAIClientError: HoistedOpenAIClientError,
+      MockOpenAIUnavailableError: HoistedOpenAIUnavailableError,
+    };
+  });
 
 vi.mock('@/lib/openai/client', () => ({
   OpenAIClient: class {
@@ -24,19 +26,25 @@ vi.mock('@/lib/openai/client', () => ({
   OpenAIUnavailableError: MockOpenAIUnavailableError,
 }));
 
+vi.mock('@/lib/auth/identity', () => ({
+  resolveRequestIdentity: mockResolveRequestIdentity,
+}));
+
 import { POST } from '@/app/api/transit/realtime/session/route';
 
 describe('/api/transit/realtime/session', () => {
   beforeEach(() => {
     mockCreateRealtimeSession.mockReset();
+    mockResolveRequestIdentity.mockReset();
+    mockResolveRequestIdentity.mockReturnValue({ userId: 'user-1', isVerified: true, source: 'clerk' });
     process.env.OPENAI_USE_REALTIME_TRANSIT = 'true';
   });
 
-  it('creates a realtime session when enabled', async () => {
+  it('creates a realtime transcription session when enabled', async () => {
     mockCreateRealtimeSession.mockResolvedValue({
-      id: 'sess_1',
-      model: 'gpt-4o-realtime-preview',
-      client_secret: { value: 'secret' },
+      clientSecret: 'secret',
+      expiresAt: 1234,
+      model: 'gpt-realtime',
     });
 
     const response = await POST(
@@ -49,8 +57,10 @@ describe('/api/transit/realtime/session', () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.enabled).toBe(true);
-    expect(payload.session.id).toBe('sess_1');
-    expect(mockCreateRealtimeSession).toHaveBeenCalled();
+    expect(payload.clientSecret).toBe('secret');
+    expect(mockCreateRealtimeSession).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'transcription' }),
+    );
   });
 
   it('returns 404 when disabled by feature flag', async () => {
@@ -63,6 +73,19 @@ describe('/api/transit/realtime/session', () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it('rejects unverified callers', async () => {
+    mockResolveRequestIdentity.mockReturnValue({ userId: null, isVerified: false, source: 'generated' });
+
+    const response = await POST(
+      new Request('https://example.com/api/transit/realtime/session', {
+        method: 'POST',
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockCreateRealtimeSession).not.toHaveBeenCalled();
   });
 
   it('maps unavailable errors to 503', async () => {

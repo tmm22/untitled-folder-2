@@ -1,4 +1,4 @@
-import { mutation, type MutationCtx } from './_generated/server';
+import { internalMutation, type MutationCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -48,7 +48,7 @@ async function findAccount(ctx: MutationCtx, userId: string): Promise<AccountDoc
     .first();
 }
 
-export const getOrCreate = mutation({
+export const getOrCreate = internalMutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
     const existing = await findAccount(ctx, userId);
@@ -62,7 +62,7 @@ export const getOrCreate = mutation({
   },
 });
 
-export const updateAccount = mutation({
+export const updateAccount = internalMutation({
   args: {
     payload: v.object({
       userId: v.string(),
@@ -140,7 +140,7 @@ export const updateAccount = mutation({
   },
 });
 
-export const recordUsage = mutation({
+export const recordUsage = internalMutation({
   args: {
     userId: v.string(),
     provider: v.string(),

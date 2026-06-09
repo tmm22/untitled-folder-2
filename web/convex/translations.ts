@@ -1,4 +1,4 @@
-import { query, mutation, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalQuery, internalMutation, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -77,8 +77,9 @@ async function findTranslation(
 ): Promise<TranslationDoc | null> {
   return await ctx.db
     .query('translations')
-    .withIndex('by_account_translation', (q) => q.eq('accountId', accountId).eq('translationId', translationId))
-    .filter((q) => q.eq(q.field('documentId'), documentId))
+    .withIndex('by_account_document_translation', (q) =>
+      q.eq('accountId', accountId).eq('documentId', documentId).eq('translationId', translationId),
+    )
     .first();
 }
 
@@ -92,7 +93,7 @@ async function nextSequenceIndex(ctx: MutationCtx, accountId: string, documentId
   return existing ? existing.sequenceIndex + 1 : 1;
 }
 
-export const list = query({
+export const list = internalQuery({
   args: {
     accountId: v.string(),
     documentId: v.string(),
@@ -114,7 +115,7 @@ export const list = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     accountId: v.string(),
     documentId: v.string(),
@@ -160,7 +161,7 @@ export const create = mutation({
   },
 });
 
-export const promote = mutation({
+export const promote = internalMutation({
   args: {
     accountId: v.string(),
     documentId: v.string(),
@@ -229,7 +230,7 @@ async function clearTranslationsInternal(
   return { deletedCount: targets.length, preserved };
 }
 
-export const clear = mutation({
+export const clear = internalMutation({
   args: {
     accountId: v.string(),
     documentId: v.string(),
@@ -241,7 +242,7 @@ export const clear = mutation({
   },
 });
 
-export const markAdopted = mutation({
+export const markAdopted = internalMutation({
   args: {
     accountId: v.string(),
     documentId: v.string(),

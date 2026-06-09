@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockCreateRealtimeSession,
   mockResolveProviderAuthorization,
+  mockResolveRequestIdentity,
   MockOpenAIClientError,
   MockOpenAIUnavailableError,
 } = vi.hoisted(() => {
@@ -17,6 +18,7 @@ const {
   return {
     mockCreateRealtimeSession: vi.fn(),
     mockResolveProviderAuthorization: vi.fn(),
+    mockResolveRequestIdentity: vi.fn(),
     MockOpenAIClientError: HoistedOpenAIClientError,
     MockOpenAIUnavailableError: HoistedOpenAIUnavailableError,
   };
@@ -35,6 +37,10 @@ vi.mock('@/app/api/_lib/providerAuth', () => ({
   resolveProviderAuthorization: (...args: unknown[]) => mockResolveProviderAuthorization(...args),
 }));
 
+vi.mock('@/lib/auth/identity', () => ({
+  resolveRequestIdentity: mockResolveRequestIdentity,
+}));
+
 import { POST } from '@/app/api/providers/[provider]/realtime/session/route';
 
 describe('/api/providers/[provider]/realtime/session', () => {
@@ -42,14 +48,16 @@ describe('/api/providers/[provider]/realtime/session', () => {
     mockCreateRealtimeSession.mockReset();
     mockResolveProviderAuthorization.mockReset();
     mockResolveProviderAuthorization.mockResolvedValue({ apiKey: 'test-key' });
+    mockResolveRequestIdentity.mockReset();
+    mockResolveRequestIdentity.mockReturnValue({ userId: 'user-1', isVerified: true, source: 'clerk' });
     process.env.OPENAI_USE_REALTIME_TTS = 'true';
   });
 
   it('creates openai realtime sessions when enabled', async () => {
     mockCreateRealtimeSession.mockResolvedValue({
-      id: 'sess_tts_1',
-      model: 'gpt-4o-realtime-preview',
-      client_secret: { value: 'secret' },
+      clientSecret: 'secret',
+      expiresAt: 1234,
+      model: 'gpt-realtime',
     });
 
     const response = await POST(
@@ -63,8 +71,45 @@ describe('/api/providers/[provider]/realtime/session', () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.enabled).toBe(true);
-    expect(payload.session.id).toBe('sess_tts_1');
+    expect(payload.clientSecret).toBe('secret');
+    expect(payload.model).toBe('gpt-realtime');
     expect(mockResolveProviderAuthorization).toHaveBeenCalled();
+  });
+
+  it('never sends managed pseudo tokens upstream', async () => {
+    mockResolveProviderAuthorization.mockResolvedValue({
+      apiKey: undefined,
+      managedCredential: { token: 'tts-proxy-pseudo-token' },
+    });
+    process.env.OPENAI_API_KEY = 'server-key';
+    mockCreateRealtimeSession.mockResolvedValue({ clientSecret: 'secret', model: 'gpt-realtime' });
+
+    const response = await POST(
+      new Request('https://example.com/api/providers/openAI/realtime/session', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ provider: 'openAI' }) },
+    );
+
+    expect(response.status).toBe(200);
+    delete process.env.OPENAI_API_KEY;
+  });
+
+  it('requires a verified identity when minting on the server key', async () => {
+    mockResolveProviderAuthorization.mockResolvedValue({ apiKey: undefined });
+    mockResolveRequestIdentity.mockReturnValue({ userId: 'guest-1', isVerified: false, source: 'cookie' });
+
+    const response = await POST(
+      new Request('https://example.com/api/providers/openAI/realtime/session', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ provider: 'openAI' }) },
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockCreateRealtimeSession).not.toHaveBeenCalled();
   });
 
   it('rejects non-openai providers', async () => {

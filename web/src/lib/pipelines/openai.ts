@@ -1,8 +1,16 @@
 import {
   OpenAIClient,
+  OpenAIClientError,
   OpenAIUnavailableError,
 } from '@/lib/openai/client';
 export { OpenAIUnavailableError };
+
+function describeOpenAIError(error: unknown): string {
+  if (error instanceof OpenAIClientError) {
+    return `OpenAI request failed${error.status ? ` (status ${error.status})` : ''}: ${error.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
 
 interface ChatMessage {
   role: 'system' | 'user';
@@ -38,6 +46,7 @@ interface ChatCompletionOptions {
     schema: Record<string, unknown>;
     strict?: boolean;
   };
+  signal?: AbortSignal;
 }
 
 function getApiKey(): string | null {
@@ -59,6 +68,7 @@ async function callChatCompletion(messages: ChatMessage[], options: ChatCompleti
     maxOutputTokens: options.maxOutputTokens ?? 180,
     temperature: options.temperature ?? 0.3,
     responseFormat: options.responseFormat,
+    signal: options.signal,
   });
   if (!content) {
     return null;
@@ -107,7 +117,7 @@ export async function summariseText(text: string, options: SummariseOptions = {}
     if (error instanceof OpenAIUnavailableError) {
       return undefined;
     }
-    console.error('OpenAI summarise failed', error);
+    console.error('OpenAI summarise failed:', describeOpenAIError(error));
     return undefined;
   }
 }
@@ -143,7 +153,7 @@ export async function translateText(text: string, options: TranslateOptions): Pr
     }
     return result;
   } catch (error) {
-    if (error instanceof OpenAIUnavailableError) {
+    if (error instanceof OpenAIUnavailableError || error instanceof OpenAIClientError) {
       throw error;
     }
     console.error('OpenAI translation failed', error);
@@ -184,7 +194,7 @@ export async function adjustTone(text: string, options: ToneOptions): Promise<st
 
     return result;
   } catch (error) {
-    if (error instanceof OpenAIUnavailableError) {
+    if (error instanceof OpenAIUnavailableError || error instanceof OpenAIClientError) {
       throw error;
     }
     console.error('OpenAI tone adjustment failed', error);
@@ -201,6 +211,7 @@ const MAX_CLEANUP_TEXT_LENGTH = 12_000;
 export async function applyTranscriptCleanup(
   text: string,
   options: CleanupInstructionOptions,
+  signal?: AbortSignal,
 ): Promise<string> {
   const instruction = options.instruction.trim();
   if (!instruction) {
@@ -229,6 +240,7 @@ export async function applyTranscriptCleanup(
       {
         maxOutputTokens: Math.min(3000, Math.round(transcriptSample.length * 1.1)),
         temperature: 0.3,
+        signal,
       },
     );
 
@@ -241,7 +253,7 @@ export async function applyTranscriptCleanup(
     if (error instanceof OpenAIUnavailableError) {
       return text;
     }
-    console.error('OpenAI transcript cleanup failed', error);
+    console.error('OpenAI transcript cleanup failed:', describeOpenAIError(error));
     return text;
   }
 }
@@ -380,7 +392,10 @@ function normaliseTranscriptInsights(parsed: unknown, fallbackSummary: string): 
   };
 }
 
-export async function generateTranscriptInsights(transcript: string): Promise<TranscriptInsights | null> {
+export async function generateTranscriptInsights(
+  transcript: string,
+  signal?: AbortSignal,
+): Promise<TranscriptInsights | null> {
   if (!transcript.trim()) {
     return {
       summary: '',
@@ -415,6 +430,7 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
           schema: TRANSCRIPT_INSIGHT_SCHEMA,
           strict: true,
         },
+        signal,
       },
     );
 
@@ -441,7 +457,7 @@ export async function generateTranscriptInsights(transcript: string): Promise<Tr
         scheduleRecommendation: null,
       };
     }
-    console.error('OpenAI transcript insight generation failed', error);
+    console.error('OpenAI transcript insight generation failed:', describeOpenAIError(error));
     return {
       summary: '',
       actionItems: [],

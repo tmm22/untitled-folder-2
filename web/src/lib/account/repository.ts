@@ -1,6 +1,6 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
 import type { AccountPayload, AccountUsageSummary } from './types';
 
@@ -64,7 +64,7 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async getOrCreate(userId: string): Promise<AccountPayload> {
-    const result = await this.mutation(api.account.getOrCreate, { userId });
+    const result = await this.mutation(internal.account.getOrCreate, { userId });
     if (!result.account) {
       throw new Error('Convex account request failed: empty account response');
     }
@@ -72,7 +72,7 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async updateAccount(payload: AccountPayload): Promise<AccountPayload> {
-    const result = await this.mutation(api.account.updateAccount, { payload });
+    const result = await this.mutation(internal.account.updateAccount, { payload });
     if (!result.account) {
       throw new Error('Convex account request failed: empty account response');
     }
@@ -80,7 +80,7 @@ export class ConvexAccountRepository implements AccountRepository {
   }
 
   async recordUsage(userId: string, provider: string, tokensUsed: number): Promise<AccountPayload> {
-    const result = await this.mutation(api.account.recordUsage, { userId, provider, tokensUsed });
+    const result = await this.mutation(internal.account.recordUsage, { userId, provider, tokensUsed });
     if (!result.account) {
       throw new Error('Convex account request failed: empty account response');
     }

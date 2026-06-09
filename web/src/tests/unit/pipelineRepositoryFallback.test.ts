@@ -93,6 +93,29 @@ describe('pipeline repository context fallback', () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it('serves a transient local fallback without replacing the Convex repository', async () => {
+    delete process.env.PIPELINES_DATA_PATH;
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { getPipelineRepository, fallbackPipelineRepository, resetPipelineRepositoryForTesting } =
+      await import('@/app/api/pipelines/context');
+    resetPipelineRepositoryForTesting();
+
+    const primary = getPipelineRepository();
+    expect(primary).toBeInstanceOf(MockConvexPipelineRepository);
+
+    const fallback = fallbackPipelineRepository(new Error('Convex pipelines request failed (503)'));
+    expect(fallback).toBeInstanceOf(MockInMemoryPipelineRepository);
+
+    // Subsequent requests must go back to Convex, not stay on the fallback.
+    expect(getPipelineRepository()).toBe(primary);
+    // The same fallback instance is reused so in-memory data survives within
+    // the degraded window.
+    expect(fallbackPipelineRepository(new Error('Convex pipelines request failed (503)'))).toBe(fallback);
+
+    errorSpy.mockRestore();
+  });
+
   it('falls back to the in-memory repository when Convex initialisation fails without a file path', async () => {
     convexShouldThrow = true;
     delete process.env.PIPELINES_DATA_PATH;

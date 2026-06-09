@@ -1,4 +1,4 @@
-import { query, mutation, type DatabaseReader } from './_generated/server';
+import { internalQuery, internalMutation, type DatabaseReader } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 import { pipelineDefaultSource, pipelineSchedule, pipelineStep } from './validators';
@@ -55,16 +55,18 @@ function toListItem(doc: PipelineDoc) {
   };
 }
 
-export const list = query({
+const MAX_PIPELINES_LISTED = 500;
+
+export const list = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const docs = await ctx.db.query('pipelines').collect();
+    const docs = await ctx.db.query('pipelines').take(MAX_PIPELINES_LISTED);
     const sorted = docs.sort((a, b) => a.name.localeCompare(b.name));
     return { pipelines: sorted.map(toListItem) };
   },
 });
 
-export const get = query({
+export const get = internalQuery({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
     const pipeline = await loadPipelineById(ctx.db, id);
@@ -72,7 +74,7 @@ export const get = query({
   },
 });
 
-export const findByWebhookSecret = query({
+export const findByWebhookSecret = internalQuery({
   args: { secret: v.string() },
   handler: async (ctx, { secret }) => {
     const pipeline = await loadPipelineBySecret(ctx.db, secret);
@@ -80,7 +82,7 @@ export const findByWebhookSecret = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     input: v.object({
       name: v.string(),
@@ -114,7 +116,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = internalMutation({
   args: {
     id: v.string(),
     input: v.object({
@@ -161,7 +163,7 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = internalMutation({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
     const existing = await loadPipelineById(ctx.db, id);
@@ -173,7 +175,7 @@ export const remove = mutation({
   },
 });
 
-export const recordRun = mutation({
+export const recordRun = internalMutation({
   args: {
     id: v.string(),
     completedAt: v.string(),

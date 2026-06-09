@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
 import type {
   PipelineCreateInput,
@@ -300,22 +300,22 @@ export class ConvexPipelineRepository implements PipelineRepository {
   }
 
   async list(): Promise<PipelineListItem[]> {
-    const result = await this.query(api.pipelines.list, {});
+    const result = await this.query(internal.pipelines.list, {});
     return result.pipelines ?? [];
   }
 
   async get(id: string): Promise<PipelineDefinition | null> {
-    const result = await this.query(api.pipelines.get, { id });
+    const result = await this.query(internal.pipelines.get, { id });
     return (result.pipeline as PipelineDefinition | undefined) ?? null;
   }
 
   async findByWebhookSecret(secret: string): Promise<PipelineDefinition | null> {
-    const result = await this.query(api.pipelines.findByWebhookSecret, { secret });
+    const result = await this.query(internal.pipelines.findByWebhookSecret, { secret });
     return (result.pipeline as PipelineDefinition | undefined) ?? null;
   }
 
   async create(input: PipelineCreateInput): Promise<PipelineDefinition> {
-    const result = await this.mutation(api.pipelines.create, { input });
+    const result = await this.mutation(internal.pipelines.create, { input });
     if (!result.pipeline) {
       throw new Error('Convex pipelines request failed: empty pipeline response');
     }
@@ -323,7 +323,7 @@ export class ConvexPipelineRepository implements PipelineRepository {
   }
 
   async update(id: string, input: PipelineUpdateInput): Promise<PipelineDefinition> {
-    const result = await this.mutation(api.pipelines.update, { id, input });
+    const result = await this.mutation(internal.pipelines.update, { id, input });
     if (!result.pipeline) {
       throw new Error('Convex pipelines request failed: pipeline not found');
     }
@@ -331,10 +331,10 @@ export class ConvexPipelineRepository implements PipelineRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.mutation(api.pipelines.remove, { id });
+    await this.mutation(internal.pipelines.remove, { id });
   }
 
   async recordRun(id: string, completedAt: string): Promise<void> {
-    await this.mutation(api.pipelines.recordRun, { id, completedAt });
+    await this.mutation(internal.pipelines.recordRun, { id, completedAt });
   }
 }

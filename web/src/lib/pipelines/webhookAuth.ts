@@ -80,6 +80,12 @@ export function getWebhookHeaders(request: Request): {
   };
 }
 
+/**
+ * HMAC signatures are required by default; the URL-embedded secret alone is
+ * brute-forceable and leaks through logs/referrers. Set WEBHOOK_REQUIRE_HMAC=0
+ * only for local development against legacy callers.
+ */
 export function isHmacRequired(): boolean {
-  return process.env.WEBHOOK_REQUIRE_HMAC === '1';
+  const value = process.env.WEBHOOK_REQUIRE_HMAC?.trim().toLowerCase();
+  return !(value === '0' || value === 'false' || value === 'no' || value === 'off');
 }

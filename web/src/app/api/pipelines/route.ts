@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthFailure, requireVerifiedIdentity } from '../_lib/requireAuth';
 import {
   getPipelineRepository,
   shouldFallbackToLocalPipelineRepository,
@@ -6,7 +7,12 @@ import {
 } from './context';
 import { parseCreatePayload } from './_lib/validate';
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   try {
     const repository = getPipelineRepository();
     const pipelines = await repository.list();
@@ -27,6 +33,11 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   const body = await request.json().catch(() => ({}));
   let input;
   try {

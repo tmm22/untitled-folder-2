@@ -1,3 +1,5 @@
+import { isResponsesApiEnabled } from './featureFlags';
+
 export interface OpenAIClientConfig {
   apiKey?: string | null;
 }
@@ -18,6 +20,7 @@ export interface OpenAITextOptions {
     strict?: boolean;
   };
   metadata?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 export interface OpenAITranscriptionInput {
@@ -26,6 +29,7 @@ export interface OpenAITranscriptionInput {
   mimeType?: string;
   model?: string;
   language?: string;
+  signal?: AbortSignal;
 }
 
 export interface OpenAITranscriptionSegment {
@@ -46,32 +50,35 @@ export interface OpenAITranscriptionResponse {
 }
 
 export interface OpenAIRealtimeSessionInput {
+  /** GA session type. Transcription sessions do not produce audio output. */
+  type?: 'realtime' | 'transcription';
   model?: string;
   voice?: string;
   instructions?: string;
-  modalities?: Array<'text' | 'audio'>;
-  metadata?: Record<string, string>;
+  outputModalities?: Array<'text' | 'audio'>;
+  signal?: AbortSignal;
 }
 
+/** Normalized server-side DTO for a minted Realtime client secret. */
 export interface OpenAIRealtimeSessionResponse {
-  id?: string;
+  clientSecret: string;
+  expiresAt?: number;
   model?: string;
-  client_secret?: {
-    value?: string;
-    expires_at?: number;
-  };
-  expires_at?: number;
-  [key: string]: unknown;
 }
 
 const DEFAULT_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const DEFAULT_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const DEFAULT_REALTIME_SESSIONS_URL = 'https://api.openai.com/v1/realtime/sessions';
+// GA Realtime mints ephemeral client secrets via /v1/realtime/client_secrets
+// (the beta /v1/realtime/sessions endpoint is deprecated).
+const DEFAULT_REALTIME_CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_secrets';
 const DEFAULT_TEXT_MODEL = 'gpt-4.1-mini';
-const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
-const DEFAULT_REALTIME_MODEL = 'gpt-4o-realtime-preview';
+// whisper-1 is the only transcription model that returns verbose_json with
+// segment timestamps, which the transit pipeline depends on.
+const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
+const DEFAULT_REALTIME_MODEL = 'gpt-realtime';
 const MAX_RETRIES = 2;
+const DEFAULT_TIMEOUT_MS = 60_000;
 
 export class OpenAIClientError extends Error {
   status?: number;
@@ -89,20 +96,29 @@ export class OpenAIUnavailableError extends Error {
   }
 }
 
-function envFlagEnabled(name: string, defaultValue: boolean): boolean {
-  const value = process.env[name]?.trim().toLowerCase();
-  if (!value) {
-    return defaultValue;
-  }
-  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
-}
-
 function resolveApiKey(explicit?: string | null): string {
   const key = explicit?.trim() || process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     throw new OpenAIUnavailableError('OpenAI API key is not configured');
   }
   return key;
+}
+
+function resolveTimeoutMs(): number {
+  const raw = Number.parseInt(process.env.OPENAI_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+}
+
+/**
+ * Combine the caller's abort signal with a request timeout so server-side
+ * OpenAI calls stop when the client disconnects or the deadline passes.
+ */
+function buildAbortSignal(callerSignal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const signals: AbortSignal[] = [AbortSignal.timeout(timeoutMs)];
+  if (callerSignal) {
+    signals.push(callerSignal);
+  }
+  return AbortSignal.any(signals);
 }
 
 async function parseErrorMessage(response: Response): Promise<string> {
@@ -113,23 +129,44 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return `OpenAI request failed (${response.status}): ${body}`;
 }
 
-async function requestWithRetry(url: string, init: RequestInit): Promise<Response> {
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === 'AbortError' || error.name === 'TimeoutError');
+}
+
+async function requestWithRetry(
+  url: string,
+  init: RequestInit,
+  callerSignal?: AbortSignal,
+): Promise<Response> {
+  const timeoutMs = resolveTimeoutMs();
   let attempt = 0;
   let lastError: unknown;
 
   while (attempt <= MAX_RETRIES) {
     try {
-      const response = await fetch(url, init);
+      const response = await fetch(url, { ...init, signal: buildAbortSignal(callerSignal, timeoutMs) });
       if (response.ok) {
         return response;
       }
 
-      const shouldRetry = response.status === 429 || response.status >= 500;
-      if (!shouldRetry || attempt === MAX_RETRIES) {
-        const message = await parseErrorMessage(response);
-        throw new OpenAIClientError(message, { status: response.status });
+      const message = await parseErrorMessage(response);
+      const failure = new OpenAIClientError(message, { status: response.status });
+      if (!isRetryableStatus(response.status) || attempt === MAX_RETRIES) {
+        throw failure;
       }
+      lastError = failure;
     } catch (error) {
+      // 4xx client errors and caller-initiated aborts are never retryable.
+      if (error instanceof OpenAIClientError && error.status !== undefined && !isRetryableStatus(error.status)) {
+        throw error;
+      }
+      if (isAbortError(error) || callerSignal?.aborted) {
+        throw error;
+      }
       lastError = error;
       if (attempt === MAX_RETRIES) {
         break;
@@ -148,23 +185,25 @@ async function requestWithRetry(url: string, init: RequestInit): Promise<Respons
   throw new OpenAIClientError('OpenAI request failed');
 }
 
-function extractTextFromResponsesPayload(payload: unknown): string {
-  if (!payload || typeof payload !== 'object') {
-    return '';
+interface ResponsesPayloadShape {
+  status?: string;
+  error?: { message?: string } | null;
+  incomplete_details?: { reason?: string } | null;
+  output_text?: unknown;
+  output?: unknown;
+}
+
+function collectResponsesOutputText(payload: ResponsesPayloadShape): string {
+  if (typeof payload.output_text === 'string' && payload.output_text.trim().length > 0) {
+    return payload.output_text.trim();
   }
 
-  const maybeOutputText = (payload as { output_text?: unknown }).output_text;
-  if (typeof maybeOutputText === 'string') {
-    return maybeOutputText.trim();
-  }
-
-  const output = (payload as { output?: unknown }).output;
-  if (!Array.isArray(output)) {
+  if (!Array.isArray(payload.output)) {
     return '';
   }
 
   const chunks: string[] = [];
-  for (const item of output) {
+  for (const item of payload.output) {
     if (!item || typeof item !== 'object') {
       continue;
     }
@@ -186,6 +225,34 @@ function extractTextFromResponsesPayload(payload: unknown): string {
   return chunks.join('\n').trim();
 }
 
+/**
+ * Extract assistant text from a Responses API payload, surfacing failures
+ * loudly instead of returning an empty string the caller cannot distinguish
+ * from a real (but empty) completion.
+ */
+export function extractTextFromResponsesPayload(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') {
+    throw new OpenAIClientError('OpenAI Responses API returned an unexpected payload');
+  }
+
+  const shaped = payload as ResponsesPayloadShape;
+
+  if (shaped.error && typeof shaped.error === 'object') {
+    throw new OpenAIClientError(
+      `OpenAI Responses API error: ${shaped.error.message ?? 'unknown error'}`,
+    );
+  }
+
+  if (shaped.status && shaped.status !== 'completed') {
+    const reason = shaped.incomplete_details?.reason;
+    throw new OpenAIClientError(
+      `OpenAI Responses API did not complete (status: ${shaped.status}${reason ? `, reason: ${reason}` : ''})`,
+    );
+  }
+
+  return collectResponsesOutputText(shaped);
+}
+
 function supportsVerboseTranscriptionResponse(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   return normalized.startsWith('whisper');
@@ -203,8 +270,7 @@ export class OpenAIClient {
   }
 
   async generateText(messages: OpenAIMessage[], options: OpenAITextOptions = {}): Promise<string> {
-    const useResponses = envFlagEnabled('OPENAI_USE_RESPONSES_API', true);
-    if (useResponses) {
+    if (isResponsesApiEnabled()) {
       return this.generateTextViaResponses(messages, options);
     }
     return this.generateTextViaChatCompletions(messages, options);
@@ -229,37 +295,68 @@ export class OpenAIClient {
     const blob = input.file instanceof File ? input.file : new File([input.file], input.fileName, { type: input.mimeType });
     formData.append('file', blob, input.fileName);
 
-    const response = await requestWithRetry(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+    const response = await requestWithRetry(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: formData,
       },
-      body: formData,
-    });
+      input.signal,
+    );
 
     return (await response.json()) as OpenAITranscriptionResponse;
   }
 
   async createRealtimeSession(input: OpenAIRealtimeSessionInput = {}): Promise<OpenAIRealtimeSessionResponse> {
-    const url = process.env.OPENAI_REALTIME_SESSIONS_URL?.trim() || DEFAULT_REALTIME_SESSIONS_URL;
-    const payload = {
-      model: input.model?.trim() || process.env.OPENAI_REALTIME_MODEL?.trim() || DEFAULT_REALTIME_MODEL,
-      voice: input.voice,
-      modalities: input.modalities ?? ['text', 'audio'],
-      instructions: input.instructions,
-      metadata: input.metadata,
+    const url = process.env.OPENAI_REALTIME_SESSIONS_URL?.trim() || DEFAULT_REALTIME_CLIENT_SECRETS_URL;
+    const model = input.model?.trim() || process.env.OPENAI_REALTIME_MODEL?.trim() || DEFAULT_REALTIME_MODEL;
+    const sessionType = input.type ?? 'realtime';
+
+    const session: Record<string, unknown> = {
+      type: sessionType,
+      model,
+    };
+    if (input.instructions && sessionType === 'realtime') {
+      session.instructions = input.instructions;
+    }
+    if (sessionType === 'realtime') {
+      session.output_modalities = input.outputModalities ?? ['audio'];
+      if (input.voice?.trim()) {
+        session.audio = { output: { voice: input.voice.trim() } };
+      }
+    }
+
+    const response = await requestWithRetry(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ session }),
+      },
+      input.signal,
+    );
+
+    const payload = (await response.json()) as {
+      value?: string;
+      expires_at?: number;
+      session?: { model?: string };
     };
 
-    const response = await requestWithRetry(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    if (!payload.value) {
+      throw new OpenAIClientError('OpenAI Realtime API did not return a client secret');
+    }
 
-    return (await response.json()) as OpenAIRealtimeSessionResponse;
+    return {
+      clientSecret: payload.value,
+      expiresAt: payload.expires_at,
+      model: payload.session?.model ?? model,
+    };
   }
 
   private async generateTextViaResponses(messages: OpenAIMessage[], options: OpenAITextOptions): Promise<string> {
@@ -286,14 +383,18 @@ export class OpenAIClient {
       };
     }
 
-    const response = await requestWithRetry(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const response = await requestWithRetry(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      options.signal,
+    );
 
     const json = (await response.json()) as unknown;
     return extractTextFromResponsesPayload(json);
@@ -301,19 +402,36 @@ export class OpenAIClient {
 
   private async generateTextViaChatCompletions(messages: OpenAIMessage[], options: OpenAITextOptions): Promise<string> {
     const url = process.env.OPENAI_CHAT_COMPLETIONS_URL?.trim() || DEFAULT_CHAT_COMPLETIONS_URL;
-    const response = await requestWithRetry(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const body: Record<string, unknown> = {
+      model: options.model?.trim() || process.env.OPENAI_PIPELINE_MODEL?.trim() || DEFAULT_TEXT_MODEL,
+      messages,
+      max_tokens: options.maxOutputTokens ?? 240,
+      temperature: options.temperature ?? 0.3,
+    };
+
+    if (options.responseFormat) {
+      body.response_format = {
+        type: 'json_schema',
+        json_schema: {
+          name: options.responseFormat.name,
+          schema: options.responseFormat.schema,
+          strict: options.responseFormat.strict ?? true,
+        },
+      };
+    }
+
+    const response = await requestWithRetry(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify({
-        model: options.model?.trim() || process.env.OPENAI_PIPELINE_MODEL?.trim() || DEFAULT_TEXT_MODEL,
-        messages,
-        max_tokens: options.maxOutputTokens ?? 240,
-        temperature: options.temperature ?? 0.3,
-      }),
-    });
+      options.signal,
+    );
 
     const payload = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>;

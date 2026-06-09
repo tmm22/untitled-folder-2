@@ -4,6 +4,7 @@ import {
   type HistoryRepository,
 } from '@/lib/history/repository';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
+import { createResilientRepository, isConvexTransportError } from '@/lib/convex/resilience';
 
 type HistoryRepositoryKind = 'convex' | 'in-memory';
 
@@ -20,12 +21,24 @@ function createRepository(): HistoryRepository {
 
   if (convexUrl && auth) {
     try {
-      repository = new ConvexHistoryRepository({
+      const primary = new ConvexHistoryRepository({
         baseUrl: convexUrl,
         authToken: auth.token,
         authScheme: auth.scheme,
       });
       repositoryKind = 'convex';
+      repository = createResilientRepository<HistoryRepository>({
+        primary,
+        fallback: () => new InMemoryHistoryRepository(),
+        label: 'history',
+        isTransportError: (error) => isConvexTransportError(error, /Convex history request failed/i),
+        onFallback: () => {
+          repositoryKind = 'in-memory';
+        },
+        onRecovered: () => {
+          repositoryKind = 'convex';
+        },
+      });
       return repository;
     } catch (error) {
       console.warn('Failed to initialise Convex history repository, falling back to in-memory store:', error);

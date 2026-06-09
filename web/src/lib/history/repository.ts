@@ -1,6 +1,6 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
 import type { HistoryEntryPayload } from './types';
 
@@ -68,7 +68,7 @@ export class ConvexHistoryRepository implements HistoryRepository {
   }
 
   async list(userId: string, limit?: number): Promise<HistoryEntryPayload[]> {
-    const result = await this.query(api.history.list, {
+    const result = await this.query(internal.history.list, {
       userId,
       limit,
     });
@@ -76,15 +76,15 @@ export class ConvexHistoryRepository implements HistoryRepository {
   }
 
   async record(entry: HistoryEntryPayload): Promise<void> {
-    await this.mutation(api.history.record, { entry });
+    await this.mutation(internal.history.record, { entry });
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    await this.mutation(api.history.remove, { userId, id });
+    await this.mutation(internal.history.remove, { userId, id });
   }
 
   async clear(userId: string): Promise<void> {
-    await this.mutation(api.history.clear, { userId });
+    await this.mutation(internal.history.clear, { userId });
   }
 }
 

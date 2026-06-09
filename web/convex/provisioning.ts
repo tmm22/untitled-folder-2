@@ -1,5 +1,15 @@
-import { mutation, query } from './_generated/server';
+import { internalMutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
+
+const DEFAULT_LIST_LIMIT = 200;
+const MAX_LIST_LIMIT = 1000;
+
+function clampLimit(limit: number | undefined): number {
+  if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+    return DEFAULT_LIST_LIMIT;
+  }
+  return Math.max(1, Math.min(Math.floor(limit), MAX_LIST_LIMIT));
+}
 
 type CredentialMetadata = {
   description?: string;
@@ -42,7 +52,7 @@ const credentialMetadataValidator = v.optional(
   }),
 );
 
-export const saveCredential = mutation({
+export const saveCredential = internalMutation({
   args: {
     record: v.object({
       id: v.string(),
@@ -76,7 +86,7 @@ export const saveCredential = mutation({
   },
 });
 
-export const findActiveCredential = query({
+export const findActiveCredential = internalQuery({
   args: { userId: v.string(), provider: v.string() },
   handler: async (ctx, { userId, provider }) => {
     const credential = await ctx.db
@@ -91,7 +101,7 @@ export const findActiveCredential = query({
   },
 });
 
-export const markCredentialRevoked = mutation({
+export const markCredentialRevoked = internalMutation({
   args: { credentialId: v.string() },
   handler: async (ctx, { credentialId }) => {
     const credential = await ctx.db
@@ -106,15 +116,15 @@ export const markCredentialRevoked = mutation({
   },
 });
 
-export const listCredentials = query({
-  args: {},
-  handler: async (ctx) => {
-    const credentials = await ctx.db.query('provisioning_credentials').collect();
+export const listCredentials = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const credentials = await ctx.db.query('provisioning_credentials').take(clampLimit(limit));
     return { credentials };
   },
 });
 
-export const recordUsage = mutation({
+export const recordUsage = internalMutation({
   args: {
     entry: v.object({
       id: v.optional(v.string()),
@@ -133,14 +143,14 @@ export const recordUsage = mutation({
   },
 });
 
-export const listUsage = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
+export const listUsage = internalQuery({
+  args: { userId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { userId, limit }) => {
     const usage = await ctx.db
       .query('provisioning_usage')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .order('desc')
-      .collect();
+      .take(clampLimit(limit));
     return { usage };
   },
 });

@@ -16,6 +16,24 @@ function isValidProvider(value: string | null): value is ProviderType {
   return !!value && (PROVIDER_VALUES as string[]).includes(value);
 }
 
+/**
+ * Convex only accepts `{ srt?, vtt? }` transcripts. Legacy client entries may
+ * carry other shapes — strip anything unexpected instead of failing the whole
+ * record sync.
+ */
+function normalizeTranscript(raw: unknown): HistoryEntryPayload['transcript'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const candidate = raw as Record<string, unknown>;
+  const srt = typeof candidate.srt === 'string' && candidate.srt.length > 0 ? candidate.srt : undefined;
+  const vtt = typeof candidate.vtt === 'string' && candidate.vtt.length > 0 ? candidate.vtt : undefined;
+  if (!srt && !vtt) {
+    return undefined;
+  }
+  return { srt, vtt };
+}
+
 function normalizeEntryPayload(identityUserId: string, raw: unknown): HistoryEntryPayload | null {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -51,7 +69,7 @@ function normalizeEntryPayload(identityUserId: string, raw: unknown): HistoryEnt
     text,
     createdAt,
     durationMs,
-    transcript: candidate.transcript as HistoryEntryPayload['transcript'],
+    transcript: normalizeTranscript(candidate.transcript),
   };
 }
 

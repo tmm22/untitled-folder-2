@@ -8,28 +8,39 @@ import {
 } from '@/lib/provisioning';
 import { ConvexProvisioningStore } from '@/lib/provisioning/storage/convexStore';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
+import { createResilientRepository, isConvexTransportError } from '@/lib/convex/resilience';
 
-function createStore(): ProvisioningStore {
-  const convexUrl = process.env.CONVEX_URL?.trim();
-  const auth = resolveConvexAuthConfig();
-  if (convexUrl && auth) {
-    try {
-      return new ConvexProvisioningStore({
-        baseUrl: convexUrl,
-        authToken: auth.token,
-        authScheme: auth.scheme,
-      });
-    } catch (error) {
-      console.warn('Failed to initialise Convex provisioning store:', error);
-    }
-  }
-
+function createLocalStore(): ProvisioningStore {
   const path = process.env.PROVISIONING_DATA_PATH?.trim();
   if (path) {
     return new JsonFileProvisioningStore(path);
   }
 
   return new InMemoryProvisioningStore();
+}
+
+function createStore(): ProvisioningStore {
+  const convexUrl = process.env.CONVEX_URL?.trim();
+  const auth = resolveConvexAuthConfig();
+  if (convexUrl && auth) {
+    try {
+      const primary = new ConvexProvisioningStore({
+        baseUrl: convexUrl,
+        authToken: auth.token,
+        authScheme: auth.scheme,
+      });
+      return createResilientRepository<ProvisioningStore>({
+        primary,
+        fallback: () => createLocalStore(),
+        label: 'provisioning',
+        isTransportError: (error) => isConvexTransportError(error, /Convex provisioning request failed/i),
+      });
+    } catch (error) {
+      console.warn('Failed to initialise Convex provisioning store:', error);
+    }
+  }
+
+  return createLocalStore();
 }
 
 let store: ProvisioningStore | null = null;
