@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { RegisteredMutation, RegisteredQuery } from 'convex/server';
+import type { DefaultFunctionArgs, RegisteredMutation, RegisteredQuery } from 'convex/server';
 import * as pipelinesFns from '../../../convex/pipelines';
 
 type StoredPipeline = Record<string, unknown> & { _id: string };
@@ -39,6 +39,10 @@ class FakeQueryBuilder {
 
   async collect(): Promise<StoredPipeline[]> {
     return this.evaluate();
+  }
+
+  async take(limit: number): Promise<StoredPipeline[]> {
+    return this.evaluate().slice(0, limit);
   }
 
   async first(): Promise<StoredPipeline | null> {
@@ -101,16 +105,16 @@ class FakeDb {
   }
 }
 
-const runMutation = async <Args, Result>(
-  fn: RegisteredMutation<'public', Args, Result>,
+const runMutation = async <Args extends DefaultFunctionArgs, Result>(
+  fn: RegisteredMutation<'internal', Args, Result>,
   ctx: any,
   args: Args,
 ): Promise<Result> => {
   return (fn as unknown as { _handler: (context: any, arguments_: Args) => Promise<Result> })._handler(ctx, args);
 };
 
-const runQuery = async <Args, Result>(
-  fn: RegisteredQuery<'public', Args, Result>,
+const runQuery = async <Args extends DefaultFunctionArgs, Result>(
+  fn: RegisteredQuery<'internal', Args, Result>,
   ctx: any,
   args: Args,
 ): Promise<Result> => {

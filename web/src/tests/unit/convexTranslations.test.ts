@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import type { RegisteredMutation, RegisteredQuery } from 'convex/server';
+import type { DefaultFunctionArgs, RegisteredMutation, RegisteredQuery } from 'convex/server';
 import * as translationsFns from '../../../convex/translations';
 
 type StoredTranslation = Record<string, unknown> & { _id: string };
@@ -126,11 +126,11 @@ class FakeDb {
   }
 }
 
-const runMutation = async <Args, Result>(fn: RegisteredMutation<'public', Args, Result>, ctx: any, args: Args): Promise<Result> => {
+const runMutation = async <Args extends DefaultFunctionArgs, Result>(fn: RegisteredMutation<'internal', Args, Result>, ctx: any, args: Args): Promise<Result> => {
   return (fn as unknown as { _handler: (ctx: any, args: Args) => Promise<Result> })._handler(ctx, args);
 };
 
-const runQuery = async <Args, Result>(fn: RegisteredQuery<'public', Args, Result>, ctx: any, args: Args): Promise<Result> => {
+const runQuery = async <Args extends DefaultFunctionArgs, Result>(fn: RegisteredQuery<'internal', Args, Result>, ctx: any, args: Args): Promise<Result> => {
   return (fn as unknown as { _handler: (ctx: any, args: Args) => Promise<Result> })._handler(ctx, args);
 };
 

@@ -1,4 +1,4 @@
-import { query, mutation, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalQuery, internalMutation, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 import { generationTranscript } from './validators';
@@ -43,7 +43,7 @@ async function enforceLimit(ctx: MutationCtx, userId: string) {
   await Promise.all(toDelete.map((entry) => ctx.db.delete(entry._id)));
 }
 
-export const list = query({
+export const list = internalQuery({
   args: {
     userId: v.string(),
     limit: v.optional(v.number()),
@@ -55,7 +55,7 @@ export const list = query({
   },
 });
 
-export const record = mutation({
+export const record = internalMutation({
   args: {
     entry: v.object({
       id: v.string(),
@@ -98,7 +98,7 @@ export const record = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = internalMutation({
   args: {
     userId: v.string(),
     id: v.string(),
@@ -113,7 +113,7 @@ export const remove = mutation({
   },
 });
 
-export const clear = mutation({
+export const clear = internalMutation({
   args: {
     userId: v.string(),
   },

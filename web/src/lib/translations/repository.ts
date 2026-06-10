@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
 import type {
   CreateTranslationInput,
@@ -93,7 +93,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
     documentId: string,
     options?: { cursor?: string; limit?: number },
   ): Promise<TranslationListResult> {
-    const result = await this.query(api.translations.list, {
+    const result = await this.query(internal.translations.list, {
       accountId,
       documentId,
       cursor: options?.cursor,
@@ -110,7 +110,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
     documentId: string,
     input: CreateTranslationInput,
   ): Promise<{ translation: TranslationRecord | null; historySize: number }> {
-    const result = await this.mutation(api.translations.create, {
+    const result = await this.mutation(internal.translations.create, {
       accountId,
       documentId,
       payload: input,
@@ -122,7 +122,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
   }
 
   async promote(accountId: string, documentId: string, translationId: string): Promise<PromoteResult> {
-    return await this.mutation(api.translations.promote, {
+    return await this.mutation(internal.translations.promote, {
       accountId,
       documentId,
       translationId,
@@ -130,7 +130,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
   }
 
   async clear(accountId: string, documentId: string, options?: { keepLatest?: boolean }): Promise<number> {
-    const result = await this.mutation(api.translations.clear, {
+    const result = await this.mutation(internal.translations.clear, {
       accountId,
       documentId,
       keepLatest: options?.keepLatest,
@@ -144,7 +144,7 @@ export class ConvexTranslationRepository implements TranslationRepository {
     translationId: string,
     collapseHistory?: boolean,
   ): Promise<MarkAdoptedResult> {
-    return await this.mutation(api.translations.markAdopted, {
+    return await this.mutation(internal.translations.markAdopted, {
       accountId,
       documentId,
       translationId,

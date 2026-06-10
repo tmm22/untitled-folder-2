@@ -1,4 +1,4 @@
-import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -24,7 +24,7 @@ async function findByClerkId(ctx: QueryCtx | MutationCtx, clerkId: string): Prom
     .first();
 }
 
-export const ensureUser = mutation({
+export const ensureUser = internalMutation({
   args: {
     clerkId: v.string(),
     email: v.optional(v.string()),
@@ -66,7 +66,7 @@ export const ensureUser = mutation({
   },
 });
 
-export const getUser = query({
+export const getUser = internalQuery({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await findByClerkId(ctx, args.clerkId);

@@ -1,6 +1,7 @@
-import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { type NextjsOptions } from 'convex/nextjs';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
+import { fetchInternalMutation, fetchInternalQuery } from '../convex/internalClient';
 import type { WorkspaceLayoutSnapshot } from '@/modules/workspaceLayout/types';
 import {
   parseWorkspaceLayoutSnapshot,
@@ -26,7 +27,7 @@ export class ConvexWorkspaceLayoutRepository implements WorkspaceLayoutRepositor
   }
 
   async load(userId: string): Promise<WorkspaceLayoutSnapshot | null> {
-    const result = await fetchQuery(api.workspaceLayouts.getWorkspaceLayout, { userId }, this.clientOptions);
+    const result = await fetchInternalQuery(internal.workspaceLayouts.getWorkspaceLayout, { userId }, this.clientOptions);
     if (!result) {
       return null;
     }
@@ -36,8 +37,8 @@ export class ConvexWorkspaceLayoutRepository implements WorkspaceLayoutRepositor
   }
 
   async save(userId: string, layout: WorkspaceLayoutSnapshot): Promise<void> {
-    await fetchMutation(
-      api.workspaceLayouts.saveWorkspaceLayout,
+    await fetchInternalMutation(
+      internal.workspaceLayouts.saveWorkspaceLayout,
       {
         payload: {
           userId,
@@ -49,6 +50,6 @@ export class ConvexWorkspaceLayoutRepository implements WorkspaceLayoutRepositor
   }
 
   async clear(userId: string): Promise<void> {
-    await fetchMutation(api.workspaceLayouts.clearWorkspaceLayout, { userId }, this.clientOptions);
+    await fetchInternalMutation(internal.workspaceLayouts.clearWorkspaceLayout, { userId }, this.clientOptions);
   }
 }

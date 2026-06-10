@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthFailure, requireVerifiedIdentity } from '../../_lib/requireAuth';
 import {
   getPipelineRepository,
   shouldFallbackToLocalPipelineRepository,
@@ -8,11 +9,15 @@ import { parseUpdatePayload } from '../_lib/validate';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_: Request, context: RouteContext): Promise<Response> {
+export async function GET(request: Request, context: RouteContext): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   const { id } = await context.params;
 
-  const respondWithPipeline = async (): Promise<Response> => {
-    const repository = getPipelineRepository();
+  const respondWithPipeline = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.get(id);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
@@ -25,8 +30,7 @@ export async function GET(_: Request, context: RouteContext): Promise<Response> 
   } catch (error) {
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
-        fallbackPipelineRepository(error);
-        return await respondWithPipeline();
+        return await respondWithPipeline(fallbackPipelineRepository(error));
       } catch (fallbackError) {
         console.error('Pipeline lookup failed after fallback', fallbackError);
       }
@@ -37,6 +41,11 @@ export async function GET(_: Request, context: RouteContext): Promise<Response> 
 }
 
 export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   let input;
@@ -60,8 +69,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
     return NextResponse.json({ error: 'No changes supplied' }, { status: 400 });
   }
 
-  const performUpdate = async (): Promise<Response> => {
-    const repository = getPipelineRepository();
+  const performUpdate = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.update(id, input);
     return NextResponse.json({ pipeline });
   };
@@ -74,8 +82,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
     }
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
-        fallbackPipelineRepository(error);
-        return await performUpdate();
+        return await performUpdate(fallbackPipelineRepository(error));
       } catch (fallbackError) {
         if (fallbackError instanceof Error && fallbackError.message === 'Pipeline not found') {
           return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
@@ -88,11 +95,15 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
   }
 }
 
-export async function DELETE(_: Request, context: RouteContext): Promise<Response> {
+export async function DELETE(request: Request, context: RouteContext): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   const { id } = await context.params;
 
-  const performDelete = async (): Promise<Response> => {
-    const repository = getPipelineRepository();
+  const performDelete = async (repository = getPipelineRepository()): Promise<Response> => {
     await repository.delete(id);
     return NextResponse.json({ success: true });
   };
@@ -102,8 +113,7 @@ export async function DELETE(_: Request, context: RouteContext): Promise<Respons
   } catch (error) {
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
-        fallbackPipelineRepository(error);
-        return await performDelete();
+        return await performDelete(fallbackPipelineRepository(error));
       } catch (fallbackError) {
         console.error('Pipeline delete failed after fallback', fallbackError);
       }

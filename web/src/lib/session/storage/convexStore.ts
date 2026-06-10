@@ -1,6 +1,6 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../../convex/_generated/api';
+import { internal } from '../../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../../convex/client';
 import type { SessionRecord, SessionStore } from '../types';
 
@@ -61,11 +61,11 @@ export class ConvexSessionStore implements SessionStore {
   }
 
   async save(record: SessionRecord): Promise<void> {
-    await this.mutation(api.session.save, { record });
+    await this.mutation(internal.session.save, { record });
   }
 
   async find(id: string): Promise<SessionRecord | null> {
-    const result = await this.query(api.session.get, { sessionId: id });
+    const result = await this.query(internal.session.get, { sessionId: id });
     if (!result.session) {
       return null;
     }
@@ -74,10 +74,10 @@ export class ConvexSessionStore implements SessionStore {
   }
 
   async delete(id: string): Promise<void> {
-    await this.mutation(api.session.deleteSession, { sessionId: id });
+    await this.mutation(internal.session.deleteSession, { sessionId: id });
   }
 
   async prune(now: number): Promise<void> {
-    await this.mutation(api.session.prune, { now });
+    await this.mutation(internal.session.prune, { now });
   }
 }

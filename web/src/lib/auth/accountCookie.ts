@@ -1,17 +1,29 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const ACCOUNT_COOKIE_NAME = 'account_id';
 const COOKIE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-const DEFAULT_ACCOUNT_SECRET = 'development-account-secret';
+const MIN_SECRET_LENGTH = 32;
+
+// Process-unique fallback for non-production runs without ACCOUNT_ID_SECRET.
+// Unlike a hardcoded constant it cannot be used to forge cookies, at the cost
+// of invalidating dev cookies on restart.
+let generatedDevSecret: string | null = null;
+
+function getGeneratedDevSecret(): string {
+  if (!generatedDevSecret) {
+    generatedDevSecret = randomBytes(32).toString('hex');
+    console.warn(
+      '[accountCookie] ACCOUNT_ID_SECRET is not set; using an ephemeral secret. Guest cookies will not survive restarts.',
+    );
+  }
+  return generatedDevSecret;
+}
 
 function getSecret(): string {
   const secret = process.env.ACCOUNT_ID_SECRET?.trim();
   if (secret) {
-    if (secret.length < 32) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('ACCOUNT_ID_SECRET must be at least 32 characters in production.');
-      }
-      console.warn('[accountCookie] ACCOUNT_ID_SECRET is shorter than 32 characters; using it only for non-production');
+    if (secret.length < MIN_SECRET_LENGTH) {
+      throw new Error(`ACCOUNT_ID_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`);
     }
     return secret;
   }
@@ -20,7 +32,7 @@ function getSecret(): string {
     throw new Error('ACCOUNT_ID_SECRET is required in production environments.');
   }
 
-  return DEFAULT_ACCOUNT_SECRET;
+  return getGeneratedDevSecret();
 }
 
 function computeSignature(accountId: string): Buffer {

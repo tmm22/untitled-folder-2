@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuth, currentUser } from '@clerk/nextjs/server';
-import { fetchMutation } from 'convex/nextjs';
-import { api } from '../../../../../convex/_generated/api';
+import { internal } from '../../../../../convex/_generated/api';
 import { buildConvexClientOptions } from '@/lib/convex/client';
+import { fetchInternalMutation } from '@/lib/convex/internalClient';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
 
 interface EnsureUserPayload {
@@ -44,7 +44,7 @@ function extractErrorMessage(error: unknown): string {
 
 function isConvexMissingFunctionError(error: unknown): boolean {
   const message = extractErrorMessage(error);
-  if (/Could not find public function/i.test(message)) {
+  if (/Could not find (public |internal )?function/i.test(message)) {
     return true;
   }
   if (error instanceof Error && error.cause) {
@@ -80,8 +80,8 @@ export async function POST(request: Request) {
   };
 
   try {
-    const response = await fetchMutation(
-      api.users.ensureUser,
+    const response = await fetchInternalMutation(
+      internal.users.ensureUser,
       payload,
       buildConvexClientOptions({
         baseUrl: convexUrl,

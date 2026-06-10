@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { resolveRequestIdentity } from '@/lib/auth/identity';
+import { isAuthFailure, requireVerifiedIdentity } from '../../_lib/requireAuth';
 import { transcribeAudioWithOpenAI } from '@/lib/transit/openaiTranscription';
 import { applyTranscriptCleanup, generateTranscriptInsights } from '@/lib/pipelines/openai';
 import { OpenAIClientError, OpenAIUnavailableError } from '@/lib/openai/client';
@@ -15,6 +15,90 @@ import { getTransitTranscriptionRepository } from '@/lib/transit/repository';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const encoder = new TextEncoder();
+
+// Containers OpenAI transcription accepts; checked against the uploaded MIME
+// type (when present) and the file extension as a fallback.
+const ALLOWED_AUDIO_MIME_TYPES = new Set([
+  'audio/wav',
+  'audio/x-wav',
+  'audio/wave',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+  'audio/aac',
+  'audio/webm',
+  'audio/ogg',
+  'audio/flac',
+  'audio/x-flac',
+  'video/webm',
+  'video/mp4',
+]);
+
+const ALLOWED_AUDIO_EXTENSIONS = new Set([
+  'wav',
+  'mp3',
+  'mpga',
+  'mpeg',
+  'mp4',
+  'm4a',
+  'aac',
+  'webm',
+  'ogg',
+  'oga',
+  'flac',
+]);
+
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/mp4': 'm4a',
+  'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/aac': 'aac',
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/flac': 'flac',
+  'audio/x-flac': 'flac',
+  'video/webm': 'webm',
+  'video/mp4': 'mp4',
+};
+
+function normalizeMimeType(raw: string | undefined): string {
+  return (raw ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+function extensionOf(fileName: string): string {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? '' : fileName.slice(dotIndex + 1).toLowerCase();
+}
+
+function isAllowedAudioUpload(file: File): boolean {
+  const mime = normalizeMimeType(file.type);
+  if (mime) {
+    return ALLOWED_AUDIO_MIME_TYPES.has(mime);
+  }
+  return ALLOWED_AUDIO_EXTENSIONS.has(extensionOf(file.name ?? ''));
+}
+
+/** Build an upload filename whose extension matches the actual MIME type. */
+function buildUploadFileName(file: File): string {
+  const mime = normalizeMimeType(file.type);
+  const preferredExtension = EXTENSION_BY_MIME[mime];
+  const currentName = file.name?.trim() || '';
+  const currentExtension = extensionOf(currentName);
+
+  if (currentName && currentExtension && (!preferredExtension || currentExtension === preferredExtension)) {
+    return currentName;
+  }
+
+  const base = currentName ? currentName.replace(/\.[^.]*$/, '') : `transit-audio-${Date.now()}`;
+  return `${base}.${preferredExtension ?? currentExtension ?? 'webm'}`;
+}
 
 function sanitizeTranscriptionError(error: unknown): string {
   if (error instanceof OpenAIUnavailableError) {
@@ -77,7 +161,11 @@ function toSegment(segment: { text: string; start?: number; end?: number }, inde
 }
 
 export async function POST(request: Request) {
-  const identity = resolveRequestIdentity(request);
+  // Transcription burns server-paid OpenAI quota — verified identities only.
+  const identity = requireVerifiedIdentity(request);
+  if (isAuthFailure(identity)) {
+    return identity;
+  }
 
   let form: FormData;
   try {
@@ -94,6 +182,13 @@ export async function POST(request: Request) {
   const size = fileEntry.size ?? 0;
   if (size <= 0 || size > MAX_FILE_SIZE_BYTES) {
     return NextResponse.json({ error: 'Audio file size is invalid or exceeds 25 MB limit' }, { status: 413 });
+  }
+
+  if (!isAllowedAudioUpload(fileEntry)) {
+    return NextResponse.json(
+      { error: 'Unsupported audio format. Please upload a common audio format such as WAV, MP3, M4A, WEBM, OGG, or FLAC.' },
+      { status: 415 },
+    );
   }
 
   const source = normalizeSource(form.get('source'));
@@ -115,8 +210,9 @@ export async function POST(request: Request) {
 
         const audioBuffer = await fileEntry.arrayBuffer();
         const audioBytes = new Uint8Array(audioBuffer);
-        const audioFile = new File([audioBytes], fileEntry.name || `transit-audio-${Date.now()}.wav`, {
-          type: fileEntry.type || 'audio/wav',
+        const uploadName = buildUploadFileName(fileEntry);
+        const audioFile = new File([audioBytes], uploadName, {
+          type: normalizeMimeType(fileEntry.type) || 'audio/webm',
         });
 
         const transcription = await transcribeAudioWithOpenAI({
@@ -124,6 +220,7 @@ export async function POST(request: Request) {
           fileName: audioFile.name,
           mimeType: audioFile.type,
           language: languageHint,
+          signal: request.signal,
         });
 
         audioBytes.fill(0);
@@ -138,7 +235,7 @@ export async function POST(request: Request) {
         }
 
         sendEvent(controller, { event: 'status', data: { stage: 'summarising' } });
-        const insights = await generateTranscriptInsights(transcription.text);
+        const insights = await generateTranscriptInsights(transcription.text, request.signal);
         if (insights) {
           sendEvent(controller, { event: 'summary', data: insights });
         }
@@ -147,9 +244,11 @@ export async function POST(request: Request) {
         if (cleanupInstruction.length > 0) {
           sendEvent(controller, { event: 'status', data: { stage: 'cleaning' } });
           try {
-            const cleaned = await applyTranscriptCleanup(transcription.text, {
-              instruction: cleanupInstruction,
-            });
+            const cleaned = await applyTranscriptCleanup(
+              transcription.text,
+              { instruction: cleanupInstruction },
+              request.signal,
+            );
             const normalized = cleaned.trim().length > 0 ? cleaned.trim() : transcription.text;
             cleanup = {
               instruction: cleanupInstruction,

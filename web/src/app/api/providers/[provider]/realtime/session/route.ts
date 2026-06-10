@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { ProviderType } from '@/modules/tts/types';
 import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
+import { isAuthFailure, requireVerifiedIdentity } from '@/app/api/_lib/requireAuth';
 import { OpenAIClient, OpenAIClientError, OpenAIUnavailableError } from '@/lib/openai/client';
 import { isRealtimeTTSEnabled } from '@/lib/openai/featureFlags';
 
@@ -50,23 +51,35 @@ export async function POST(request: Request, context: ProviderRouteContext) {
   }
 
   const auth = await resolveProviderAuthorization(request, provider);
-  const apiKey = auth.managedCredential?.token?.trim() || auth.apiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+  // Managed-provisioning tokens are pseudo tokens for usage accounting — they
+  // are NOT OpenAI API keys and must never be sent upstream. Realtime minting
+  // uses the caller's own key (BYOK) or the server key.
+  const byokKey = auth.apiKey?.trim();
+  const apiKey = byokKey || process.env.OPENAI_API_KEY?.trim();
+
+  if (!byokKey) {
+    // Spending the server key requires a verified identity.
+    const verified = requireVerifiedIdentity(request);
+    if (isAuthFailure(verified)) {
+      return verified;
+    }
+  }
 
   try {
     const client = new OpenAIClient({ apiKey });
     const session = await client.createRealtimeSession({
+      type: 'realtime',
       voice: requestBody.voice?.trim(),
       instructions: 'You are assisting with a live narration studio voice session. Keep responses concise and natural.',
-      modalities: ['text', 'audio'],
-      metadata: {
-        surface: 'tts',
-      },
+      outputModalities: ['audio'],
+      signal: request.signal,
     });
 
     return NextResponse.json({
       enabled: true,
-      model: session.model ?? process.env.OPENAI_REALTIME_MODEL ?? 'gpt-4o-realtime-preview',
-      session,
+      model: session.model,
+      clientSecret: session.clientSecret,
+      expiresAt: session.expiresAt,
       websocketUrl: process.env.OPENAI_REALTIME_WS_URL?.trim() || 'wss://api.openai.com/v1/realtime',
     });
   } catch (error) {

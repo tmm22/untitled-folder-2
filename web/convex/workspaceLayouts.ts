@@ -1,4 +1,4 @@
-import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -35,7 +35,7 @@ const findByUserId = async (ctx: QueryCtx | MutationCtx, userId: string) => {
     .first();
 };
 
-export const getWorkspaceLayout = query({
+export const getWorkspaceLayout = internalQuery({
   args: {
     userId: v.string(),
   },
@@ -48,7 +48,7 @@ export const getWorkspaceLayout = query({
   },
 });
 
-export const saveWorkspaceLayout = mutation({
+export const saveWorkspaceLayout = internalMutation({
   args: {
     payload: v.object({
       userId: v.string(),
@@ -81,7 +81,7 @@ export const saveWorkspaceLayout = mutation({
   },
 });
 
-export const clearWorkspaceLayout = mutation({
+export const clearWorkspaceLayout = internalMutation({
   args: {
     userId: v.string(),
   },

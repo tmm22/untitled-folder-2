@@ -4,6 +4,7 @@ import {
   AccountRepository,
 } from '@/lib/account/repository';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
+import { createResilientRepository, isConvexTransportError } from '@/lib/convex/resilience';
 
 type AccountRepositoryKind = 'convex' | 'in-memory';
 
@@ -11,50 +12,7 @@ let repository: AccountRepository | null = null;
 let repositoryKind: AccountRepositoryKind | null = null;
 
 function isConvexAccountError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  if (/Convex account request failed/i.test(error.message)) {
-    return true;
-  }
-  if (error.name === 'TypeError') {
-    return true;
-  }
-  const withCause = error as { cause?: unknown };
-  if (withCause.cause) {
-    return isConvexAccountError(withCause.cause);
-  }
-  return /fetch failed/i.test(error.message);
-}
-
-function createResilientRepository(
-  primary: AccountRepository,
-  fallback: InMemoryAccountRepository,
-): AccountRepository {
-  let active: AccountRepository = primary;
-  let usingFallback = false;
-
-  const execute = async <T>(operation: (repo: AccountRepository) => Promise<T>): Promise<T> => {
-    try {
-      return await operation(active);
-    } catch (error) {
-      if (usingFallback || !isConvexAccountError(error)) {
-        throw error;
-      }
-      usingFallback = true;
-      active = fallback;
-      repositoryKind = 'in-memory';
-      console.warn('Falling back to in-memory account repository after Convex failure:', error);
-      return operation(active);
-    }
-  };
-
-  return {
-    getOrCreate: (userId: string) => execute((repo) => repo.getOrCreate(userId)),
-    updateAccount: (payload) => execute((repo) => repo.updateAccount(payload)),
-    recordUsage: (userId, provider, tokensUsed) =>
-      execute((repo) => repo.recordUsage(userId, provider, tokensUsed)),
-  };
+  return isConvexTransportError(error, /Convex account request failed/i);
 }
 
 function createRepository(): AccountRepository {
@@ -72,9 +30,19 @@ function createRepository(): AccountRepository {
         authToken: auth.token,
         authScheme: auth.scheme,
       });
-      const fallback = new InMemoryAccountRepository();
       repositoryKind = 'convex';
-      repository = createResilientRepository(primary, fallback);
+      repository = createResilientRepository<AccountRepository>({
+        primary,
+        fallback: () => new InMemoryAccountRepository(),
+        label: 'account',
+        isTransportError: isConvexAccountError,
+        onFallback: () => {
+          repositoryKind = 'in-memory';
+        },
+        onRecovered: () => {
+          repositoryKind = 'convex';
+        },
+      });
       return repository;
     } catch (error) {
       console.warn('Failed to initialise Convex account repository, falling back to in-memory store:', error);

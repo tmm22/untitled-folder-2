@@ -80,9 +80,21 @@ describe('Convex HTTP admin guard', () => {
     }
   });
 
-  it('accepts fallback header when tokens configured', () => {
+  it('rejects the legacy x-convex-admin-key fallback header', () => {
     process.env.CONVEX_ADMIN_KEY = 'admin-token';
     const request = buildRequest({ 'x-convex-admin-key': 'admin-token' });
+    try {
+      requireAdmin(request);
+      throw new Error('Expected rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Response);
+      expect((error as Response).status).toBe(401);
+    }
+  });
+
+  it('authorises requests with the admin key over the authorization header', () => {
+    process.env.CONVEX_ADMIN_KEY = 'admin-token';
+    const request = buildRequest({ authorization: 'Bearer admin-token' });
     expect(() => requireAdmin(request)).not.toThrow();
   });
 });

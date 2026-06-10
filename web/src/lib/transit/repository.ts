@@ -1,8 +1,9 @@
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
-import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { type NextjsOptions } from 'convex/nextjs';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
+import { fetchInternalMutation, fetchInternalQuery } from '../convex/internalClient';
 import { resolveConvexAuthConfig } from '../convexAuth';
 import type { TransitTranscriptionRecord } from '@/modules/transitTranscription/types';
 
@@ -66,20 +67,18 @@ class FileTransitTranscriptionRepository implements TransitTranscriptionReposito
   }
 
   async save(userId: string, record: TransitTranscriptionRecord): Promise<void> {
-    try {
-      const entries = await this.readAll();
-      const existing = entries[userId] ?? [];
-      const next = [
-        record,
-        ...existing.filter((item) => item.id !== record.id),
-      ]
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .slice(0, this.limit);
-      entries[userId] = next;
-      await this.writeAll(entries);
-    } catch (error) {
-      console.warn('Failed to persist transit transcription record', error);
-    }
+    // Persistence failures must propagate so callers can report them instead
+    // of silently dropping the transcript.
+    const entries = await this.readAll();
+    const existing = entries[userId] ?? [];
+    const next = [
+      record,
+      ...existing.filter((item) => item.id !== record.id),
+    ]
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, this.limit);
+    entries[userId] = next;
+    await this.writeAll(entries);
   }
 
   async clear(userId: string): Promise<void> {
@@ -110,8 +109,8 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
 
   async list(userId: string): Promise<TransitTranscriptionRecord[]> {
     const records =
-      (await fetchQuery(
-        api.transit.listTranscripts,
+      (await fetchInternalQuery(
+        internal.transit.listTranscripts,
         { userId },
         this.options,
       )) ?? [];
@@ -119,8 +118,8 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
   }
 
   async save(userId: string, record: TransitTranscriptionRecord): Promise<void> {
-    await fetchMutation(
-      api.transit.saveTranscript,
+    await fetchInternalMutation(
+      internal.transit.saveTranscript,
       {
         record: {
           userId,
@@ -158,16 +157,16 @@ class ConvexTransitTranscriptionRepository implements TransitTranscriptionReposi
   }
 
   async clear(userId: string): Promise<void> {
-    await fetchMutation(
-      api.transit.clearTranscripts,
+    await fetchInternalMutation(
+      internal.transit.clearTranscripts,
       { userId },
       this.options,
     );
   }
 
   async remove(userId: string, transcriptId: string): Promise<void> {
-    await fetchMutation(
-      api.transit.removeTranscript,
+    await fetchInternalMutation(
+      internal.transit.removeTranscript,
       { userId, transcriptId },
       this.options,
     );

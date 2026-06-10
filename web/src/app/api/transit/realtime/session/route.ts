@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthFailure, requireVerifiedIdentity } from '../../../_lib/requireAuth';
 import { OpenAIClient, OpenAIClientError, OpenAIUnavailableError } from '@/lib/openai/client';
 import { isRealtimeTransitEnabled } from '@/lib/openai/featureFlags';
 
@@ -27,6 +28,13 @@ export async function POST(request: Request) {
     );
   }
 
+  // Ephemeral tokens are billed against the server API key — never mint them
+  // for anonymous callers.
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   let payload: RealtimeTransitSessionRequest = {};
   try {
     payload = (await request.json()) as RealtimeTransitSessionRequest;
@@ -34,20 +42,22 @@ export async function POST(request: Request) {
     payload = {};
   }
 
+  void payload.languageHint;
+
   try {
     const client = new OpenAIClient();
+    // Live transcription wants a transcription-type session (no audio output).
     const session = await client.createRealtimeSession({
-      instructions: `Provide accurate live transcription for transit operations audio. Use concise punctuation. Language hint: ${payload.languageHint?.trim() || 'auto-detect'}.`,
-      modalities: ['text', 'audio'],
-      metadata: {
-        surface: 'transit',
-      },
+      type: 'transcription',
+      model: process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL?.trim() || undefined,
+      signal: request.signal,
     });
 
     return NextResponse.json({
       enabled: true,
-      model: session.model ?? process.env.OPENAI_REALTIME_MODEL ?? 'gpt-4o-realtime-preview',
-      session,
+      model: session.model,
+      clientSecret: session.clientSecret,
+      expiresAt: session.expiresAt,
       websocketUrl: process.env.OPENAI_REALTIME_WS_URL?.trim() || 'wss://api.openai.com/v1/realtime',
     });
   } catch (error) {

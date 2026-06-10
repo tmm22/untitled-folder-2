@@ -31,9 +31,7 @@ export default defineSchema({
     lastRotatedAt: v.optional(v.number()),
   })
     .index('by_credential_id', ['id'])
-    .index('by_user_provider', ['userId', 'provider'])
-    .index('by_user_provider_status', ['userId', 'provider', 'status'])
-    .index('by_status', ['status']),
+    .index('by_user_provider_status', ['userId', 'provider', 'status']),
 
   provisioning_usage: defineTable({
     id: v.string(),
@@ -110,13 +108,15 @@ export default defineSchema({
     metadata: v.optional(translationMetadata),
   })
     .index('by_account_document_seq', ['accountId', 'documentId', 'sequenceIndex'])
-    .index('by_account_translation', ['accountId', 'translationId']),
+    .index('by_account_document_translation', ['accountId', 'documentId', 'translationId']),
 
   sessions: defineTable({
     id: v.string(),
     secret: v.string(),
     expiresAt: v.number(),
-  }).index('by_session_id', ['id']),
+  })
+    .index('by_session_id', ['id'])
+    .index('by_expires_at', ['expiresAt']),
 
   pipelines: defineTable({
     id: v.string(),
@@ -131,7 +131,6 @@ export default defineSchema({
     lastRunAt: v.optional(v.string()),
   })
     .index('by_pipeline_id', ['id'])
-    .index('by_name', ['name'])
     .index('by_webhook_secret', ['webhookSecret']),
 
   transit_transcripts: defineTable({

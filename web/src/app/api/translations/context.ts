@@ -4,6 +4,7 @@ import {
   type TranslationRepository,
 } from '@/lib/translations/repository';
 import { resolveConvexAuthConfig } from '@/lib/convexAuth';
+import { createResilientRepository, isConvexTransportError } from '@/lib/convex/resilience';
 
 type TranslationRepositoryKind = 'convex' | 'in-memory';
 
@@ -20,12 +21,24 @@ function createRepository(): TranslationRepository {
 
   if (convexUrl && auth) {
     try {
-      repository = new ConvexTranslationRepository({
+      const primary = new ConvexTranslationRepository({
         baseUrl: convexUrl,
         authToken: auth.token,
         authScheme: auth.scheme,
       });
       repositoryKind = 'convex';
+      repository = createResilientRepository<TranslationRepository>({
+        primary,
+        fallback: () => new InMemoryTranslationRepository(),
+        label: 'translations',
+        isTransportError: (error) => isConvexTransportError(error, /Convex translations request failed/i),
+        onFallback: () => {
+          repositoryKind = 'in-memory';
+        },
+        onRecovered: () => {
+          repositoryKind = 'convex';
+        },
+      });
       return repository;
     } catch (error) {
       console.warn('Failed to initialise Convex translation repository, falling back to in-memory store:', error);

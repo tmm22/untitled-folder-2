@@ -1,4 +1,4 @@
-import { query, mutation, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalQuery, internalMutation, type MutationCtx, type QueryCtx } from './_generated/server';
 import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 
@@ -78,7 +78,7 @@ async function enforceTranscriptLimit(ctx: MutationCtx, userId: string) {
   await Promise.all(toDelete.map((entry) => ctx.db.delete(entry._id)));
 }
 
-export const listTranscripts = query({
+export const listTranscripts = internalQuery({
   args: {
     userId: v.string(),
     limit: v.optional(v.number()),
@@ -90,7 +90,7 @@ export const listTranscripts = query({
   },
 });
 
-export const saveTranscript = mutation({
+export const saveTranscript = internalMutation({
   args: {
     record: v.object({
       userId: v.string(),
@@ -148,7 +148,7 @@ export const saveTranscript = mutation({
   },
 });
 
-export const clearTranscripts = mutation({
+export const clearTranscripts = internalMutation({
   args: {
     userId: v.string(),
   },
@@ -163,7 +163,7 @@ export const clearTranscripts = mutation({
   },
 });
 
-export const removeTranscript = mutation({
+export const removeTranscript = internalMutation({
   args: {
     userId: v.string(),
     transcriptId: v.string(),
@@ -178,7 +178,7 @@ export const removeTranscript = mutation({
   },
 });
 
-export const getCalendarToken = query({
+export const getCalendarToken = internalQuery({
   args: {
     userId: v.string(),
   },
@@ -199,7 +199,7 @@ export const getCalendarToken = query({
   },
 });
 
-export const setCalendarToken = mutation({
+export const setCalendarToken = internalMutation({
   args: {
     userId: v.string(),
     encryptedPayload: v.string(),
@@ -234,7 +234,7 @@ export const setCalendarToken = mutation({
   },
 });
 
-export const clearCalendarToken = mutation({
+export const clearCalendarToken = internalMutation({
   args: {
     userId: v.string(),
   },

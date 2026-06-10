@@ -1,8 +1,9 @@
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import crypto from 'crypto';
-import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
+import { type NextjsOptions } from 'convex/nextjs';
+import { fetchInternalMutation, fetchInternalQuery } from '../convex/internalClient';
+import { internal } from '../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../convex/client';
 import { resolveConvexAuthConfig } from '../convexAuth';
 
@@ -165,8 +166,8 @@ class ConvexCalendarTokenStore implements CalendarTokenStore {
   constructor(private readonly options: NextjsOptions) {}
 
   async get(userId: string): Promise<CalendarTokenRecord | null> {
-    const record = await fetchQuery(
-      api.transit.getCalendarToken,
+    const record = await fetchInternalQuery(
+      internal.transit.getCalendarToken,
       { userId },
       this.options,
     );
@@ -177,8 +178,8 @@ class ConvexCalendarTokenStore implements CalendarTokenStore {
       return decryptPayload(record.encryptedPayload);
     } catch (error) {
       console.warn('Failed to decrypt Convex calendar token; clearing entry', error);
-      await fetchMutation(
-        api.transit.clearCalendarToken,
+      await fetchInternalMutation(
+        internal.transit.clearCalendarToken,
         { userId },
         this.options,
       );
@@ -188,8 +189,8 @@ class ConvexCalendarTokenStore implements CalendarTokenStore {
 
   async save(userId: string, record: CalendarTokenRecord): Promise<void> {
     const encryptedPayload = encryptPayload(record);
-    await fetchMutation(
-      api.transit.setCalendarToken,
+    await fetchInternalMutation(
+      internal.transit.setCalendarToken,
       {
         userId,
         encryptedPayload,
@@ -201,8 +202,8 @@ class ConvexCalendarTokenStore implements CalendarTokenStore {
   }
 
   async clear(userId: string): Promise<void> {
-    await fetchMutation(
-      api.transit.clearCalendarToken,
+    await fetchInternalMutation(
+      internal.transit.clearCalendarToken,
       { userId },
       this.options,
     );

@@ -1,6 +1,6 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server';
 import { fetchMutation, fetchQuery, type NextjsOptions } from 'convex/nextjs';
-import { api } from '../../../../convex/_generated/api';
+import { internal } from '../../../../convex/_generated/api';
 import { buildConvexClientOptions } from '../../convex/client';
 import type {
   ProvisionedCredentialRecord,
@@ -65,13 +65,13 @@ export class ConvexProvisioningStore implements ProvisioningStore {
   }
 
   async save(record: ProvisionedCredentialRecord): Promise<void> {
-    await this.mutation(api.provisioning.saveCredential, {
+    await this.mutation(internal.provisioning.saveCredential, {
       record: { ...record, scopes: [...record.scopes] } as DefaultFunctionArgs,
     } as DefaultFunctionArgs);
   }
 
   async findActive(userId: string, provider: string): Promise<ProvisionedCredentialRecord | null> {
-    const result = await this.query(api.provisioning.findActiveCredential, {
+    const result = await this.query(internal.provisioning.findActiveCredential, {
       userId,
       provider,
     });
@@ -79,21 +79,21 @@ export class ConvexProvisioningStore implements ProvisioningStore {
   }
 
   async markRevoked(credentialId: string): Promise<void> {
-    await this.mutation(api.provisioning.markCredentialRevoked, { credentialId });
+    await this.mutation(internal.provisioning.markCredentialRevoked, { credentialId });
   }
 
   async list(): Promise<ProvisionedCredentialRecord[]> {
-    const result = await this.query(api.provisioning.listCredentials, {});
+    const result = await this.query(internal.provisioning.listCredentials, {});
     return (result.credentials ?? []) as ProvisionedCredentialRecord[];
   }
 
   async recordUsage(entry: Omit<UsageRecord, 'id'> & { id?: string }): Promise<UsageRecord> {
-    const result = await this.mutation(api.provisioning.recordUsage, { entry } as DefaultFunctionArgs);
+    const result = await this.mutation(internal.provisioning.recordUsage, { entry } as DefaultFunctionArgs);
     return result.usage as UsageRecord;
   }
 
   async listUsage(userId: string): Promise<UsageRecord[]> {
-    const result = await this.query(api.provisioning.listUsage, { userId });
+    const result = await this.query(internal.provisioning.listUsage, { userId });
     return (result.usage ?? []) as UsageRecord[];
   }
 }

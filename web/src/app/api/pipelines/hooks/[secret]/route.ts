@@ -38,16 +38,21 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const executeWebhook = async (): Promise<Response> => {
-    const repository = getPipelineRepository();
+  const executeWebhook = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.findByWebhookSecret(secret);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 
     const { signature, timestamp } = getWebhookHeaders(request);
+    const hmacRequired = isHmacRequired();
 
-    if (isHmacRequired() || signature) {
+    if (hmacRequired || signature) {
+      // Timestamp is mandatory alongside the signature so signed payloads
+      // cannot be replayed indefinitely.
+      if (hmacRequired && !timestamp) {
+        return NextResponse.json({ error: 'Missing webhook timestamp header' }, { status: 401 });
+      }
       const signatureResult = verifyWebhookSignature(
         pipeline.webhookSecret,
         rawBodyText,
@@ -103,8 +108,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     }
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
-        fallbackPipelineRepository(error);
-        return await executeWebhook();
+        return await executeWebhook(fallbackPipelineRepository(error));
       } catch (fallbackError) {
         if (fallbackError instanceof Response) {
           return fallbackError;

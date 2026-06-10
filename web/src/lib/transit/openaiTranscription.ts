@@ -1,8 +1,5 @@
 import { OpenAIClient } from '@/lib/openai/client';
 
-const OPENAI_TRANSCRIPTION_MODEL =
-  process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-transcribe';
-
 interface OpenAITranscriptSegment {
   id: number;
   text: string;
@@ -25,6 +22,7 @@ export interface TranscriptionInput {
   fileName: string;
   mimeType?: string;
   language?: string;
+  signal?: AbortSignal;
 }
 
 export interface TranscriptionResult {
@@ -44,12 +42,13 @@ function toMilliseconds(value: number | undefined): number {
 
 export async function transcribeAudioWithOpenAI(input: TranscriptionInput): Promise<TranscriptionResult> {
   const client = new OpenAIClient();
+  // Model resolution (env override + segment-capable default) lives in the client.
   const payload = (await client.createTranscription({
     file: input.file,
     fileName: input.fileName,
     mimeType: input.mimeType,
     language: input.language,
-    model: OPENAI_TRANSCRIPTION_MODEL,
+    signal: input.signal,
   })) as OpenAITranscriptPayload;
   const segments = Array.isArray(payload.segments)
     ? payload.segments.filter((segment) => {

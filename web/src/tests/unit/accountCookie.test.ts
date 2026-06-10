@@ -1,39 +1,41 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { buildAccountCookieValue } from '@/lib/auth/accountCookie';
 
 describe('account cookie secret enforcement', () => {
-  const originalEnv = {
-    ACCOUNT_ID_SECRET: process.env.ACCOUNT_ID_SECRET,
-    NODE_ENV: process.env.NODE_ENV,
-  };
-
   beforeEach(() => {
-    delete process.env.ACCOUNT_ID_SECRET;
+    // getSecret() trims, so an empty string behaves as unset.
+    vi.stubEnv('ACCOUNT_ID_SECRET', '');
   });
 
   afterEach(() => {
-    if (originalEnv.ACCOUNT_ID_SECRET !== undefined) {
-      process.env.ACCOUNT_ID_SECRET = originalEnv.ACCOUNT_ID_SECRET;
-    } else {
-      delete process.env.ACCOUNT_ID_SECRET;
-    }
-    process.env.NODE_ENV = originalEnv.NODE_ENV ?? 'test';
+    vi.unstubAllEnvs();
   });
 
   it('throws when secret missing in production', () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     expect(() => buildAccountCookieValue('user-1')).toThrow(/ACCOUNT_ID_SECRET/);
   });
 
   it('throws when secret too short in production', () => {
-    process.env.NODE_ENV = 'production';
-    process.env.ACCOUNT_ID_SECRET = 'short-secret';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('ACCOUNT_ID_SECRET', 'short-secret');
     expect(() => buildAccountCookieValue('user-1')).toThrow(/ACCOUNT_ID_SECRET/);
   });
 
-  it('uses provided secret outside production, even if short', () => {
-    process.env.NODE_ENV = 'test';
-    process.env.ACCOUNT_ID_SECRET = 'short-secret';
+  it('rejects short secrets outside production too', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('ACCOUNT_ID_SECRET', 'short-secret');
+    expect(() => buildAccountCookieValue('user-1')).toThrow(/ACCOUNT_ID_SECRET/);
+  });
+
+  it('accepts a sufficiently long secret', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('ACCOUNT_ID_SECRET', 'a'.repeat(32));
+    expect(() => buildAccountCookieValue('user-1')).not.toThrow();
+  });
+
+  it('falls back to an ephemeral secret outside production when unset', () => {
+    vi.stubEnv('NODE_ENV', 'test');
     expect(() => buildAccountCookieValue('user-1')).not.toThrow();
   });
 });

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthFailure, requireVerifiedIdentity } from '../_lib/requireAuth';
 import { fetchReadableContent } from '@/lib/imports/fetcher';
 import { summariseText } from '@/lib/pipelines/openai';
 
@@ -7,6 +8,13 @@ interface ImportRequestBody {
 }
 
 export async function POST(request: Request) {
+  // Imports trigger server-side fetches and OpenAI summarisation; restrict to
+  // verified identities.
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   let body: ImportRequestBody;
   try {
     body = (await request.json()) as ImportRequestBody;

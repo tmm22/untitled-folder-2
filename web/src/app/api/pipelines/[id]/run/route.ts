@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthFailure, requireVerifiedIdentity } from '../../../_lib/requireAuth';
 import {
   getPipelineRepository,
   shouldFallbackToLocalPipelineRepository,
@@ -10,11 +11,15 @@ import { runPipelineOnServer } from '../../_lib/runner';
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
+  const auth = requireVerifiedIdentity(request);
+  if (isAuthFailure(auth)) {
+    return auth;
+  }
+
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
 
-  const executeRun = async (): Promise<Response> => {
-    const repository = getPipelineRepository();
+  const executeRun = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.get(id);
     if (!pipeline) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
@@ -46,8 +51,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     }
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
-        fallbackPipelineRepository(error);
-        return await executeRun();
+        return await executeRun(fallbackPipelineRepository(error));
       } catch (fallbackError) {
         if (fallbackError instanceof Response) {
           return fallbackError;
