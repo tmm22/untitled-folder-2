@@ -6,7 +6,17 @@ The web workspace powers rapid iteration on the studio UI. It includes content i
 - Record live microphone sessions or upload audio, then watch transcripts stream in with summaries and action items.
 - Apply cleanup instructions (built-in presets like Australian English, professional tone, meeting minutes, or fully custom prompts) to generate polished copies alongside the raw transcript.
 - Persist transcripts, summaries, and cleanup results to Convex for authenticated users or encrypted IndexedDB for guests, with Google Calendar follow-ups available once OAuth is connected.
-- Arrange panels to suit your workflow. Layouts persist per-account through Convex (via `/api/workspace-layout`), with an automatic local-storage cache when Convex is unavailable. Switching accounts mid-session rehydrates the correct layout once the new user is authenticated.
+- Arrange panels to suit your workflow via the **Arrange panels** toggle. Layouts persist per-account through Convex (via `/api/workspace-layout`), with an automatic local-storage cache when Convex is unavailable. Switching accounts mid-session rehydrates the correct layout once the new user is authenticated.
+- Deep-link straight to a workspace tab with `/studio?tab=capture|transcript|calendar|narration|history|settings` (the legacy `/transit` route redirects to `/studio`).
+
+### Speech Synthesis Delivery
+
+`POST /api/providers/[provider]/synthesize` negotiates the response format on the `Accept` header:
+
+- `Accept: audio/*` (what the web client sends) returns **binary audio**. OpenAI and ElevenLabs responses are streamed straight through from the vendor as they are generated (ElevenLabs uses its `/stream` endpoint), so the download overlaps synthesis; providers that cannot stream return a buffered binary body. The request id arrives in the `X-Request-Id` header.
+- `Accept: application/json` returns the legacy `{ audioBase64, audioContentType, requestId }` JSON payload for older callers.
+
+The binary path is ~25% smaller on the wire than JSON+base64 and the browser plays the resulting `Blob` directly instead of decoding base64 on the main thread. Spending the server's provider keys requires a verified (Clerk) identity; bring-your-own-key and managed-credential callers are exempt. Voice lists are cached client-side for five minutes per provider/credential.
 
 ## Authentication & Data Layer
 
@@ -26,7 +36,7 @@ Set the following environment variables before running the app:
 - `TRANSIT_GOOGLE_CLIENT_ID`, `TRANSIT_GOOGLE_CLIENT_SECRET`, `TRANSIT_GOOGLE_REDIRECT_URI` – Google OAuth 2.0 client credentials powering transit calendar scheduling.
 - `TRANSIT_CALENDAR_ENCRYPTION_KEY` – Base64-encoded 32 byte key (AES-256-GCM) used to encrypt stored Google tokens.
 - `TRANSIT_CALENDAR_DEFAULT_TIMEZONE` – (Optional) IANA zone identifier; defaults to `UTC` when omitted.
-- `TRANSIT_CALENDAR_POST_CONNECT_REDIRECT` – (Optional) override for the OAuth callback redirect URL (defaults to `/transit`).
+- `TRANSIT_CALENDAR_POST_CONNECT_REDIRECT` – (Optional) override for the OAuth callback redirect URL (defaults to `/studio?tab=calendar`).
 
 After changing `convex/schema.ts` run `bunx convex dev --once` in `web/` to regenerate `_generated` types.
 
@@ -36,7 +46,7 @@ Workspace layout persistence follows the same pattern: Convex stores the canonic
 
 ## Pipeline Automation
 
-Automation pipelines let you chain multiple post-processing steps after an import (cleaning, summarising, translating, tone adjustments, chunking, and queue preparation). They can be saved, rerun, or triggered externally.
+Automation pipelines let you chain multiple post-processing steps after an import (cleaning, summarising, translating, tone adjustments, chunking, and queue preparation). They can be saved, rerun, or triggered externally. Pipelines are scoped to the account that created them — other users cannot see, edit, run, or delete them (pipelines created before ownership tracking remain visible to all verified users). Webhook triggers authenticate with the pipeline's secret and are unaffected.
 
 ### Managing Pipelines
 
