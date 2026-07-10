@@ -436,7 +436,11 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       try {
         const response = await synthesizeSpeech(state.selectedProvider, payload);
         const engine = getAudioEngine();
-        await engine.loadFromBase64(response.audioBase64, response.audioContentType);
+        if (response.audioBlob) {
+          await engine.loadFromBlob(response.audioBlob);
+        } else {
+          await engine.loadFromBase64(response.audioBase64, response.audioContentType);
+        }
         await engine.play();
 
         const snapshot = engine.getSnapshot();

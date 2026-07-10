@@ -223,7 +223,9 @@ async function runBatchItem(item: QueueItem): Promise<{ historyItem: GenerationH
 
   const response = await synthesizeSpeech(item.provider, payload);
 
-  const audioUrl = createObjectUrl(response.audioBase64, response.audioContentType);
+  const audioUrl = response.audioBlob
+    ? URL.createObjectURL(response.audioBlob)
+    : createObjectUrl(response.audioBase64, response.audioContentType);
   createdObjectUrls.set(item.id, audioUrl);
 
   const historyItem: GenerationHistoryItem = {

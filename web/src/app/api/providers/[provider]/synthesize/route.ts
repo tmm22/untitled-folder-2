@@ -92,23 +92,16 @@ export async function POST(request: Request, context: ProviderRouteContext) {
     }
   }
 
-  try {
-    const adapter = resolveProviderAdapter({
-      provider,
-      apiKey: authorization.apiKey,
-      managedCredential: authorization.managedCredential,
-      allowServerKey: true,
-    });
-    const result = await adapter.synthesize(payload);
-    const tokensUsed = Math.max(0, Math.round(payload.text.length));
-
-    if (accountId) {
-      const accountRepo = getAccountRepository();
-      await accountRepo.recordUsage(accountId, provider, tokensUsed);
+  const recordUsage = async () => {
+    if (!accountId) {
+      return;
     }
+    const tokensUsed = Math.max(0, Math.round(payload.text.length));
+    const accountRepo = getAccountRepository();
+    await accountRepo.recordUsage(accountId, provider, tokensUsed);
 
     const store = getProvisioningStore();
-    if (accountId && 'recordUsage' in store) {
+    if ('recordUsage' in store) {
       const usageStore = store as unknown as ProvisioningUsageRecorder;
       if (typeof usageStore.recordUsage === 'function') {
         await usageStore.recordUsage({
@@ -120,6 +113,50 @@ export async function POST(request: Request, context: ProviderRouteContext) {
         });
       }
     }
+  };
+
+  const wantsAudio = (request.headers.get('accept') ?? '').toLowerCase().includes('audio/');
+
+  try {
+    const adapter = resolveProviderAdapter({
+      provider,
+      apiKey: authorization.apiKey,
+      managedCredential: authorization.managedCredential,
+      allowServerKey: true,
+    });
+
+    if (wantsAudio) {
+      // Binary path: pipe vendor audio through as it arrives so playback can
+      // start downloading during synthesis instead of after it.
+      const streamed = adapter.synthesizeStream ? await adapter.synthesizeStream(payload) : null;
+      if (streamed) {
+        await recordUsage();
+        return new Response(streamed.stream, {
+          status: 200,
+          headers: {
+            'Content-Type': streamed.contentType,
+            'Cache-Control': 'no-store',
+            'X-Request-Id': streamed.requestId,
+          },
+        });
+      }
+
+      const result = await adapter.synthesize(payload);
+      await recordUsage();
+      const bytes = Buffer.from(result.audioBase64, 'base64');
+      return new Response(new Uint8Array(bytes), {
+        status: 200,
+        headers: {
+          'Content-Type': result.audioContentType,
+          'Content-Length': String(bytes.byteLength),
+          'Cache-Control': 'no-store',
+          'X-Request-Id': result.requestId,
+        },
+      });
+    }
+
+    const result = await adapter.synthesize(payload);
+    await recordUsage();
 
     return NextResponse.json(result);
   } catch (error) {

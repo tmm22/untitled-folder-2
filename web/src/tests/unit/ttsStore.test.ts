@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useTTSStore } from '@/modules/tts/store';
+import { clearVoiceCache } from '@/modules/tts/services/ttsService';
 import type { ProviderSynthesisResponse, Voice } from '@/modules/tts/types';
 
 const mockVoices: Voice[] = [
@@ -17,6 +18,7 @@ const mockAudioResponse: ProviderSynthesisResponse = {
 describe('useTTSStore', () => {
   beforeEach(() => {
     useTTSStore.getState().actions.reset();
+    clearVoiceCache();
     vi.restoreAllMocks();
   });
 

@@ -5,9 +5,21 @@ import type {
   Voice,
 } from '@/modules/tts/types';
 
+export interface ProviderSynthesisStream {
+  stream: ReadableStream<Uint8Array>;
+  contentType: string;
+  requestId: string;
+}
+
 export interface ProviderAdapter {
   listVoices(): Promise<Voice[]>;
   synthesize(payload: ProviderSynthesisPayload): Promise<ProviderSynthesisResponse>;
+  /**
+   * Stream synthesized audio straight from the vendor without buffering.
+   * Returns null when streaming is unavailable (no key, mock mode) so the
+   * caller can fall back to synthesize().
+   */
+  synthesizeStream?(payload: ProviderSynthesisPayload): Promise<ProviderSynthesisStream | null>;
 }
 
 export interface ProviderContext {

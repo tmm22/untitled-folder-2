@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { useTTSStore } from '@/modules/tts/store';
+import { clearVoiceCache } from '@/modules/tts/services/ttsService';
 import type { ProviderSynthesisResponse, Voice } from '@/modules/tts/types';
 
 const mockVoices: Voice[] = [
@@ -17,6 +18,7 @@ const mockSynthesisResponse: ProviderSynthesisResponse = {
 
 describe('TTS workflow integration', () => {
   beforeEach(() => {
+    clearVoiceCache();
     useTTSStore.getState().actions.reset();
     vi.restoreAllMocks();
   });
