@@ -4,7 +4,7 @@ import type {
   ProviderSynthesisResponse,
   Voice,
 } from '@/modules/tts/types';
-import type { ProviderAdapter, ProviderContext } from './types';
+import type { ProviderAdapter, ProviderContext, ProviderSynthesisStream } from './types';
 import { mockSynthesize } from './mock';
 
 // OpenAI has no voice-listing endpoint; this curated list mirrors the
@@ -73,6 +73,36 @@ class OpenAIAdapter implements ProviderAdapter {
       return mockSynthesize(payload);
     }
 
+    const response = await this.requestSpeech(payload);
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    return {
+      audioBase64: buffer.toString('base64'),
+      audioContentType: response.headers.get('Content-Type') ?? 'audio/mpeg',
+      transcript: undefined,
+      durationMs: undefined,
+      requestId: randomUUID(),
+    };
+  }
+
+  async synthesizeStream(payload: ProviderSynthesisPayload): Promise<ProviderSynthesisStream | null> {
+    if (!this.apiKey || process.env.MOCK_TTS === '1') {
+      return null;
+    }
+
+    const response = await this.requestSpeech(payload);
+    if (!response.body) {
+      return null;
+    }
+
+    return {
+      stream: response.body,
+      contentType: response.headers.get('Content-Type') ?? 'audio/mpeg',
+      requestId: randomUUID(),
+    };
+  }
+
+  private async requestSpeech(payload: ProviderSynthesisPayload): Promise<Response> {
     const requestBody = {
       model: 'tts-1',
       input: applyGlossary(payload.text, payload),
@@ -95,15 +125,7 @@ class OpenAIAdapter implements ProviderAdapter {
       throw new Error(`OpenAI TTS failed (${response.status}): ${errorPayload}`);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    return {
-      audioBase64: buffer.toString('base64'),
-      audioContentType: response.headers.get('Content-Type') ?? 'audio/mpeg',
-      transcript: undefined,
-      durationMs: undefined,
-      requestId: randomUUID(),
-    };
+    return response;
   }
 }
 

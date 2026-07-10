@@ -106,6 +106,16 @@ export interface ProviderSynthesisResponse {
   requestId: string;
 }
 
+/**
+ * Client-side synthesis result. When the server streams binary audio the
+ * payload arrives as a Blob and audioBase64 is empty; legacy JSON responses
+ * carry base64 only.
+ */
+export interface ClientSynthesisResult extends Omit<ProviderSynthesisResponse, 'audioBase64'> {
+  audioBase64: string;
+  audioBlob?: Blob;
+}
+
 export interface TextSnippet {
   id: string;
   name: string;

@@ -83,8 +83,6 @@ class BrowserAudioEngine {
   }
 
   async loadFromBase64(base64Audio: string, contentType: string) {
-    this.updateSnapshot({ isLoading: true, isPlaying: false });
-
     const binary = atob(base64Audio);
     const len = binary.length;
     const buffer = new Uint8Array(len);
@@ -92,7 +90,11 @@ class BrowserAudioEngine {
       buffer[i] = binary.charCodeAt(i);
     }
 
-    const blob = new Blob([buffer], { type: contentType });
+    await this.loadFromBlob(new Blob([buffer], { type: contentType }));
+  }
+
+  async loadFromBlob(blob: Blob) {
+    this.updateSnapshot({ isLoading: true, isPlaying: false });
 
     if (this.objectUrl) {
       URL.revokeObjectURL(this.objectUrl);

@@ -11,6 +11,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import dynamic from 'next/dynamic';
 import { createAudioRecorder, isMediaRecorderSupported, type RecorderHandle } from '@/lib/audio/mediaRecorder';
 import { useTransitTranscriptionStore } from '@/modules/transitTranscription/store';
 import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscription/historyStore';
@@ -19,22 +20,65 @@ import type { TransitSummaryAction, TransitTranscriptionRecord } from '@/modules
 import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 import { triggerDownloadText } from '@/lib/utils/download';
 import { useTTSStore } from '@/modules/tts/store';
-import { ProviderSelector } from '@/components/settings/ProviderSelector';
-import { TextEditor } from '@/components/editor/TextEditor';
-import { GenerateButton } from '@/components/editor/GenerateButton';
-import { TranslationControls } from '@/components/translations/TranslationControls';
-import { TranslationHistoryPanel } from '@/components/translations/TranslationHistoryPanel';
-import { PlaybackControls } from '@/components/playback/PlaybackControls';
-import { BatchPanel } from '@/components/queue/BatchPanel';
-import { PronunciationPanel } from '@/components/settings/PronunciationPanel';
-import { HistoryPanel } from '@/components/history/HistoryPanel';
 import { SnippetPanel } from '@/components/snippets/SnippetPanel';
 import { ImportPanel } from '@/components/imports/ImportPanel';
-import { CredentialsPanel } from '@/components/settings/CredentialsPanel';
-import { ThemePanel } from '@/components/settings/ThemePanel';
-import { CompactPanel } from '@/components/settings/CompactPanel';
-import { NotificationPanel } from '@/components/settings/NotificationPanel';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
+
+const panelFallback = (
+  <div className="rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 text-sm text-charcoal-500 shadow-sm">
+    Loading panel…
+  </div>
+);
+
+// Panels outside the default Capture tab load as separate chunks on first
+// tab switch, keeping them out of the initial studio bundle.
+const ProviderSelector = dynamic(
+  () => import('@/components/settings/ProviderSelector').then((m) => m.ProviderSelector),
+  { loading: () => panelFallback },
+);
+const TextEditor = dynamic(() => import('@/components/editor/TextEditor').then((m) => m.TextEditor), {
+  loading: () => panelFallback,
+});
+const GenerateButton = dynamic(
+  () => import('@/components/editor/GenerateButton').then((m) => m.GenerateButton),
+  { loading: () => panelFallback },
+);
+const TranslationControls = dynamic(
+  () => import('@/components/translations/TranslationControls').then((m) => m.TranslationControls),
+  { loading: () => panelFallback },
+);
+const TranslationHistoryPanel = dynamic(
+  () => import('@/components/translations/TranslationHistoryPanel').then((m) => m.TranslationHistoryPanel),
+  { loading: () => panelFallback },
+);
+const PlaybackControls = dynamic(
+  () => import('@/components/playback/PlaybackControls').then((m) => m.PlaybackControls),
+  { loading: () => panelFallback },
+);
+const BatchPanel = dynamic(() => import('@/components/queue/BatchPanel').then((m) => m.BatchPanel), {
+  loading: () => panelFallback,
+});
+const PronunciationPanel = dynamic(
+  () => import('@/components/settings/PronunciationPanel').then((m) => m.PronunciationPanel),
+  { loading: () => panelFallback },
+);
+const HistoryPanel = dynamic(() => import('@/components/history/HistoryPanel').then((m) => m.HistoryPanel), {
+  loading: () => panelFallback,
+});
+const CredentialsPanel = dynamic(
+  () => import('@/components/settings/CredentialsPanel').then((m) => m.CredentialsPanel),
+  { loading: () => panelFallback },
+);
+const ThemePanel = dynamic(() => import('@/components/settings/ThemePanel').then((m) => m.ThemePanel), {
+  loading: () => panelFallback,
+});
+const CompactPanel = dynamic(() => import('@/components/settings/CompactPanel').then((m) => m.CompactPanel), {
+  loading: () => panelFallback,
+});
+const NotificationPanel = dynamic(
+  () => import('@/components/settings/NotificationPanel').then((m) => m.NotificationPanel),
+  { loading: () => panelFallback },
+);
 import { WorkspaceTabBar } from '@/components/shared/WorkspaceTabBar';
 import { useWorkspaceLayoutStore } from '@/modules/workspaceLayout/store';
 import { ALL_WORKSPACE_PANEL_IDS, ALL_WORKSPACE_TAB_IDS, type WorkspaceTabId, type WorkspacePanelId } from '@/modules/workspaceLayout/types';
