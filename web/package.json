@@ -20,7 +20,7 @@
     "@stablelib/random": "^2.0.1",
     "@stablelib/wipe": "^2.0.1",
     "@stablelib/xchacha20poly1305": "^2.0.1",
-    "convex": "^1.38.0",
+    "convex": "^1.42.1",
     "idb-keyval": "^6.2.2",
     "next": "^16.2.6",
     "react": "^19.2.6",
