@@ -80,7 +80,6 @@ export function BatchPanel() {
     <CollapsibleSection title="Batch queue" minHeight={320} maxHeight={960}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="panel-title">Batch queue</h2>
           <p className="panel-subtitle">Split scripts with lines containing --- and process them sequentially.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-cocoa-600">

@@ -7,7 +7,7 @@ import {
 
 vi.mock('@/lib/workspaceLayout/repository', () => {
   const repository = {
-    load: vi.fn<[string], Promise<WorkspaceLayoutSnapshot | null>>(),
+    load: vi.fn<(userId: string) => Promise<WorkspaceLayoutSnapshot | null>>(),
     save: vi.fn(),
     clear: vi.fn(),
   };
@@ -19,9 +19,9 @@ vi.mock('@/lib/workspaceLayout/repository', () => {
 
 import { useWorkspaceLayoutStore } from '@/modules/workspaceLayout/store';
 
-const mockRepository = (globalThis as {
+const mockRepository = (globalThis as unknown as {
   __workspaceLayoutRepositoryMock: {
-    load: ReturnType<typeof vi.fn<[string], Promise<WorkspaceLayoutSnapshot | null>>>;
+    load: ReturnType<typeof vi.fn<(userId: string) => Promise<WorkspaceLayoutSnapshot | null>>>;
     save: ReturnType<typeof vi.fn>;
     clear: ReturnType<typeof vi.fn>;
   };

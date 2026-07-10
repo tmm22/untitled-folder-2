@@ -96,7 +96,6 @@ export function HistoryPanel() {
     <CollapsibleSection title="Recent generations" minHeight={300} maxHeight={900}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="panel-title">Recent generations</h2>
           <p className="panel-subtitle">Entries persist locally and include provider, voice, and raw text.</p>
         </div>
         <button

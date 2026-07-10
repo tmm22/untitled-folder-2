@@ -52,6 +52,35 @@ const credentialMetadataValidator = v.optional(
   }),
 );
 
+const credentialDocResult = v.object({
+  _id: v.id('provisioning_credentials'),
+  _creationTime: v.number(),
+  id: v.string(),
+  userId: v.string(),
+  provider: v.string(),
+  tokenHash: v.string(),
+  salt: v.string(),
+  scopes: v.array(v.string()),
+  planTier: v.string(),
+  issuedAt: v.number(),
+  expiresAt: v.number(),
+  status: v.string(),
+  providerReference: v.optional(v.string()),
+  metadata: credentialMetadataValidator,
+  lastRotatedAt: v.optional(v.number()),
+});
+
+const usageDocResult = v.object({
+  _id: v.id('provisioning_usage'),
+  _creationTime: v.number(),
+  id: v.string(),
+  userId: v.string(),
+  provider: v.string(),
+  tokensUsed: v.number(),
+  costMinorUnits: v.number(),
+  recordedAt: v.number(),
+});
+
 export const saveCredential = internalMutation({
   args: {
     record: v.object({
@@ -70,6 +99,7 @@ export const saveCredential = internalMutation({
       lastRotatedAt: v.optional(v.number()),
     }),
   },
+  returns: v.object({ result: v.boolean() }),
   handler: async (ctx, { record }) => {
     const existing = await ctx.db
       .query('provisioning_credentials')
@@ -88,6 +118,7 @@ export const saveCredential = internalMutation({
 
 export const findActiveCredential = internalQuery({
   args: { userId: v.string(), provider: v.string() },
+  returns: v.object({ credential: v.union(credentialDocResult, v.null()) }),
   handler: async (ctx, { userId, provider }) => {
     const credential = await ctx.db
       .query('provisioning_credentials')
@@ -103,6 +134,7 @@ export const findActiveCredential = internalQuery({
 
 export const markCredentialRevoked = internalMutation({
   args: { credentialId: v.string() },
+  returns: v.object({ result: v.boolean() }),
   handler: async (ctx, { credentialId }) => {
     const credential = await ctx.db
       .query('provisioning_credentials')
@@ -118,6 +150,7 @@ export const markCredentialRevoked = internalMutation({
 
 export const listCredentials = internalQuery({
   args: { limit: v.optional(v.number()) },
+  returns: v.object({ credentials: v.array(credentialDocResult) }),
   handler: async (ctx, { limit }) => {
     const credentials = await ctx.db.query('provisioning_credentials').take(clampLimit(limit));
     return { credentials };
@@ -135,6 +168,16 @@ export const recordUsage = internalMutation({
       recordedAt: v.number(),
     }),
   },
+  returns: v.object({
+    usage: v.object({
+      id: v.string(),
+      userId: v.string(),
+      provider: v.string(),
+      tokensUsed: v.number(),
+      costMinorUnits: v.number(),
+      recordedAt: v.number(),
+    }),
+  }),
   handler: async (ctx, { entry }) => {
     const id = entry.id ?? crypto.randomUUID();
     const usage: UsageRecord = { ...entry, id };
@@ -145,6 +188,7 @@ export const recordUsage = internalMutation({
 
 export const listUsage = internalQuery({
   args: { userId: v.string(), limit: v.optional(v.number()) },
+  returns: v.object({ usage: v.array(usageDocResult) }),
   handler: async (ctx, { userId, limit }) => {
     const usage = await ctx.db
       .query('provisioning_usage')

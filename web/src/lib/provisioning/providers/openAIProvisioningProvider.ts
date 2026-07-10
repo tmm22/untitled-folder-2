@@ -9,7 +9,9 @@ import type {
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export class OpenAIProvisioningProvider implements ProvisioningProvider {
-  readonly provider = 'openai';
+  // Must match the ProviderType key ('openAI') used by the TTS routes when
+  // resolving managed credentials, or issuance silently fails.
+  readonly provider = 'openAI';
 
   async issueCredential(request: IssueCredentialRequest): Promise<IssueCredentialResult> {
     const masterKey = process.env.OPENAI_API_KEY;

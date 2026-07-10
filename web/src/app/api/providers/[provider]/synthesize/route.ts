@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server';
 import type { ProviderSynthesisPayload, ProviderType } from '@/modules/tts/types';
 import { resolveProviderAdapter } from '@/lib/providers';
 import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
+import { isAuthFailure, requireVerifiedIdentity } from '@/app/api/_lib/requireAuth';
 import { getProvisioningStore } from '@/app/api/provisioning/context';
 import { getAccountRepository } from '@/app/api/account/context';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
+
+const SUPPORTED_PROVIDERS: readonly ProviderType[] = ['openAI', 'elevenLabs', 'google', 'tightAss'];
+const MAX_TEXT_LENGTH = 20_000;
+
+function parseProvider(value: string | undefined): ProviderType | undefined {
+  return SUPPORTED_PROVIDERS.find((candidate) => candidate === value);
+}
 
 type ProviderRouteContext = {
   params: Promise<{
@@ -46,10 +54,10 @@ function sanitizeSynthesisError(error: unknown): string {
 
 export async function POST(request: Request, context: ProviderRouteContext) {
   const params = await context.params;
-  const provider = params.provider as ProviderType | undefined;
+  const provider = parseProvider(params.provider);
 
   if (!provider) {
-    return NextResponse.json({ error: 'Missing provider' }, { status: 400 });
+    return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 });
   }
   let payload: ProviderSynthesisPayload;
 
@@ -63,15 +71,33 @@ export async function POST(request: Request, context: ProviderRouteContext) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  if (typeof payload.text !== 'string' || payload.text.length > MAX_TEXT_LENGTH) {
+    return NextResponse.json(
+      { error: `Text exceeds the maximum length of ${MAX_TEXT_LENGTH} characters` },
+      { status: 400 },
+    );
+  }
+
   const authorization = await resolveProviderAuthorization(request, provider);
   const identity = resolveRequestIdentity(request);
   const accountId = identity.userId ?? null;
+
+  // Spending the server's provider key requires a verified identity; BYOK and
+  // managed (provisioned) callers bring their own entitlement.
+  const hasCallerCredential = Boolean(authorization.apiKey) || Boolean(authorization.managedCredential);
+  if (!hasCallerCredential) {
+    const verified = requireVerifiedIdentity(request);
+    if (isAuthFailure(verified)) {
+      return verified;
+    }
+  }
 
   try {
     const adapter = resolveProviderAdapter({
       provider,
       apiKey: authorization.apiKey,
       managedCredential: authorization.managedCredential,
+      allowServerKey: true,
     });
     const result = await adapter.synthesize(payload);
     const tokensUsed = Math.max(0, Math.round(payload.text.length));

@@ -5,10 +5,10 @@ import type { HistoryEntryPayload } from '@/lib/history/types';
 import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 
 const mockRepository = {
-  list: vi.fn<[], Promise<HistoryEntryPayload[]>>(),
-  record: vi.fn<[HistoryEntryPayload], Promise<void>>(),
-  remove: vi.fn<[string, string], Promise<void>>(),
-  clear: vi.fn<[string], Promise<void>>(),
+  list: vi.fn<() => Promise<HistoryEntryPayload[]>>(),
+  record: vi.fn<(entry: HistoryEntryPayload) => Promise<void>>(),
+  remove: vi.fn<(userId: string, id: string) => Promise<void>>(),
+  clear: vi.fn<(userId: string) => Promise<void>>(),
 };
 
 vi.mock('@/app/api/history/context', () => ({

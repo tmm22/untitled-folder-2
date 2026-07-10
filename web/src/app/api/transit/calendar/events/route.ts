@@ -152,7 +152,7 @@ export async function POST(request: Request) {
   } catch (calendarError) {
     console.error('Google Calendar event scheduling failed', calendarError);
     return NextResponse.json(
-      { error: calendarError instanceof Error ? calendarError.message : 'Calendar scheduling failed' },
+      { error: 'Calendar scheduling failed. Please try reconnecting Google Calendar.' },
       { status: 502 },
     );
   }

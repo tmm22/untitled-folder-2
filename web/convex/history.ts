@@ -7,6 +7,17 @@ const MAX_HISTORY_ENTRIES = 200;
 
 type HistoryDoc = Doc<'history_entries'>;
 
+const historyEntryResult = v.object({
+  id: v.string(),
+  userId: v.string(),
+  provider: v.string(),
+  voiceId: v.string(),
+  text: v.string(),
+  createdAt: v.string(),
+  durationMs: v.number(),
+  transcript: v.optional(generationTranscript),
+});
+
 const mapHistory = (entry: HistoryDoc) => ({
   id: entry.id,
   userId: entry.userId,
@@ -48,6 +59,7 @@ export const list = internalQuery({
     userId: v.string(),
     limit: v.optional(v.number()),
   },
+  returns: v.array(historyEntryResult),
   handler: async (ctx, { userId, limit }) => {
     const entries = await loadEntries(ctx, userId);
     const selected = typeof limit === 'number' ? entries.slice(0, Math.max(0, limit)) : entries;
@@ -68,6 +80,7 @@ export const record = internalMutation({
       transcript: v.optional(generationTranscript),
     }),
   },
+  returns: v.object({ entry: historyEntryResult }),
   handler: async (ctx, { entry }) => {
     const existing = await findEntry(ctx, entry.userId, entry.id);
     if (existing) {
@@ -103,6 +116,7 @@ export const remove = internalMutation({
     userId: v.string(),
     id: v.string(),
   },
+  returns: v.object({ removed: v.boolean() }),
   handler: async (ctx, { userId, id }) => {
     const existing = await findEntry(ctx, userId, id);
     if (existing) {
@@ -117,6 +131,7 @@ export const clear = internalMutation({
   args: {
     userId: v.string(),
   },
+  returns: v.object({ cleared: v.number() }),
   handler: async (ctx, { userId }) => {
     const entries = await ctx.db
       .query('history_entries')

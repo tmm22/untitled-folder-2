@@ -25,6 +25,13 @@ const encodingMap: Record<string, string> = {
   flac: 'FLAC',
 };
 
+const contentTypeMap: Record<string, string> = {
+  MP3: 'audio/mpeg',
+  LINEAR16: 'audio/wav',
+  OGG_OPUS: 'audio/ogg',
+  FLAC: 'audio/flac',
+};
+
 const applyGlossary = (text: string, payload: ProviderSynthesisPayload) => {
   if (!payload.glossaryRules?.length) {
     return text;
@@ -60,10 +67,12 @@ class GoogleTTSAdapter implements ProviderAdapter {
   private apiKey?: string;
 
   constructor(context: ProviderContext) {
-    const managedKey = context.managedCredential?.token?.trim();
+    // Managed (provisioned) credentials are usage-accounting pseudo tokens,
+    // never real vendor keys — they grant use of the server key upstream.
     const providedKey = context.apiKey?.trim();
-    const envKey = process.env.GOOGLE_TTS_API_KEY?.trim();
-    this.apiKey = managedKey || providedKey || envKey;
+    const allowServerKey = context.allowServerKey !== false || Boolean(context.managedCredential);
+    const envKey = allowServerKey ? process.env.GOOGLE_TTS_API_KEY?.trim() : undefined;
+    this.apiKey = providedKey || envKey;
   }
 
   async listVoices(): Promise<Voice[]> {
@@ -78,6 +87,7 @@ class GoogleTTSAdapter implements ProviderAdapter {
     const languageCode = resolveLanguageCode(payload.voiceId);
     const voice = GOOGLE_VOICES.find((candidate) => candidate.id === payload.voiceId);
     const ssmlGender = voice ? ssmlGenderMap[voice.gender] : 'NEUTRAL';
+    const audioEncoding = encodingMap[payload.settings.format] ?? 'MP3';
 
     const requestBody = {
       input: {
@@ -89,7 +99,7 @@ class GoogleTTSAdapter implements ProviderAdapter {
         ssmlGender,
       },
       audioConfig: {
-        audioEncoding: encodingMap[payload.settings.format] ?? 'MP3',
+        audioEncoding,
         speakingRate: payload.settings.styleValues['speakingRate'] ?? payload.settings.speed,
         pitch: payload.settings.styleValues['pitch'] ?? 0,
         volumeGainDb: (payload.settings.volume - 0.75) * 10,
@@ -115,7 +125,7 @@ class GoogleTTSAdapter implements ProviderAdapter {
 
     return {
       audioBase64: json.audioContent,
-      audioContentType: 'audio/mpeg',
+      audioContentType: contentTypeMap[audioEncoding] ?? 'audio/mpeg',
       transcript: undefined,
       durationMs: undefined,
       requestId: randomUUID(),

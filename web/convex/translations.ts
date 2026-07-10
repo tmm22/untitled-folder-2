@@ -12,6 +12,23 @@ const translationMetadata = v.object({
   tokensUsed: v.optional(v.number()),
 });
 
+const translationResult = v.object({
+  id: v.string(),
+  accountId: v.string(),
+  documentId: v.string(),
+  sequenceIndex: v.number(),
+  createdAt: v.string(),
+  updatedAt: v.string(),
+  sourceText: v.string(),
+  sourceLanguageCode: v.string(),
+  targetLanguageCode: v.string(),
+  translatedText: v.string(),
+  keepOriginalApplied: v.boolean(),
+  adoptedAt: v.optional(v.string()),
+  provider: v.string(),
+  metadata: v.optional(translationMetadata),
+});
+
 const sanitizeLimit = (value: number | undefined): number => {
   const limit = Number.isFinite(value) ? Math.floor(value as number) : DEFAULT_PAGE_SIZE;
   return Math.max(1, Math.min(limit, MAX_PAGE_SIZE));
@@ -55,18 +72,21 @@ async function loadTranslations(
   cursor?: number,
   limit?: number,
 ): Promise<TranslationDoc[]> {
-  const builder = ctx.db
-    .query('translations')
-    .withIndex('by_account_document_seq', (q) => q.eq('accountId', accountId).eq('documentId', documentId))
-    .order('desc');
-
   if (cursor !== undefined) {
-    return builder
-      .filter((q) => q.lt(q.field('sequenceIndex'), cursor))
+    return ctx.db
+      .query('translations')
+      .withIndex('by_account_document_seq', (q) =>
+        q.eq('accountId', accountId).eq('documentId', documentId).lt('sequenceIndex', cursor),
+      )
+      .order('desc')
       .take(limit ?? MAX_PAGE_SIZE + 1);
   }
 
-  return builder.take(limit ?? MAX_PAGE_SIZE + 1);
+  return ctx.db
+    .query('translations')
+    .withIndex('by_account_document_seq', (q) => q.eq('accountId', accountId).eq('documentId', documentId))
+    .order('desc')
+    .take(limit ?? MAX_PAGE_SIZE + 1);
 }
 
 async function findTranslation(
@@ -100,6 +120,10 @@ export const list = internalQuery({
     limit: v.optional(v.number()),
     cursor: v.optional(v.string()),
   },
+  returns: v.object({
+    items: v.array(translationResult),
+    nextCursor: v.optional(v.string()),
+  }),
   handler: async (ctx, { accountId, documentId, limit, cursor }) => {
     const pageSize = sanitizeLimit(limit);
     const cursorIndex = parseCursor(cursor);
@@ -130,6 +154,10 @@ export const create = internalMutation({
       metadata: v.optional(translationMetadata),
     }),
   },
+  returns: v.object({
+    translation: v.union(translationResult, v.null()),
+    historySize: v.number(),
+  }),
   handler: async (ctx, { accountId, documentId, payload }) => {
     const now = new Date().toISOString();
     const sequenceIndex = await nextSequenceIndex(ctx, accountId, documentId);
@@ -167,6 +195,10 @@ export const promote = internalMutation({
     documentId: v.string(),
     translationId: v.string(),
   },
+  returns: v.object({
+    translation: v.union(translationResult, v.null()),
+    reordered: v.boolean(),
+  }),
   handler: async (ctx, { accountId, documentId, translationId }) => {
     const current = await findTranslation(ctx, accountId, documentId, translationId);
     if (!current) {
@@ -236,6 +268,7 @@ export const clear = internalMutation({
     documentId: v.string(),
     keepLatest: v.optional(v.boolean()),
   },
+  returns: v.object({ deletedCount: v.number() }),
   handler: async (ctx, { accountId, documentId, keepLatest }) => {
     const { deletedCount } = await clearTranslationsInternal(ctx, accountId, documentId, Boolean(keepLatest));
     return { deletedCount };
@@ -249,6 +282,10 @@ export const markAdopted = internalMutation({
     translationId: v.string(),
     collapseHistory: v.optional(v.boolean()),
   },
+  returns: v.object({
+    translation: v.union(translationResult, v.null()),
+    collapsed: v.boolean(),
+  }),
   handler: async (ctx, { accountId, documentId, translationId, collapseHistory }) => {
     const translation = await findTranslation(ctx, accountId, documentId, translationId);
     if (!translation) {

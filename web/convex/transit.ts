@@ -39,6 +39,20 @@ const cleanupSchema = v.object({
   label: v.optional(v.string()),
 });
 
+const transcriptResult = v.object({
+  id: v.string(),
+  title: v.string(),
+  transcript: v.string(),
+  segments: v.array(segmentSchema),
+  summary: v.union(summarySchema, v.null()),
+  cleanup: v.union(cleanupSchema, v.null()),
+  language: v.union(v.string(), v.null()),
+  durationMs: v.number(),
+  confidence: v.optional(v.number()),
+  createdAt: v.string(),
+  source: v.string(),
+});
+
 const mapTranscript = (doc: TranscriptDoc) => ({
   id: doc.transcriptId,
   title: doc.title,
@@ -83,6 +97,7 @@ export const listTranscripts = internalQuery({
     userId: v.string(),
     limit: v.optional(v.number()),
   },
+  returns: v.array(transcriptResult),
   handler: async (ctx, { userId, limit }) => {
     const entries = await loadTranscripts(ctx, userId);
     const selected = typeof limit === 'number' ? entries.slice(0, Math.max(0, limit)) : entries;
@@ -107,6 +122,7 @@ export const saveTranscript = internalMutation({
       source: v.string(),
     }),
   },
+  returns: v.object({ record: v.union(transcriptResult, v.null()) }),
   handler: async (ctx, { record }) => {
     const existing = await findTranscript(ctx, record.userId, record.transcriptId);
     if (existing) {
@@ -152,6 +168,7 @@ export const clearTranscripts = internalMutation({
   args: {
     userId: v.string(),
   },
+  returns: v.object({ cleared: v.number() }),
   handler: async (ctx, { userId }) => {
     const entries = await ctx.db
       .query('transit_transcripts')
@@ -168,6 +185,7 @@ export const removeTranscript = internalMutation({
     userId: v.string(),
     transcriptId: v.string(),
   },
+  returns: v.object({ removed: v.boolean() }),
   handler: async (ctx, { userId, transcriptId }) => {
     const existing = await findTranscript(ctx, userId, transcriptId);
     if (!existing) {
@@ -182,6 +200,15 @@ export const getCalendarToken = internalQuery({
   args: {
     userId: v.string(),
   },
+  returns: v.union(
+    v.object({
+      encryptedPayload: v.string(),
+      expiresAt: v.number(),
+      scope: v.array(v.string()),
+      updatedAt: v.number(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, { userId }) => {
     const existing = await ctx.db
       .query('transit_calendar_tokens')
@@ -206,6 +233,7 @@ export const setCalendarToken = internalMutation({
     expiresAt: v.number(),
     scope: v.array(v.string()),
   },
+  returns: v.object({ updated: v.boolean() }),
   handler: async (ctx, { userId, encryptedPayload, expiresAt, scope }) => {
     const existing = await ctx.db
       .query('transit_calendar_tokens')
@@ -238,6 +266,7 @@ export const clearCalendarToken = internalMutation({
   args: {
     userId: v.string(),
   },
+  returns: v.object({ cleared: v.boolean() }),
   handler: async (ctx, { userId }) => {
     const existing = await ctx.db
       .query('transit_calendar_tokens')

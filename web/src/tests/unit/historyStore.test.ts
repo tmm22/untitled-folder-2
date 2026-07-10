@@ -3,10 +3,10 @@ import { useHistoryStore } from '@/modules/history/store';
 import type { HistoryEntry } from '@/modules/history/store';
 import { useAccountStore } from '@/modules/account/store';
 
-const mockFetchHistoryEntries = vi.fn<[], Promise<HistoryEntry[]>>();
-const mockRecordHistoryEntry = vi.fn<[HistoryEntry], Promise<void>>();
-const mockRemoveHistoryEntry = vi.fn<[string], Promise<void>>();
-const mockClearHistoryEntries = vi.fn<[], Promise<void>>();
+const mockFetchHistoryEntries = vi.fn<() => Promise<HistoryEntry[]>>();
+const mockRecordHistoryEntry = vi.fn<(entry: HistoryEntry) => Promise<void>>();
+const mockRemoveHistoryEntry = vi.fn<(id: string) => Promise<void>>();
+const mockClearHistoryEntries = vi.fn<() => Promise<void>>();
 
 const idbState = new Map<string, unknown>();
 const mockIdbGet = vi.fn(async (key: string) => idbState.get(key));

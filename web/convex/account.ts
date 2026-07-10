@@ -5,6 +5,35 @@ import type { Doc } from './_generated/dataModel';
 type AccountDoc = Doc<'accounts'>;
 type AccountInsert = Omit<AccountDoc, '_id' | '_creationTime'>;
 
+const accountResult = v.object({
+  account: v.object({
+    _id: v.optional(v.id('accounts')),
+    _creationTime: v.optional(v.number()),
+    userId: v.string(),
+    planTier: v.string(),
+    billingStatus: v.string(),
+    premiumExpiresAt: v.optional(v.number()),
+    polarCustomerId: v.optional(v.string()),
+    polarSubscriptionId: v.optional(v.string()),
+    polarPlanId: v.optional(v.string()),
+    polarCurrentPeriodEnd: v.optional(v.number()),
+    polarLastEventId: v.optional(v.string()),
+    polarBenefits: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.optional(v.string()),
+        }),
+      ),
+    ),
+    usage: v.object({
+      monthTokensUsed: v.number(),
+      monthlyAllowance: v.number(),
+      lastUpdated: v.number(),
+    }),
+  }),
+});
+
 const DEFAULT_FREE_ALLOWANCE = 50_000;
 const DEFAULT_STARTER_ALLOWANCE = 200_000;
 
@@ -50,6 +79,7 @@ async function findAccount(ctx: MutationCtx, userId: string): Promise<AccountDoc
 
 export const getOrCreate = internalMutation({
   args: { userId: v.string() },
+  returns: accountResult,
   handler: async (ctx, { userId }) => {
     const existing = await findAccount(ctx, userId);
     if (existing) {
@@ -87,6 +117,7 @@ export const updateAccount = internalMutation({
       ),
     }),
   },
+  returns: accountResult,
   handler: async (ctx, { payload }) => {
     const existing = await findAccount(ctx, payload.userId);
     const usage = {
@@ -146,6 +177,7 @@ export const recordUsage = internalMutation({
     provider: v.string(),
     tokensUsed: v.number(),
   },
+  returns: accountResult,
   handler: async (ctx, { userId, tokensUsed }) => {
     const existing = await findAccount(ctx, userId);
     const source = existing ?? buildDefaultAccount(userId);

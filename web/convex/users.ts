@@ -6,6 +6,17 @@ type UserDoc = Doc<'users'>;
 
 const now = () => Date.now();
 
+const userResult = v.object({
+  clerkId: v.string(),
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  imageUrl: v.optional(v.string()),
+  lastLoginAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
 const mapUser = (doc: UserDoc) => ({
   clerkId: doc.clerkId,
   email: doc.email,
@@ -32,6 +43,7 @@ export const ensureUser = internalMutation({
     lastName: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
   },
+  returns: v.object({ user: v.union(userResult, v.null()) }),
   handler: async (ctx, args) => {
     const existing = await findByClerkId(ctx, args.clerkId);
     const timestamp = now();
@@ -68,6 +80,7 @@ export const ensureUser = internalMutation({
 
 export const getUser = internalQuery({
   args: { clerkId: v.string() },
+  returns: v.union(userResult, v.null()),
   handler: async (ctx, args) => {
     const user = await findByClerkId(ctx, args.clerkId);
     return user ? mapUser(user) : null;

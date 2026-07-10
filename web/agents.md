@@ -17,6 +17,8 @@
 - Launch the UI with `bun run dev`; start `bunx convex dev` in a second terminal when working against live Convex functions.
 - Use `bun run build` to verify production bundles and `bun run start` to serve the output locally.
 - Run `bun run lint` before sending changes; the ESLint flat config blocks warnings and enforces `next/core-web-vitals`.
+- ESLint is pinned to `^9` — ESLint 10 breaks `@typescript-eslint` 8.x pulled in by `eslint-config-next`. Do not accept Dependabot bumps to eslint 10 until typescript-eslint supports it.
+- Vitest 4 typing: `vi.fn<(args) => Return>()` takes a single function-type generic; the old `vi.fn<[Args], Return>` form no longer compiles. Import `type Mock` from `vitest` (the `vi.Mock` namespace type was removed).
 - After changing Convex schema or functions, run `bunx convex dev --once` (or keep the watcher running) so `_generated/` stays current.
 
 ## Coding Standards
@@ -43,6 +45,20 @@
 - Always `await context.params` in App Router dynamic routes.
 - Return appropriate HTTP status codes: 400 for validation, 401 for auth, 404 for not found, 500 for server errors.
 - Sanitize all error messages returned to clients; log full errors server-side only.
+- Validate `[provider]` params against the `ProviderType` union; reject unknown providers with 400.
+- Cap unbounded user input (e.g. synthesis text is limited to 20,000 characters).
+
+### Server API Key Policy (Critical)
+- Spending a server env key (`OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_TTS_API_KEY`) requires a **verified identity** (`requireVerifiedIdentity`) — guest cookies are never sufficient. BYOK callers (session-encrypted or `x-provider-key`) bring their own entitlement.
+- Managed (provisioned) credentials are **usage-accounting pseudo-tokens** (`tts-proxy-…`), never real vendor keys. They must never be sent upstream as bearer tokens; their presence entitles the caller to the server key. Provider adapters implement this via `ProviderContext.allowServerKey`.
+- The provisioning provider registry key is `'openAI'` (matching `ProviderType`), not `'openai'` — a mismatch makes credential issuance fail silently.
+- Pipelines are owner-scoped: routes pass `auth.userId` to `repository.list()` and set `ownerId` on create; `isPipelineAccessibleBy` gates get/update/delete/run (legacy ownerless pipelines stay visible to all verified users). Return 404, not 403, for other users' pipelines.
+
+### Convex Standards
+- Every Convex function must declare BOTH `args` and `returns` validators (`v.null()` when returning nothing). TypeScript enforces handler/validator agreement — run `bunx tsc --noEmit` after editing.
+- `httpAction` handlers must **return** `Response` objects; a thrown `Response` becomes a generic 500. `requireAdmin` in `convex/http.ts` returns `Response | null` — check and return the failure.
+- Express range bounds inside `.withIndex(...)` (e.g. `.lt('sequenceIndex', cursor)`), not in a post-index `.filter()`.
+- After schema/function changes run `bunx convex codegen` (uses `CONVEX_DEPLOYMENT` from `.env.local`) so `_generated/` stays current.
 
 ### Async & Modern JavaScript
 - Use `async/await` over `.then()` chains for readability.
@@ -60,6 +76,11 @@
 
 ### Styling & UI
 - Tailwind CSS is the primary styling system; extend tokens in `tailwind.config.ts` rather than hard-coding ad hoc colours.
+- Every workspace panel title renders exactly once — the `CollapsibleSection` header IS the title. Never add an inner `<h2 class="panel-title">`/`<h3>` repeating it.
+- Never nest a `CollapsibleSection` inside another (leaf panels like `BatchPanel` already self-wrap; render them bare in the workspace, as `importPanel`/`snippetPanel` do).
+- Panel drag-and-drop is gated behind the "Arrange panels" toggle in `TransitTranscriptionPanel`; drop zones and grab cursors must not render in normal use.
+- `/studio` is the single workspace route (`/transit` redirects there). Deep-link to tabs with `/studio?tab=capture|transcript|calendar|narration|history|settings` — anchor fragments no longer work with the tabbed layout.
+- "Clear session" (transcription/calendar state) and "Reset layout" (persisted panel arrangement) are separate actions; do not recombine them into one button.
 - Keep network access inside repositories under `@/lib/**`; UI layers consume exported hooks/clients instead of calling fetch directly.
 - Use `secureFetch` (or the provider-specific clients in `@/lib/providers/`) for outbound HTTP to preserve timeout, header, and credential policies.
 - Mirror naming, error handling, and UI terminology with the native app so cross-platform features stay aligned.
@@ -74,6 +95,10 @@
 - Document new manual QA steps in the PR description when automated coverage is impractical.
 
 ## Data & Integrations
+- **Polar webhooks arrive in snake_case** (`customer_id`, `product_id`, `current_period_end`, `ends_at`, `trial_end`, `customer.external_id`). `normalizeSubscription` in `src/app/api/billing/polar/events/route.ts` maps both shapes to camelCase before the mappers run — route new fields through it, never read raw camelCase off the payload.
+- OpenAI has **no voice-listing endpoint**; the OpenAI adapter returns its curated `DEFAULT_OPENAI_VOICES` list (only documented voice ids). The speech API body supports only `model`, `input`, `voice`, `response_format`, `speed`, `instructions` — unknown fields are rejected with 400.
+- Google TTS `audioContentType` must be derived from the chosen `audioEncoding` (`contentTypeMap`), not hardcoded to `audio/mpeg`.
+- The web app reads `CONVEX_URL` (server-side) from `web/.env.local` — `NEXT_PUBLIC_CONVEX_URL` is read nowhere; without `CONVEX_URL` every Convex-backed repository silently falls back to local storage.
 - Convex clients live in `@/lib/convex` and feature-specific repositories (history, pipelines, workspace layout, etc.); extend these layers instead of embedding Convex calls in UI.
 - Clerk authentication flows funnel through helpers in `src/app/api/_lib/` and `@/lib/session`; thread new routes through those registries to keep cookies consistent.
 - Billing logic is abstracted in `@/lib/billing/` with provider selectors keyed by `BILLING_PROVIDER`; implement new gateways behind the same interface.

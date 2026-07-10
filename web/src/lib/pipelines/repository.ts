@@ -13,13 +13,22 @@ import type {
 } from './types';
 
 export interface PipelineRepository {
-  list(): Promise<PipelineListItem[]>;
+  list(ownerId?: string): Promise<PipelineListItem[]>;
   get(id: string): Promise<PipelineDefinition | null>;
   findByWebhookSecret(secret: string): Promise<PipelineDefinition | null>;
   create(input: PipelineCreateInput): Promise<PipelineDefinition>;
   update(id: string, input: PipelineUpdateInput): Promise<PipelineDefinition>;
   delete(id: string): Promise<void>;
   recordRun(id: string, completedAt: string): Promise<void>;
+}
+
+// Legacy pipelines predate ownership tracking and stay visible to all
+// verified users; owned pipelines are only visible to their owner.
+export function isPipelineAccessibleBy(
+  pipeline: { ownerId?: string },
+  ownerId: string | undefined,
+): boolean {
+  return !pipeline.ownerId || !ownerId || pipeline.ownerId === ownerId;
 }
 
 function nowIso(): string {
@@ -53,8 +62,9 @@ function applyUpdate(pipeline: PipelineDefinition, input: PipelineUpdateInput): 
 export class InMemoryPipelineRepository implements PipelineRepository {
   private readonly pipelines = new Map<string, PipelineDefinition>();
 
-  async list(): Promise<PipelineListItem[]> {
+  async list(ownerId?: string): Promise<PipelineListItem[]> {
     return [...this.pipelines.values()]
+      .filter((pipeline) => isPipelineAccessibleBy(pipeline, ownerId))
       .map<PipelineListItem>((pipeline) => ({
         id: pipeline.id,
         name: pipeline.name,
@@ -81,6 +91,7 @@ export class InMemoryPipelineRepository implements PipelineRepository {
   async create(input: PipelineCreateInput): Promise<PipelineDefinition> {
     const pipeline: PipelineDefinition = {
       id: randomUUID(),
+      ownerId: input.ownerId,
       name: input.name.trim(),
       description: input.description?.trim(),
       steps: input.steps,
@@ -167,9 +178,10 @@ export class JsonFilePipelineRepository implements PipelineRepository {
     await writeJsonFile(this.filePath, { pipelines });
   }
 
-  async list(): Promise<PipelineListItem[]> {
+  async list(ownerId?: string): Promise<PipelineListItem[]> {
     const pipelines = await this.load();
     return pipelines
+      .filter((pipeline) => isPipelineAccessibleBy(pipeline, ownerId))
       .map<PipelineListItem>((pipeline) => ({
         id: pipeline.id,
         name: pipeline.name,
@@ -195,6 +207,7 @@ export class JsonFilePipelineRepository implements PipelineRepository {
     const now = nowIso();
     const pipeline: PipelineDefinition = {
       id: randomUUID(),
+      ownerId: input.ownerId,
       name: input.name.trim(),
       description: input.description?.trim(),
       steps: input.steps,
@@ -299,8 +312,8 @@ export class ConvexPipelineRepository implements PipelineRepository {
     }
   }
 
-  async list(): Promise<PipelineListItem[]> {
-    const result = await this.query(internal.pipelines.list, {});
+  async list(ownerId?: string): Promise<PipelineListItem[]> {
+    const result = await this.query(internal.pipelines.list, { ownerId });
     return result.pipelines ?? [];
   }
 

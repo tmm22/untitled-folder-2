@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+## Environment Hazards (Read First)
+- **This checkout lives in an iCloud-synced folder** (Desktop) with Optimize Mac Storage. iCloud has corrupted git packfiles, injected `file 2.ts` duplicate artifacts into source trees, and evicted files mid-read ("short read" / files reading as 1 line). If a file reads as missing or truncated, run `brctl download "<path>"` and retry. Delete any `* 2.*` duplicates after diffing against the original — they are sync artifacts, never legitimate sources. The durable fix is moving the project out of Desktop/Documents (e.g. `~/dev/`).
+- **The git object store lives OUTSIDE the project** at `~/untitled-folder-2.git`; the project `.git` is a pointer file (`gitdir: …`). Never replace it with a real `.git` directory — that puts the repo back inside iCloud's blast radius.
+- Do not track build artifacts or local config: `TextToSpeechApp*.app` bundles, screenshots, and `.env.local` are gitignored and were deliberately untracked. Never re-add them.
+
 ## Project Structure & Module Organization
 Code lives in `Sources/` with a clear MVVM layout: `Models/`, `ViewModels/`, `Views/`, `Services/`, and `Utilities/`. Shared app configuration (`Package.swift`, `Info.plist`, `TextToSpeechApp.entitlements`) is at the repository root alongside the automation script `build.sh`. Unit tests belong in `Tests/`, where `TextToSpeechAppTests.swift` exercises models, services, and the view model. Treat the generated bundles (`TextToSpeechApp.app`, `TextToSpeechApp 2.app`) as build artefacts—recreate them instead of editing in place.
 

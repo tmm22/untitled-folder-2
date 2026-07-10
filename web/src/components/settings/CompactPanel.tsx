@@ -24,7 +24,6 @@ export function CompactPanel() {
 
   return (
     <CollapsibleSection title="Compact layout" minHeight={220} maxHeight={680}>
-      <h2 className="panel-title">Compact layout</h2>
       <p className="panel-subtitle">Match the macOS minimalist layout in the browser.</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {COMPACT_OPTIONS.map((option) => (

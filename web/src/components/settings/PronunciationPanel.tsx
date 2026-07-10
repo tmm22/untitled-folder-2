@@ -58,7 +58,6 @@ export function PronunciationPanel() {
 
   return (
     <CollapsibleSection title="Pronunciation glossary" minHeight={280} maxHeight={880}>
-      <h2 className="panel-title">Pronunciation glossary</h2>
       <p className="panel-subtitle">Rules run before requests are sent to providers.</p>
       <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
         <label className="flex flex-col gap-2">

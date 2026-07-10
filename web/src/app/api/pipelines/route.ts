@@ -15,13 +15,13 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const repository = getPipelineRepository();
-    const pipelines = await repository.list();
+    const pipelines = await repository.list(auth.userId);
     return NextResponse.json({ pipelines });
   } catch (error) {
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
         const repository = fallbackPipelineRepository(error);
-        const pipelines = await repository.list();
+        const pipelines = await repository.list(auth.userId);
         return NextResponse.json({ pipelines });
       } catch (fallbackError) {
         console.error('Pipeline list failed after fallback', fallbackError);
@@ -49,15 +49,17 @@ export async function POST(request: Request): Promise<Response> {
     throw error;
   }
 
+  const ownedInput = { ...input, ownerId: auth.userId };
+
   try {
     const repository = getPipelineRepository();
-    const pipeline = await repository.create(input);
+    const pipeline = await repository.create(ownedInput);
     return NextResponse.json({ pipeline }, { status: 201 });
   } catch (error) {
     if (shouldFallbackToLocalPipelineRepository(error)) {
       try {
         const repository = fallbackPipelineRepository(error);
-        const pipeline = await repository.create(input);
+        const pipeline = await repository.create(ownedInput);
         return NextResponse.json({ pipeline }, { status: 201 });
       } catch (fallbackError) {
         console.error('Pipeline creation failed after fallback', fallbackError);

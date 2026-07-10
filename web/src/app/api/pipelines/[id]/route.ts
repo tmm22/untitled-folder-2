@@ -6,6 +6,7 @@ import {
   fallbackPipelineRepository,
 } from '../context';
 import { parseUpdatePayload } from '../_lib/validate';
+import { isPipelineAccessibleBy } from '@/lib/pipelines/repository';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -19,7 +20,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
   const respondWithPipeline = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.get(id);
-    if (!pipeline) {
+    if (!pipeline || !isPipelineAccessibleBy(pipeline, auth.userId)) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
     return NextResponse.json({ pipeline });
@@ -70,6 +71,10 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
   }
 
   const performUpdate = async (repository = getPipelineRepository()): Promise<Response> => {
+    const existing = await repository.get(id);
+    if (!existing || !isPipelineAccessibleBy(existing, auth.userId)) {
+      return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
+    }
     const pipeline = await repository.update(id, input);
     return NextResponse.json({ pipeline });
   };
@@ -104,6 +109,10 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
   const { id } = await context.params;
 
   const performDelete = async (repository = getPipelineRepository()): Promise<Response> => {
+    const existing = await repository.get(id);
+    if (existing && !isPipelineAccessibleBy(existing, auth.userId)) {
+      return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
+    }
     await repository.delete(id);
     return NextResponse.json({ success: true });
   };

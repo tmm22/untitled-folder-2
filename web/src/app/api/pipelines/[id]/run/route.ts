@@ -7,6 +7,7 @@ import {
 } from '../../context';
 import { parseRunPayload } from '../../_lib/validate';
 import { runPipelineOnServer } from '../../_lib/runner';
+import { isPipelineAccessibleBy } from '@/lib/pipelines/repository';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   const executeRun = async (repository = getPipelineRepository()): Promise<Response> => {
     const pipeline = await repository.get(id);
-    if (!pipeline) {
+    if (!pipeline || !isPipelineAccessibleBy(pipeline, auth.userId)) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 

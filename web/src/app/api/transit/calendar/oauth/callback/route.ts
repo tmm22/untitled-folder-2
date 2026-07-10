@@ -27,7 +27,7 @@ function decodeSessionPayload(secret: Uint8Array | null): SessionPayload | null 
 }
 
 function resolveRedirectUrl(outcome: 'success' | 'error' = 'success'): string {
-  const base = process.env.TRANSIT_CALENDAR_POST_CONNECT_REDIRECT?.trim() || '/transit';
+  const base = process.env.TRANSIT_CALENDAR_POST_CONNECT_REDIRECT?.trim() || '/studio?tab=calendar';
   const url = new URL(base, process.env.APP_BASE_URL?.trim() || 'http://localhost:3000');
   url.searchParams.set('calendar', outcome);
   return url.toString();

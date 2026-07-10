@@ -5,6 +5,32 @@ import { pipelineDefaultSource, pipelineSchedule, pipelineStep } from './validat
 
 type PipelineDoc = Doc<'pipelines'>;
 
+const pipelineResult = v.object({
+  id: v.string(),
+  ownerId: v.optional(v.string()),
+  name: v.string(),
+  description: v.optional(v.string()),
+  steps: v.array(pipelineStep),
+  createdAt: v.string(),
+  updatedAt: v.string(),
+  webhookSecret: v.string(),
+  schedule: v.optional(pipelineSchedule),
+  defaultSource: v.optional(pipelineDefaultSource),
+  lastRunAt: v.optional(v.string()),
+});
+
+const pipelineListItemResult = v.object({
+  id: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+  schedule: v.optional(pipelineSchedule),
+  lastRunAt: v.optional(v.string()),
+});
+
+const maybePipelineResult = v.object({
+  pipeline: v.union(pipelineResult, v.null()),
+});
+
 const now = () => new Date().toISOString();
 
 function sanitizeName(name: string): string {
@@ -19,6 +45,7 @@ function sanitizeDescription(description: string | undefined): string | undefine
 function mapPipeline(doc: PipelineDoc) {
   return {
     id: doc.id,
+    ownerId: doc.ownerId ?? undefined,
     name: doc.name,
     description: doc.description ?? undefined,
     steps: doc.steps,
@@ -58,9 +85,23 @@ function toListItem(doc: PipelineDoc) {
 const MAX_PIPELINES_LISTED = 500;
 
 export const list = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const docs = await ctx.db.query('pipelines').take(MAX_PIPELINES_LISTED);
+  args: { ownerId: v.optional(v.string()) },
+  returns: v.object({ pipelines: v.array(pipelineListItemResult) }),
+  handler: async (ctx, { ownerId }) => {
+    // Owner-scoped listing also includes legacy pipelines created before
+    // ownership tracking (no ownerId on the record).
+    const docs = ownerId
+      ? [
+          ...(await ctx.db
+            .query('pipelines')
+            .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+            .take(MAX_PIPELINES_LISTED)),
+          ...(await ctx.db
+            .query('pipelines')
+            .withIndex('by_owner', (q) => q.eq('ownerId', undefined))
+            .take(MAX_PIPELINES_LISTED)),
+        ]
+      : await ctx.db.query('pipelines').take(MAX_PIPELINES_LISTED);
     const sorted = docs.sort((a, b) => a.name.localeCompare(b.name));
     return { pipelines: sorted.map(toListItem) };
   },
@@ -68,6 +109,7 @@ export const list = internalQuery({
 
 export const get = internalQuery({
   args: { id: v.string() },
+  returns: maybePipelineResult,
   handler: async (ctx, { id }) => {
     const pipeline = await loadPipelineById(ctx.db, id);
     return { pipeline: pipeline ? mapPipeline(pipeline) : null };
@@ -76,6 +118,7 @@ export const get = internalQuery({
 
 export const findByWebhookSecret = internalQuery({
   args: { secret: v.string() },
+  returns: maybePipelineResult,
   handler: async (ctx, { secret }) => {
     const pipeline = await loadPipelineBySecret(ctx.db, secret);
     return { pipeline: pipeline ? mapPipeline(pipeline) : null };
@@ -85,6 +128,7 @@ export const findByWebhookSecret = internalQuery({
 export const create = internalMutation({
   args: {
     input: v.object({
+      ownerId: v.optional(v.string()),
       name: v.string(),
       description: v.optional(v.string()),
       steps: v.array(pipelineStep),
@@ -92,6 +136,7 @@ export const create = internalMutation({
       defaultSource: v.optional(pipelineDefaultSource),
     }),
   },
+  returns: maybePipelineResult,
   handler: async (ctx, { input }) => {
     const id = crypto.randomUUID();
     const webhookSecret = crypto.randomUUID();
@@ -99,6 +144,7 @@ export const create = internalMutation({
 
     const pipeline = {
       id,
+      ownerId: input.ownerId,
       name: sanitizeName(input.name),
       description: sanitizeDescription(input.description),
       steps: input.steps,
@@ -128,6 +174,7 @@ export const update = internalMutation({
       rotateSecret: v.optional(v.boolean()),
     }),
   },
+  returns: maybePipelineResult,
   handler: async (ctx, { id, input }) => {
     const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {
@@ -165,6 +212,7 @@ export const update = internalMutation({
 
 export const remove = internalMutation({
   args: { id: v.string() },
+  returns: v.object({ result: v.boolean() }),
   handler: async (ctx, { id }) => {
     const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {
@@ -180,6 +228,7 @@ export const recordRun = internalMutation({
     id: v.string(),
     completedAt: v.string(),
   },
+  returns: maybePipelineResult,
   handler: async (ctx, { id, completedAt }) => {
     const existing = await loadPipelineById(ctx.db, id);
     if (!existing) {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { POST } from '@/app/api/auth/sync/route';
 import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 import * as convexAuth from '@/lib/convexAuth';
@@ -16,7 +16,7 @@ describe('POST /api/auth/sync', () => {
     __setMockServerAuthState({ userId: null });
     resolveConvexAuthConfigSpy = vi.spyOn(convexAuth, 'resolveConvexAuthConfig');
     resolveConvexAuthConfigSpy.mockReset();
-    (fetchMutation as unknown as vi.Mock).mockReset();
+    (fetchMutation as unknown as Mock).mockReset();
   });
 
   afterEach(() => {
@@ -59,7 +59,7 @@ describe('POST /api/auth/sync', () => {
     process.env.CONVEX_URL = 'https://convex.example.com';
     resolveConvexAuthConfigSpy.mockReturnValue({ token: 'secret', scheme: 'Deployment' });
 
-    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    const fetchMutationMock = fetchMutation as unknown as Mock;
     fetchMutationMock.mockResolvedValue({ user: { clerkId: 'user_456' } });
 
     const request = new Request('https://example.com/api/auth/sync', { method: 'POST' });
@@ -98,7 +98,7 @@ describe('POST /api/auth/sync', () => {
     process.env.CONVEX_URL = 'https://convex.example.com';
     resolveConvexAuthConfigSpy.mockReturnValue({ token: 'secret', scheme: 'Deployment' });
 
-    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    const fetchMutationMock = fetchMutation as unknown as Mock;
     fetchMutationMock.mockRejectedValueOnce(
       new Error(
         "Convex ensureUser request failed: [Request ID: 123] Server Error\nCould not find public function for 'users:ensureUser'. Did you forget to run `npx convex dev` or `npx convex deploy`?",

@@ -40,61 +40,45 @@ describe('Convex HTTP admin guard', () => {
 
   it('rejects requests when no admin tokens are configured', () => {
     const request = buildRequest({});
-    try {
-      requireAdmin(request);
-      throw new Error('Expected rejection');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Response);
-      expect((error as Response).status).toBe(500);
-    }
+    const failure = requireAdmin(request);
+    expect(failure).toBeInstanceOf(Response);
+    expect(failure?.status).toBe(500);
   });
 
   it('authorises requests with matching token and default scheme', () => {
     process.env.CONVEX_DEPLOYMENT_KEY = 'test-token';
     const request = buildRequest({ authorization: 'Bearer test-token' });
-    expect(() => requireAdmin(request)).not.toThrow();
+    expect(requireAdmin(request)).toBeNull();
   });
 
   it('rejects requests with mismatched token', () => {
     process.env.CONVEX_DEPLOYMENT_KEY = 'allowed-token';
     const request = buildRequest({ authorization: 'Bearer other-token' });
-    try {
-      requireAdmin(request);
-      throw new Error('Expected rejection');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Response);
-      expect((error as Response).status).toBe(401);
-    }
+    const failure = requireAdmin(request);
+    expect(failure).toBeInstanceOf(Response);
+    expect(failure?.status).toBe(401);
   });
 
   it('enforces explicit auth scheme when configured', () => {
     process.env.CONVEX_DEPLOYMENT_KEY = 'scheme-token';
     process.env.CONVEX_AUTH_SCHEME = 'Deployment';
     const request = buildRequest({ authorization: 'Bearer scheme-token' });
-    try {
-      requireAdmin(request);
-      throw new Error('Expected rejection');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Response);
-      expect((error as Response).status).toBe(401);
-    }
+    const failure = requireAdmin(request);
+    expect(failure).toBeInstanceOf(Response);
+    expect(failure?.status).toBe(401);
   });
 
   it('rejects the legacy x-convex-admin-key fallback header', () => {
     process.env.CONVEX_ADMIN_KEY = 'admin-token';
     const request = buildRequest({ 'x-convex-admin-key': 'admin-token' });
-    try {
-      requireAdmin(request);
-      throw new Error('Expected rejection');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Response);
-      expect((error as Response).status).toBe(401);
-    }
+    const failure = requireAdmin(request);
+    expect(failure).toBeInstanceOf(Response);
+    expect(failure?.status).toBe(401);
   });
 
   it('authorises requests with the admin key over the authorization header', () => {
     process.env.CONVEX_ADMIN_KEY = 'admin-token';
     const request = buildRequest({ authorization: 'Bearer admin-token' });
-    expect(() => requireAdmin(request)).not.toThrow();
+    expect(requireAdmin(request)).toBeNull();
   });
 });
