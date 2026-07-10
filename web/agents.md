@@ -81,6 +81,7 @@
 - Panel drag-and-drop is gated behind the "Arrange panels" toggle in `TransitTranscriptionPanel`; drop zones and grab cursors must not render in normal use.
 - `/studio` is the single workspace route (`/transit` redirects there). Deep-link to tabs with `/studio?tab=capture|transcript|calendar|narration|history|settings` — anchor fragments no longer work with the tabbed layout.
 - "Clear session" (transcription/calendar state) and "Reset layout" (persisted panel arrangement) are separate actions; do not recombine them into one button.
+- Workspace panels outside the default Capture tab are `next/dynamic` imports in `TransitTranscriptionPanel` so they load as separate chunks on first tab switch — add new non-capture panels the same way, and never convert them back to static imports (it regrows the initial `/studio` bundle).
 - Keep network access inside repositories under `@/lib/**`; UI layers consume exported hooks/clients instead of calling fetch directly.
 - Use `secureFetch` (or the provider-specific clients in `@/lib/providers/`) for outbound HTTP to preserve timeout, header, and credential policies.
 - Mirror naming, error handling, and UI terminology with the native app so cross-platform features stay aligned.
@@ -99,6 +100,9 @@
 - OpenAI has **no voice-listing endpoint**; the OpenAI adapter returns its curated `DEFAULT_OPENAI_VOICES` list (only documented voice ids). The speech API body supports only `model`, `input`, `voice`, `response_format`, `speed`, `instructions` — unknown fields are rejected with 400.
 - Google TTS `audioContentType` must be derived from the chosen `audioEncoding` (`contentTypeMap`), not hardcoded to `audio/mpeg`.
 - The web app reads `CONVEX_URL` (server-side) from `web/.env.local` — `NEXT_PUBLIC_CONVEX_URL` is read nowhere; without `CONVEX_URL` every Convex-backed repository silently falls back to local storage.
+- **Synthesis is streamed as binary.** The synthesize route negotiates on `Accept`: `audio/*` → binary body (vendor bytes piped through via the adapters' optional `synthesizeStream`, request id in `X-Request-Id`); `application/json` → legacy base64 JSON. Client code consumes `ClientSynthesisResult` and must handle both `audioBlob` (binary path) and `audioBase64` (JSON fallback). New adapters should implement `synthesizeStream` returning `null` when streaming is impossible so the route can fall back.
+- **Client fetches to auth-guarded routes must send cookies.** `secureFetch` defaults to `credentials: 'omit'`; pass `credentials: 'same-origin'` (as `ttsService` does) or the Clerk session never reaches `requireVerifiedIdentity` and signed-in users get 401s.
+- Voice lists are cached in `ttsService` for 5 minutes keyed by provider+credential; call `clearVoiceCache()` in tests that mock voice fetches, or stale entries leak across cases.
 - Convex clients live in `@/lib/convex` and feature-specific repositories (history, pipelines, workspace layout, etc.); extend these layers instead of embedding Convex calls in UI.
 - Clerk authentication flows funnel through helpers in `src/app/api/_lib/` and `@/lib/session`; thread new routes through those registries to keep cookies consistent.
 - Billing logic is abstracted in `@/lib/billing/` with provider selectors keyed by `BILLING_PROVIDER`; implement new gateways behind the same interface.
