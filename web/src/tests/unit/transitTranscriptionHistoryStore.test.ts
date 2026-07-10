@@ -3,10 +3,10 @@ import { useTransitTranscriptionHistoryStore } from '@/modules/transitTranscript
 import type { TransitTranscriptionRecord } from '@/modules/transitTranscription/types';
 import { useAccountStore } from '@/modules/account/store';
 
-const mockFetchTransitTranscriptions = vi.fn<[], Promise<TransitTranscriptionRecord[]>>();
-const mockSaveTransitTranscription = vi.fn<[TransitTranscriptionRecord], Promise<void>>();
-const mockRemoveTransitTranscription = vi.fn<[string], Promise<void>>();
-const mockClearTransitTranscriptions = vi.fn<[], Promise<void>>();
+const mockFetchTransitTranscriptions = vi.fn<() => Promise<TransitTranscriptionRecord[]>>();
+const mockSaveTransitTranscription = vi.fn<(record: TransitTranscriptionRecord) => Promise<void>>();
+const mockRemoveTransitTranscription = vi.fn<(id: string) => Promise<void>>();
+const mockClearTransitTranscriptions = vi.fn<() => Promise<void>>();
 
 const idbState = new Map<string, unknown>();
 const mockIdbGet = vi.fn(async (key: string) => idbState.get(key));

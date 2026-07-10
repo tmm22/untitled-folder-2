@@ -178,7 +178,13 @@ export async function POST(request: Request) {
         }
 
         const authorization = await resolveProviderAuthorization(request, action.payload.provider);
-        const apiKeyOverride = authorization.apiKey ?? authorization.managedCredential?.token ?? undefined;
+        // Managed credentials are accounting pseudo-tokens, never sent upstream.
+        // Without a BYOK key, spending the server key requires a verified
+        // identity or a managed (provisioned) entitlement.
+        const apiKeyOverride = authorization.apiKey ?? undefined;
+        if (!apiKeyOverride && !authorization.managedCredential && !identity.isVerified) {
+          return unauthorized();
+        }
         let translatedText: string;
         try {
           translatedText = await translateDocumentText(trimmedText, action.payload.targetLanguageCode, {

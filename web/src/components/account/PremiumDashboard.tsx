@@ -184,12 +184,6 @@ export function PremiumDashboard() {
             >
               Activate subscription
             </button>
-            <button
-              type="button"
-              className="pill-button border-charcoal-300 text-cocoa-700"
-            >
-              Compare plans
-            </button>
           </div>
         </div>
       )}

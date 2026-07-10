@@ -23,7 +23,6 @@ export function NotificationPanel() {
 
   return (
     <CollapsibleSection title="Notifications" minHeight={220} maxHeight={680}>
-      <h2 className="panel-title">Notifications</h2>
       <p className="panel-subtitle">Browser alerts appear when batch processing completes.</p>
       <div className="mt-4 flex flex-col gap-2">
         {OPTIONS.map((option) => {

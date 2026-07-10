@@ -11,3 +11,8 @@ convex/.env.local
 .vscode/
 TextToSpeechApp*.app/
 Package.resolved
+
+# local-only files
+.env.local
+Screenshot*.png
+.cursor/

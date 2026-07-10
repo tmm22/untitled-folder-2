@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import {
   registerSession,
   resolveSessionSecret,
@@ -20,8 +20,8 @@ describe('sessionRegistry', () => {
     resetSessionStoreForTesting();
     process.env.CONVEX_URL = 'https://example.convex.cloud';
     process.env.CONVEX_DEPLOYMENT_KEY = 'test-token';
-    (fetchMutation as unknown as vi.Mock).mockReset();
-    (fetchQuery as unknown as vi.Mock).mockReset();
+    (fetchMutation as unknown as Mock).mockReset();
+    (fetchQuery as unknown as Mock).mockReset();
   });
 
   afterEach(() => {
@@ -32,7 +32,7 @@ describe('sessionRegistry', () => {
   });
 
   it('falls back to a local session store when Convex save fails', async () => {
-    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    const fetchMutationMock = fetchMutation as unknown as Mock;
     fetchMutationMock.mockRejectedValue(new Error('Convex session request failed: No matching routes found'));
 
     await registerSession('session-1', BASE64_SECRET);
@@ -46,8 +46,8 @@ describe('sessionRegistry', () => {
     await clearSession('session-1');
   });
   it('strips Convex metadata when extending a session expiry', async () => {
-    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
-    const fetchQueryMock = fetchQuery as unknown as vi.Mock;
+    const fetchMutationMock = fetchMutation as unknown as Mock;
+    const fetchQueryMock = fetchQuery as unknown as Mock;
 
     const expiresSoon = Date.now() + 1_000;
     fetchQueryMock.mockResolvedValue({

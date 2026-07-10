@@ -21,6 +21,13 @@ const layoutSchema = v.object({
   activeTabId: v.optional(v.string()),
 });
 
+const layoutResult = v.object({
+  userId: v.string(),
+  layout: layoutSchema,
+  version: v.number(),
+  updatedAt: v.number(),
+});
+
 const mapDoc = (doc: WorkspaceLayoutDoc) => ({
   userId: doc.userId,
   layout: doc.layout,
@@ -39,6 +46,7 @@ export const getWorkspaceLayout = internalQuery({
   args: {
     userId: v.string(),
   },
+  returns: v.union(layoutResult, v.null()),
   handler: async (ctx, { userId }) => {
     const existing = await findByUserId(ctx, userId);
     if (!existing) {
@@ -55,6 +63,7 @@ export const saveWorkspaceLayout = internalMutation({
       layout: layoutSchema,
     }),
   },
+  returns: v.object({ layout: v.union(layoutResult, v.null()) }),
   handler: async (ctx, { payload }) => {
     const { userId, layout } = payload;
     const now = Date.now();
@@ -85,6 +94,7 @@ export const clearWorkspaceLayout = internalMutation({
   args: {
     userId: v.string(),
   },
+  returns: v.object({ cleared: v.boolean() }),
   handler: async (ctx, { userId }) => {
     const existing = await findByUserId(ctx, userId);
     if (!existing) {

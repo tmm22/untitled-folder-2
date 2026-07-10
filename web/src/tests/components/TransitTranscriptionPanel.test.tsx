@@ -32,7 +32,7 @@ describe('TransitTranscriptionPanel', () => {
       }),
     ) as typeof fetch;
 
-    delete (globalThis as typeof globalThis & { MediaRecorder?: unknown }).MediaRecorder;
+    delete (globalThis as unknown as { MediaRecorder?: unknown }).MediaRecorder;
     Object.defineProperty(global, 'navigator', {
       configurable: true,
       value: { mediaDevices: undefined },

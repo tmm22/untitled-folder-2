@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest';
 import {
   usePipelineStore,
   resetPipelineStoreForTesting,
@@ -19,12 +19,12 @@ vi.mock('@/modules/pipelines/service', () => ({
   runPipeline: vi.fn(),
 }));
 
-const mockList = service.listPipelines as unknown as vi.Mock;
-const mockFetch = service.fetchPipelineById as unknown as vi.Mock;
-const mockCreate = service.createPipeline as unknown as vi.Mock;
-const mockUpdate = service.updatePipeline as unknown as vi.Mock;
-const mockDelete = service.deletePipeline as unknown as vi.Mock;
-const mockRun = service.runPipeline as unknown as vi.Mock;
+const mockList = service.listPipelines as unknown as Mock;
+const mockFetch = service.fetchPipelineById as unknown as Mock;
+const mockCreate = service.createPipeline as unknown as Mock;
+const mockUpdate = service.updatePipeline as unknown as Mock;
+const mockDelete = service.deletePipeline as unknown as Mock;
+const mockRun = service.runPipeline as unknown as Mock;
 
 const samplePipeline: PipelineDefinition = {
   id: 'pipeline-1',

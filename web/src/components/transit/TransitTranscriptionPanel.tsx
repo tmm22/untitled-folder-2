@@ -190,6 +190,7 @@ export function TransitTranscriptionPanel() {
   const hasCleanupInstruction = trimmedCleanupInstruction.length > 0;
   const [draggedPanel, setDraggedPanel] = useState<WorkspacePanelId | null>(null);
   const [dropTarget, setDropTarget] = useState<{ tabId: WorkspaceTabId; index: number } | null>(null);
+  const [isArranging, setArranging] = useState(false);
 
 
   useEffect(() => {
@@ -284,6 +285,19 @@ export function TransitTranscriptionPanel() {
       setTTSInputText(record.transcript);
     }
   }, [record?.id, record?.transcript, setTTSInputText]);
+
+  const appliedTabParam = useRef(false);
+  useEffect(() => {
+    if (layoutIsHydrating || appliedTabParam.current || typeof window === 'undefined') {
+      return;
+    }
+    appliedTabParam.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && (ALL_WORKSPACE_TAB_IDS as string[]).includes(tab)) {
+      setActiveTab(tab as WorkspaceTabId);
+    }
+  }, [layoutIsHydrating, setActiveTab]);
 
   const resetInteraction = useCallback(() => {
     setRecording(false);
@@ -488,7 +502,7 @@ export function TransitTranscriptionPanel() {
     return tab?.panelIds ?? [];
   }, [layout, activeTabId]);
 
-  const handleReset = useCallback(() => {
+  const handleClearSession = useCallback(() => {
     actions.reset();
     resetInteraction();
     setCalendarStatus('idle');
@@ -499,8 +513,11 @@ export function TransitTranscriptionPanel() {
     setCalendarNotes('');
     setCalendarDuration('');
     setCalendarWindow('');
+  }, [actions, resetInteraction]);
+
+  const handleResetLayout = useCallback(() => {
     void resetLayout();
-  }, [actions, resetInteraction, resetLayout]);
+  }, [resetLayout]);
 
   const handleHistoryLoad = useCallback(
     (historyRecord: TransitTranscriptionRecord) => {
@@ -650,10 +667,7 @@ export function TransitTranscriptionPanel() {
       allowResize={false}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-accent-500">Pipeline status</p>
-          <p className="text-sm font-medium text-charcoal-900">{pipelineStatusLabel}</p>
-        </div>
+        <p className="text-sm font-medium text-charcoal-900">{pipelineStatusLabel}</p>
         <div className="flex w-full items-center gap-2 sm:w-64">
           <div className="relative h-2 flex-1 rounded-full bg-charcoal-200/60">
             <div
@@ -683,9 +697,6 @@ export function TransitTranscriptionPanel() {
         ) : null
       }
     >
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-charcoal-900">Capture audio</h3>
-      </div>
       {isRecorderSupported ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
@@ -731,7 +742,6 @@ export function TransitTranscriptionPanel() {
       title="Upload audio file"
       className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
     >
-      <h3 className="text-sm font-semibold text-charcoal-900">Upload audio file</h3>
       <p className="text-xs text-charcoal-500">
         Bring in recordings from other tools. Transit supports MP3, WAV, FLAC, and more up to 200MB.
       </p>
@@ -746,17 +756,6 @@ export function TransitTranscriptionPanel() {
           disabled={isStreaming}
         >
           Choose file
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            actions.setSource('upload');
-            fileInputRef.current?.click();
-          }}
-          className="rounded-full border border-charcoal-300 px-3 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70"
-          disabled={isStreaming}
-        >
-          Browse files
         </button>
       </div>
       <input
@@ -775,7 +774,6 @@ export function TransitTranscriptionPanel() {
       title="Cleanup instructions"
       className="flex flex-col gap-4 rounded-2xl border border-charcoal-200/70 bg-white/70 p-4 shadow-sm shadow-charcoal-200/50"
     >
-      <h3 className="text-sm font-semibold text-charcoal-900">Cleanup instructions</h3>
       <p className="text-xs text-charcoal-500">
         Ask the assistant to polish each transcript—for example Australian English, professional tone, or meeting-ready notes.
       </p>
@@ -843,9 +841,6 @@ export function TransitTranscriptionPanel() {
         </button>
       }
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-charcoal-900">Transcript history</h3>
-      </div>
       {historyStatus && <p className="mt-2 text-xs text-charcoal-500">{historyStatus}</p>}
       {!historyHydrated && <p className="mt-3 text-sm text-charcoal-500">Loading transcript history…</p>}
       {historyHydrated && historyError && (
@@ -929,12 +924,9 @@ export function TransitTranscriptionPanel() {
       minHeight={240}
       maxHeight={720}
     >
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-charcoal-900">Transcript</h3>
-        {record?.durationMs ? (
-          <span className="text-xs text-charcoal-500">Duration: {formatMilliseconds(record.durationMs)}</span>
-        ) : null}
-      </div>
+      {record?.durationMs ? (
+        <span className="text-xs text-charcoal-500">Duration: {formatMilliseconds(record.durationMs)}</span>
+      ) : null}
       <div className="mt-4 max-h-72 overflow-y-auto rounded-xl border border-charcoal-100/80 bg-cream-50/90 px-4 py-3 text-sm text-charcoal-800">
         {transcriptText || record?.transcript ? (
           <p className="whitespace-pre-line">{record?.transcript ?? transcriptText}</p>
@@ -968,7 +960,6 @@ export function TransitTranscriptionPanel() {
       title="Summary"
       className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
     >
-      <h3 className="text-sm font-semibold text-charcoal-900">Summary</h3>
       {summary?.summary ? (
         <p className="mt-2 text-sm text-charcoal-700">{summary.summary}</p>
       ) : (
@@ -982,18 +973,15 @@ export function TransitTranscriptionPanel() {
       title="Cleanup result"
       className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-charcoal-900">Cleanup result</h3>
-        {cleanupResult ? (
-          <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-700">
-            {cleanupResult.label ?? 'Custom instructions'}
-          </span>
-        ) : hasCleanupInstruction ? (
-          <span className="rounded-full bg-charcoal-100 px-2 py-0.5 text-[11px] font-medium text-charcoal-600">
-            Pending
-          </span>
-        ) : null}
-      </div>
+      {cleanupResult ? (
+        <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-700">
+          {cleanupResult.label ?? 'Custom instructions'}
+        </span>
+      ) : hasCleanupInstruction ? (
+        <span className="rounded-full bg-charcoal-100 px-2 py-0.5 text-[11px] font-medium text-charcoal-600">
+          Pending
+        </span>
+      ) : null}
       {cleanupResult ? (
         <>
           {!cleanupResult.label && (
@@ -1020,7 +1008,6 @@ export function TransitTranscriptionPanel() {
       title="Action items"
       className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
     >
-      <h3 className="text-sm font-semibold text-charcoal-900">Action items</h3>
       {summary?.actionItems && summary.actionItems.length > 0 ? (
         <ul className="mt-2 space-y-2">
           {summary.actionItems.map((item, index) => (
@@ -1044,9 +1031,6 @@ export function TransitTranscriptionPanel() {
             : 'border-charcoal-200/70 bg-white/80 shadow-charcoal-200/60'
         }`}
       >
-        <h3 className={`text-sm font-semibold ${recommendation ? 'text-accent-800' : 'text-charcoal-900'}`}>
-          Suggested calendar event
-        </h3>
         {recommendation ? (
           <>
             <p className="mt-2 text-sm text-accent-800">{recommendation.title}</p>
@@ -1086,7 +1070,6 @@ export function TransitTranscriptionPanel() {
         </span>
       }
     >
-      <h3 className="text-sm font-semibold text-charcoal-900">Calendar follow-up</h3>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -1201,15 +1184,7 @@ export function TransitTranscriptionPanel() {
     </WorkspaceSection>
   );
 
-  const renderVoiceSettingsSection = () => (
-    <WorkspaceSection
-      id="voice-settings"
-      title="Voice settings"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <ProviderSelector />
-    </WorkspaceSection>
-  );
+  const renderVoiceSettingsSection = () => <ProviderSelector />;
 
   const renderScriptEditorSection = () => (
     <WorkspaceSection
@@ -1223,95 +1198,23 @@ export function TransitTranscriptionPanel() {
     </WorkspaceSection>
   );
 
-  const renderPlaybackControlsSection = () => (
-    <WorkspaceSection
-      id="playback-controls"
-      title="Playback"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <PlaybackControls />
-    </WorkspaceSection>
-  );
+  const renderPlaybackControlsSection = () => <PlaybackControls />;
 
-  const renderBatchQueueSection = () => (
-    <WorkspaceSection
-      id="batch-queue"
-      title="Batch queue"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <BatchPanel />
-    </WorkspaceSection>
-  );
+  const renderBatchQueueSection = () => <BatchPanel />;
 
-  const renderPronunciationPanelSection = () => (
-    <WorkspaceSection
-      id="pronunciation"
-      title="Pronunciation"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <PronunciationPanel />
-    </WorkspaceSection>
-  );
+  const renderPronunciationPanelSection = () => <PronunciationPanel />;
 
-  const renderTTSHistorySection = () => (
-    <WorkspaceSection
-      id="tts-history"
-      title="TTS history"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <HistoryPanel />
-    </WorkspaceSection>
-  );
+  const renderTTSHistorySection = () => <HistoryPanel />;
 
-  const renderTranslationHistorySection = () => (
-    <WorkspaceSection
-      id="translation-history"
-      title="Translation history"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <TranslationHistoryPanel />
-    </WorkspaceSection>
-  );
+  const renderTranslationHistorySection = () => <TranslationHistoryPanel />;
 
-  const renderCredentialsPanelSection = () => (
-    <WorkspaceSection
-      id="credentials"
-      title="API credentials"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <CredentialsPanel />
-    </WorkspaceSection>
-  );
+  const renderCredentialsPanelSection = () => <CredentialsPanel />;
 
-  const renderThemePanelSection = () => (
-    <WorkspaceSection
-      id="theme"
-      title="Theme"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <ThemePanel />
-    </WorkspaceSection>
-  );
+  const renderThemePanelSection = () => <ThemePanel />;
 
-  const renderCompactPanelSection = () => (
-    <WorkspaceSection
-      id="compact"
-      title="Compact mode"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <CompactPanel />
-    </WorkspaceSection>
-  );
+  const renderCompactPanelSection = () => <CompactPanel />;
 
-  const renderNotificationPanelSection = () => (
-    <WorkspaceSection
-      id="notifications"
-      title="Notifications"
-      className="rounded-2xl border border-charcoal-200/70 bg-white/80 p-4 shadow-sm shadow-charcoal-200/60"
-    >
-      <NotificationPanel />
-    </WorkspaceSection>
-  );
+  const renderNotificationPanelSection = () => <NotificationPanel />;
 
   const panelRenderer: Record<WorkspacePanelId, () => ReactNode> = {
     pipelineStatus: renderPipelineStatusSection,
@@ -1406,13 +1309,15 @@ export function TransitTranscriptionPanel() {
     children: ReactNode;
   }) => (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable={isArranging}
+      onDragStart={isArranging ? onDragStart : undefined}
+      onDragEnd={isArranging ? onDragEnd : undefined}
       data-panel-id={panelId}
       data-tab-id={tabId}
       data-index={index}
-      className={`cursor-move transition ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+      className={`transition ${isArranging ? 'cursor-move rounded-2xl ring-2 ring-dashed ring-accent-300' : ''} ${
+        isDragging ? 'opacity-50' : 'opacity-100'
+      }`}
     >
       {children}
     </div>
@@ -1437,7 +1342,7 @@ export function TransitTranscriptionPanel() {
         tabId={tabId}
         index={0}
         isActive={dropTarget?.tabId === tabId && dropTarget.index === 0}
-        isVisible={Boolean(draggedPanel) || isHydrating || panelIds.length === 0}
+        isVisible={Boolean(draggedPanel) || (isArranging && isHydrating) || panelIds.length === 0}
         onDragOver={handleZoneDragOver(tabId, 0)}
         onDrop={handleZoneDrop(tabId, 0)}
         onDragLeave={handleZoneDragLeave(tabId, 0)}
@@ -1459,7 +1364,7 @@ export function TransitTranscriptionPanel() {
             tabId={tabId}
             index={index + 1}
             isActive={dropTarget?.tabId === tabId && dropTarget.index === index + 1}
-            isVisible={Boolean(draggedPanel) || isHydrating}
+            isVisible={Boolean(draggedPanel)}
             onDragOver={handleZoneDragOver(tabId, index + 1)}
             onDrop={handleZoneDrop(tabId, index + 1)}
             onDragLeave={handleZoneDragLeave(tabId, index + 1)}
@@ -1475,21 +1380,35 @@ export function TransitTranscriptionPanel() {
       className="rounded-3xl border border-charcoal-200/70 bg-cream-100 px-4 py-6 shadow-[0_30px_70px_-45px_rgba(98,75,63,0.8)] sm:px-6 sm:py-8"
       allowResize={false}
     >
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent-600">Narration Studio</p>
-          <h2 className="text-2xl font-semibold text-charcoal-900">Transcribe, clean, and narrate in one workspace</h2>
-          <p className="text-sm text-charcoal-600">
-            Capture live audio or uploads, polish transcripts with cleanup presets, and generate narration without switching contexts.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
-          className="w-full rounded-full border border-charcoal-300 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70 sm:w-auto"
-          onClick={handleReset}
+          className="rounded-full border border-charcoal-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-charcoal-700 hover:bg-charcoal-100/70"
+          onClick={handleClearSession}
         >
-          Reset workspace
+          Clear session
         </button>
+        <button
+          type="button"
+          aria-pressed={isArranging}
+          className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] transition ${
+            isArranging
+              ? 'border-accent-600 bg-accent-600 text-cream-50 hover:bg-accent-700'
+              : 'border-charcoal-300 text-charcoal-700 hover:bg-charcoal-100/70'
+          }`}
+          onClick={() => setArranging((previous) => !previous)}
+        >
+          {isArranging ? 'Done arranging' : 'Arrange panels'}
+        </button>
+        {isArranging && (
+          <button
+            type="button"
+            className="rounded-full border border-rose-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-rose-700 hover:bg-rose-50"
+            onClick={handleResetLayout}
+          >
+            Reset layout
+          </button>
+        )}
       </header>
 
       {layoutError && (

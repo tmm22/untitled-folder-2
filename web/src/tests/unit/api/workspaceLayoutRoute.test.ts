@@ -6,9 +6,9 @@ import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 type MockKind = 'convex' | 'noop';
 
 const mockRepository = {
-  load: vi.fn<[string], Promise<WorkspaceLayoutSnapshot | null>>(),
-  save: vi.fn<[string, WorkspaceLayoutSnapshot], Promise<void>>(),
-  clear: vi.fn<[string], Promise<void>>(),
+  load: vi.fn<(userId: string) => Promise<WorkspaceLayoutSnapshot | null>>(),
+  save: vi.fn<(userId: string, snapshot: WorkspaceLayoutSnapshot) => Promise<void>>(),
+  clear: vi.fn<(userId: string) => Promise<void>>(),
 };
 
 let mockKind: MockKind = 'convex';

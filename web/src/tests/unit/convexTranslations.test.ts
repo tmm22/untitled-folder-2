@@ -15,10 +15,20 @@ class FakeQueryBuilder {
 
   constructor(private readonly source: FakeDb) {}
 
-  withIndex(_name: string, apply: (builder: { eq: (field: string, value: unknown) => any }) => void) {
+  withIndex(
+    _name: string,
+    apply: (builder: {
+      eq: (field: string, value: unknown) => any;
+      lt: (field: string, value: number) => any;
+    }) => void,
+  ) {
     const indexBuilder = {
       eq: (field: string, value: unknown) => {
         this.conditions.push({ type: 'eq', field, value });
+        return indexBuilder;
+      },
+      lt: (field: string, value: number) => {
+        this.conditions.push({ type: 'lt', field, value });
         return indexBuilder;
       },
     };

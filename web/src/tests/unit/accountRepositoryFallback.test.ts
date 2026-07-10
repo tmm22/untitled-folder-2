@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import {
   getAccountRepository,
   getAccountRepositoryKind,
@@ -16,7 +16,7 @@ describe('account repository context', () => {
     resetAccountRepositoryForTesting();
     process.env.CONVEX_URL = 'https://example.convex.cloud';
     process.env.CONVEX_DEPLOYMENT_KEY = 'test-token';
-    (fetchMutation as unknown as vi.Mock).mockReset();
+    (fetchMutation as unknown as Mock).mockReset();
   });
 
   afterEach(() => {
@@ -27,7 +27,7 @@ describe('account repository context', () => {
   });
 
   it('falls back to the in-memory repository when Convex responds with 404', async () => {
-    const fetchMutationMock = fetchMutation as unknown as vi.Mock;
+    const fetchMutationMock = fetchMutation as unknown as Mock;
     fetchMutationMock.mockRejectedValue(new Error('Convex account request failed: No matching routes found'));
 
     const repository = getAccountRepository();

@@ -97,10 +97,12 @@ class ElevenLabsAdapter implements ProviderAdapter {
   private cachedVoices?: { items: Voice[]; expiresAt: number };
 
   constructor(context: ProviderContext) {
-    const managedKey = context.managedCredential?.token?.trim();
+    // Managed (provisioned) credentials are usage-accounting pseudo tokens,
+    // never real vendor keys — they grant use of the server key upstream.
     const providedKey = context.apiKey?.trim();
-    const envKey = process.env.ELEVENLABS_API_KEY?.trim();
-    this.apiKey = managedKey || providedKey || envKey || undefined;
+    const allowServerKey = context.allowServerKey !== false || Boolean(context.managedCredential);
+    const envKey = allowServerKey ? process.env.ELEVENLABS_API_KEY?.trim() : undefined;
+    this.apiKey = providedKey || envKey || undefined;
   }
 
   async listVoices(): Promise<Voice[]> {
@@ -130,7 +132,7 @@ class ElevenLabsAdapter implements ProviderAdapter {
 
     const requestBody = {
       text: applyGlossary(payload.text, payload),
-      model_id: 'eleven_monolingual_v1',
+      model_id: 'eleven_multilingual_v2',
       voice_settings: {
         stability: payload.settings.styleValues['stability'] ?? 0.5,
         similarity_boost: payload.settings.styleValues['similarityBoost'] ?? 0.75,

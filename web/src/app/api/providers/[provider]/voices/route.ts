@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import type { ProviderType } from '@/modules/tts/types';
 import { resolveProviderAdapter } from '@/lib/providers';
 import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
+import { resolveRequestIdentity } from '@/lib/auth/identity';
+
+const SUPPORTED_PROVIDERS: readonly ProviderType[] = ['openAI', 'elevenLabs', 'google', 'tightAss'];
+
+function parseProvider(value: string | undefined): ProviderType | undefined {
+  return SUPPORTED_PROVIDERS.find((candidate) => candidate === value);
+}
 
 type ProviderRouteContext = {
   params: Promise<{
@@ -27,18 +34,22 @@ function sanitizeErrorMessage(error: unknown): string {
 
 export async function GET(request: Request, context: ProviderRouteContext) {
   const params = await context.params;
-  const provider = params.provider as ProviderType | undefined;
+  const provider = parseProvider(params.provider);
 
   if (!provider) {
-    return NextResponse.json({ error: 'Missing provider' }, { status: 400 });
+    return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 });
   }
   const authorization = await resolveProviderAuthorization(request, provider);
+  const identity = resolveRequestIdentity(request);
 
   try {
+    // Unverified callers without their own key get the static voice lists;
+    // live vendor listings on the server key require a verified identity.
     const adapter = resolveProviderAdapter({
       provider,
       apiKey: authorization.apiKey,
       managedCredential: authorization.managedCredential,
+      allowServerKey: Boolean(identity.userId && identity.isVerified),
     });
     const voices = await adapter.listVoices();
     return NextResponse.json(voices);

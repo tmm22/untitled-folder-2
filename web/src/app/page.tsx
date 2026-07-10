@@ -9,34 +9,34 @@ import { BatchPanel } from '@/components/queue/BatchPanel';
 export default function Home() {
   const quickLinks = [
     {
-      href: '/studio#capture',
+      href: '/studio?tab=capture',
       title: 'Capture & upload',
       description: 'Record from the browser or upload audio clips for instant transcription.',
     },
     {
-      href: '/studio#cleanup-controls',
-      title: 'Cleanup presets',
-      description: 'Apply Australian English, professional tone, or meeting minutes instructions.',
+      href: '/studio?tab=transcript',
+      title: 'Transcript & cleanup',
+      description: 'Edit transcripts, review summaries and action items, and apply cleanup presets.',
     },
     {
-      href: '/studio#transcript-view',
-      title: 'Transcript workspace',
-      description: 'Edit, review summaries, and grab action items as they stream in.',
-    },
-    {
-      href: '/studio#tts-controls',
+      href: '/studio?tab=narration',
       title: 'Voice & synthesis',
       description: 'Pick providers, preview voices, and manage batches from one panel.',
     },
     {
-      href: '/studio#transcript-history',
-      title: 'Transcript history',
-      description: 'Reopen recent captures, download text, or clear archived sessions.',
+      href: '/studio?tab=history',
+      title: 'History',
+      description: 'Reopen recent transcripts, generations, and translations, or download text.',
     },
     {
-      href: '/studio#calendar',
+      href: '/studio?tab=calendar',
       title: 'Calendar follow-up',
       description: 'Schedule Google Calendar events directly from detected action items.',
+    },
+    {
+      href: '/studio?tab=settings',
+      title: 'Settings',
+      description: 'Manage API credentials, theme, compact layout, and notifications.',
     },
   ];
 

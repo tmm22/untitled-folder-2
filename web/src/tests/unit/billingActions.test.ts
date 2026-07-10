@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as checkout } from '@/app/api/billing/checkout/route';
 import { POST as portal } from '@/app/api/billing/portal/route';
-import { ACCOUNT_COOKIE_NAME, buildAccountCookieValue } from '@/lib/auth/accountCookie';
 import { resetAccountRepositoryForTesting } from '@/app/api/account/context';
 
+// Billing routes require a verified identity; dev bearer tokens provide one in tests.
 function buildRequest(accountId?: string) {
   const headers = new Headers();
   if (accountId) {
-    headers.set('cookie', `${ACCOUNT_COOKIE_NAME}=${buildAccountCookieValue(accountId)}`);
+    headers.set('authorization', `Bearer dev:${accountId}`);
   }
   return new Request('http://localhost', { method: 'POST', headers });
 }
@@ -36,14 +36,24 @@ const {
 } = vi.hoisted(() => {
   const checkoutFn = vi.fn(async () => ({ url: 'https://polar.test/checkout' }));
   const portalFn = vi.fn(async () => ({ customerPortalUrl: 'https://polar.test/portal' }));
-  const getClient = vi.fn(() => ({
+  type PolarClientMockResult = {
     client: {
-      checkouts: { create: checkoutFn },
-      customerSessions: { create: portalFn },
-    },
-    organizationId: 'org_test',
-    environment: 'sandbox',
-  }));
+      checkouts: { create: typeof checkoutFn };
+      customerSessions: { create: typeof portalFn };
+    };
+    organizationId: string;
+    environment: string;
+  } | null;
+  const getClient = vi.fn(
+    (): PolarClientMockResult => ({
+      client: {
+        checkouts: { create: checkoutFn },
+        customerSessions: { create: portalFn },
+      },
+      organizationId: 'org_test',
+      environment: 'sandbox',
+    }),
+  );
   return {
     getPolarClientMock: getClient,
     polarCheckoutCreateMock: checkoutFn,
@@ -57,6 +67,7 @@ vi.mock('@/app/api/_lib/polarClient', () => ({
 
 describe('Billing actions API', () => {
   beforeEach(() => {
+    process.env.AUTH_DEV_TOKENS = '1';
     resetAccountRepositoryForTesting();
     createSubscriptionMock.mockClear();
     createPortalMock.mockClear();
@@ -75,11 +86,12 @@ describe('Billing actions API', () => {
     getPayPalClientMock.mockReset();
     getPolarClientMock.mockReset();
     delete process.env.BILLING_PROVIDER;
+    delete process.env.AUTH_DEV_TOKENS;
   });
 
-  it('rejects calls without account id', async () => {
+  it('rejects unauthenticated calls', async () => {
     const response = await checkout(new Request('http://localhost', { method: 'POST' }));
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(401);
   });
 
   it('returns checkout payload without upgrading account prematurely', async () => {

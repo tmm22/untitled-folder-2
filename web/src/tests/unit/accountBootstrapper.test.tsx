@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { AccountBootstrapper, __dangerous__resetAccountBootstrapper } from '@/components/account/AccountBootstrapper';
@@ -7,7 +7,7 @@ import type { AccountPayload } from '@/lib/account/types';
 import { __setMockClerkState } from '@/tests/mocks/clerkNextjsMock';
 import { __setMockServerAuthState } from '@/tests/mocks/clerkNextjsServerMock';
 
-const mockSyncAuthenticatedUser = vi.fn<[], Promise<unknown>>();
+const mockSyncAuthenticatedUser = vi.fn<() => Promise<unknown>>();
 const ORIGINAL_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const TEST_PUBLISHABLE_KEY = 'pk_test_1234567890abcdefghijklmnopqrstuvwxyzABCDE';
 
@@ -15,7 +15,7 @@ vi.mock('@/lib/auth/client', () => ({
   syncAuthenticatedUser: () => mockSyncAuthenticatedUser(),
 }));
 
-const mockFetchAccount = vi.fn<[], Promise<AccountPayload>>();
+const mockFetchAccount = vi.fn<() => Promise<AccountPayload>>();
 
 vi.mock('@/lib/account/client', () => ({
   fetchAccount: (...args: unknown[]) => mockFetchAccount(...(args as [])),

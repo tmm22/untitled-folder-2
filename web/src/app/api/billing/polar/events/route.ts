@@ -29,11 +29,39 @@ type PolarSubscription = {
   } | null;
 };
 
+// Polar delivers webhook payloads in snake_case; normalize both shapes so the
+// mappers below can rely on camelCase fields.
+type RawPolarSubscription = PolarSubscription & {
+  customer_id?: string;
+  product_id?: string;
+  current_period_end?: unknown;
+  ends_at?: unknown;
+  trial_end?: unknown;
+  customer?: { externalId?: string | null; external_id?: string | null } | null;
+};
+
 type PolarWebhookEvent = {
   id?: string;
   type?: string;
-  data?: PolarSubscription;
+  data?: RawPolarSubscription;
 };
+
+function normalizeSubscription(data: RawPolarSubscription | undefined): PolarSubscription | undefined {
+  if (!data) {
+    return undefined;
+  }
+  return {
+    ...data,
+    customerId: data.customerId ?? data.customer_id,
+    productId: data.productId ?? data.product_id,
+    currentPeriodEnd: data.currentPeriodEnd ?? data.current_period_end,
+    endsAt: data.endsAt ?? data.ends_at,
+    trialEnd: data.trialEnd ?? data.trial_end,
+    customer: data.customer
+      ? { externalId: data.customer.externalId ?? data.customer.external_id ?? null }
+      : data.customer,
+  };
+}
 
 const HANDLED_SUBSCRIPTION_EVENTS = new Set<string>([
   'subscription.created',
@@ -106,7 +134,7 @@ async function handleProvisioningTransition(
     try {
       await orchestrator.issueCredential({
         userId: after.userId,
-        provider: 'openai',
+        provider: 'openAI',
         planTier: after.planTier,
         metadata: {
           source: 'polar-webhook',
@@ -149,7 +177,7 @@ async function handleProvisioningTransition(
 }
 
 async function handleSubscriptionEvent(event: PolarWebhookEvent): Promise<void> {
-  const subscription = event.data;
+  const subscription = normalizeSubscription(event.data);
   if (!subscription) {
     emitWebhookLog('warn', 'missing_subscription_payload', {
       eventId: event.id ?? null,

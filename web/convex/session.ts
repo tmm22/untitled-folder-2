@@ -24,6 +24,7 @@ export const save = internalMutation({
       expiresAt: v.number(),
     }),
   },
+  returns: v.object({ result: v.boolean() }),
   handler: async (ctx, { record }) => {
     const existing = await ctx.db
       .query('sessions')
@@ -42,6 +43,16 @@ export const save = internalMutation({
 
 export const get = internalQuery({
   args: { sessionId: v.string() },
+  returns: v.object({
+    session: v.union(
+      v.object({
+        id: v.string(),
+        secret: v.string(),
+        expiresAt: v.number(),
+      }),
+      v.null(),
+    ),
+  }),
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
       .query('sessions')
@@ -54,6 +65,7 @@ export const get = internalQuery({
 
 export const deleteSession = internalMutation({
   args: { sessionId: v.string() },
+  returns: v.object({ result: v.boolean() }),
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db
       .query('sessions')
@@ -72,6 +84,7 @@ const PRUNE_BATCH_SIZE = 500;
 
 export const prune = internalMutation({
   args: { now: v.number() },
+  returns: v.object({ result: v.number() }),
   handler: async (ctx, { now }) => {
     const expired = await ctx.db
       .query('sessions')

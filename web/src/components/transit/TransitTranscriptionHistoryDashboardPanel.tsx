@@ -120,7 +120,7 @@ export function TransitTranscriptionHistoryDashboardPanel() {
                   </dl>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Link
-                      href="/transit"
+                      href="/studio"
                       className="rounded-full bg-charcoal-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cream-50 hover:bg-charcoal-800"
                     >
                       Open workspace
@@ -146,7 +146,7 @@ export function TransitTranscriptionHistoryDashboardPanel() {
         <span>
           Showing {latestRecords.length} of {records.length} saved transcript{records.length === 1 ? '' : 's'}.
         </span>
-        <Link href="/transit" className="text-accent-600 hover:text-accent-700">
+        <Link href="/studio" className="text-accent-600 hover:text-accent-700">
           View all transcripts in workspace →
         </Link>
       </footer>

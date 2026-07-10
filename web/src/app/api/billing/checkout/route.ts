@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getAccountRepository } from '@/app/api/account/context';
-import { resolveRequestIdentity } from '@/lib/auth/identity';
+import { isAuthFailure, requireVerifiedIdentity } from '@/app/api/_lib/requireAuth';
 import { createCheckoutSession } from '@/lib/billing';
 
 export async function POST(request: Request) {
-  const identity = resolveRequestIdentity(request);
-  const userId = identity.userId;
-  if (!userId) {
-    return NextResponse.json({ error: 'Missing account identifier' }, { status: 400 });
+  const verified = requireVerifiedIdentity(request);
+  if (isAuthFailure(verified)) {
+    return verified;
   }
+  const userId = verified.userId;
 
   const repository = getAccountRepository();
   const account = await repository.getOrCreate(userId);

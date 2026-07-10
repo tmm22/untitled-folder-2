@@ -24,7 +24,6 @@ export function ThemePanel() {
 
   return (
     <CollapsibleSection title="Appearance" minHeight={200} maxHeight={600}>
-      <h2 className="panel-title">Appearance</h2>
       <p className="panel-subtitle">Switch between system default, light, or dark themes.</p>
       <div className="mt-4 flex gap-3">
         {THEMES.map((candidate) => (

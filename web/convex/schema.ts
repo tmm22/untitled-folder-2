@@ -120,6 +120,7 @@ export default defineSchema({
 
   pipelines: defineTable({
     id: v.string(),
+    ownerId: v.optional(v.string()),
     name: v.string(),
     description: v.optional(v.string()),
     steps: v.array(pipelineStep),
@@ -131,6 +132,7 @@ export default defineSchema({
     lastRunAt: v.optional(v.string()),
   })
     .index('by_pipeline_id', ['id'])
+    .index('by_owner', ['ownerId'])
     .index('by_webhook_secret', ['webhookSecret']),
 
   transit_transcripts: defineTable({

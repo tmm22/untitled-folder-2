@@ -17,12 +17,12 @@ describe('browser speech helpers', () => {
     if (originalWindow) {
       globalThis.window = originalWindow;
     } else {
-      delete (globalThis as typeof globalThis & { window?: typeof window }).window;
+      delete (globalThis as unknown as { window?: typeof window }).window;
     }
   });
 
   test('isSpeechSynthesisSupported returns false without window', () => {
-    delete (globalThis as typeof globalThis & { window?: typeof window }).window;
+    delete (globalThis as unknown as { window?: typeof window }).window;
     expect(isSpeechSynthesisSupported()).toBe(false);
   });
 

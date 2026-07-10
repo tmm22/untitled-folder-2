@@ -113,7 +113,6 @@ export function CredentialsPanel() {
   if (hasVault === false) {
     return (
       <CollapsibleSection title="Create secure credential vault" minHeight={320} maxHeight={820}>
-        <h2 className="panel-title">Create secure credential vault</h2>
         <p className="panel-subtitle">
           Store provider API keys locally with AES-GCM encryption. The passphrase never leaves your device and is required
           every time you reopen the workspace.
@@ -156,7 +155,6 @@ export function CredentialsPanel() {
   if (!isUnlocked) {
     return (
       <CollapsibleSection title="Unlock credential vault" minHeight={280} maxHeight={800}>
-        <h2 className="panel-title">Unlock credential vault</h2>
         <form className="mt-5 flex flex-col gap-4" onSubmit={handleUnlock}>
           <label className="flex flex-col gap-2">
             <span className="field-label">Passphrase</span>
@@ -193,7 +191,6 @@ export function CredentialsPanel() {
     <CollapsibleSection title="Provider credentials" minHeight={360} maxHeight={960}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="panel-title">Provider credentials</h2>
           <p className="panel-subtitle">Keys are encrypted locally and decrypted per request only.</p>
           {hasProvisioningAccess && (
             <div className="mt-3 rounded-2xl border border-emerald-300 bg-emerald-50/90 px-4 py-3 text-xs font-semibold text-emerald-700">

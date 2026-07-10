@@ -73,6 +73,7 @@ export type PipelineStep =
 
 export interface PipelineDefinition {
   id: string;
+  ownerId?: string;
   name: string;
   description?: string;
   steps: PipelineStep[];
@@ -85,6 +86,7 @@ export interface PipelineDefinition {
 }
 
 export interface PipelineCreateInput {
+  ownerId?: string;
   name: string;
   description?: string;
   steps: PipelineStep[];

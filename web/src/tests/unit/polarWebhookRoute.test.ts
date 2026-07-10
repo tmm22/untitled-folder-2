@@ -134,8 +134,53 @@ describe('Polar webhook route', () => {
       expect.objectContaining({
         userId: 'acct_123',
         planTier: 'starter',
-        provider: 'openai',
+        provider: 'openAI',
       }),
     );
+  });
+
+  it('handles snake_case payloads as delivered by Polar', async () => {
+    process.env.POLAR_WEBHOOK_SECRET = 'secret';
+    process.env.POLAR_PLAN_ID_STARTER = 'prod_starter';
+
+    const periodEnd = new Date(Date.now() + 86_400_000).toISOString();
+    validatePolarEventMock.mockReturnValue({
+      id: 'evt_2',
+      type: 'subscription.active',
+      data: {
+        id: 'sub_2',
+        status: 'active',
+        customer_id: 'cust_2',
+        product_id: 'prod_starter',
+        current_period_end: periodEnd,
+        customer: { external_id: 'acct_123' },
+        metadata: {
+          planTier: 'starter',
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/billing/polar/events', {
+        method: 'POST',
+        body: '{}',
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    const repoInstance = getAccountRepositoryMock.mock.results.at(-1)!.value as {
+      updateAccount: Mock;
+    };
+    expect(repoInstance.updateAccount).toHaveBeenCalled();
+    const updateArgs = repoInstance.updateAccount.mock.calls.at(-1)?.[0];
+    expect(updateArgs).toMatchObject({
+      userId: 'acct_123',
+      polarCustomerId: 'cust_2',
+      polarSubscriptionId: 'sub_2',
+      polarCurrentPeriodEnd: Date.parse(periodEnd),
+      polarLastEventId: 'evt_2',
+    });
+    expect(updateArgs.premiumExpiresAt).toBe(Date.parse(periodEnd));
   });
 });

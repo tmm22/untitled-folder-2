@@ -3,7 +3,7 @@ import { useAccountStore, __dangerous__resetAccountSyncState } from '@/modules/a
 import { __dangerous__resetAccountBootstrapper } from '@/components/account/AccountBootstrapper';
 import type { AccountPayload } from '@/lib/account/types';
 
-const mockFetchAccount = vi.fn<[], Promise<AccountPayload>>();
+const mockFetchAccount = vi.fn<() => Promise<AccountPayload>>();
 
 vi.mock('@/lib/account/client', () => ({
   fetchAccount: (...args: unknown[]) => mockFetchAccount(...(args as [])),
