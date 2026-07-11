@@ -80,10 +80,11 @@ export interface SummariseOptions {
   bulletCount?: number;
   includeKeywords?: boolean;
   style?: 'bullets' | 'paragraph';
+  apiKey?: string | null;
 }
 
 export async function summariseText(text: string, options: SummariseOptions = {}): Promise<string | undefined> {
-  if (!isOpenAIConfigured()) {
+  if (!options.apiKey && !isOpenAIConfigured()) {
     return undefined;
   }
 
@@ -110,7 +111,7 @@ export async function summariseText(text: string, options: SummariseOptions = {}
           content: text.slice(0, 6000),
         },
       ],
-      { maxOutputTokens: style === 'paragraph' ? 220 : 180 },
+      { maxOutputTokens: style === 'paragraph' ? 220 : 180, apiKey: options.apiKey },
     );
     return content ?? undefined;
   } catch (error) {
