@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useImportStore } from '@/modules/imports/store';
 import { importFromUrl, buildImportedEntry } from '@/modules/imports/service';
+import { summarizeOnDevice, type SummaryEngine } from '@/lib/summarize/onDevice';
 import { useTTSStore } from '@/modules/tts/store';
 import { generateId } from '@/lib/utils/id';
 import { usePipelineStore } from '@/modules/pipelines/store';
@@ -14,10 +15,16 @@ import { resolveVoiceForQueue } from '@/modules/pipelines/voice';
 import { providerRegistry } from '@/modules/tts/providerRegistry';
 import { FormattedTimestamp } from '@/components/shared/FormattedTimestamp';
 
+const SUMMARY_ENGINE_LABELS: Record<SummaryEngine, string> = {
+  openai: 'AI summary',
+  'browser-ai': 'On-device AI summary',
+  extractive: 'On-device summary',
+};
+
 export function ImportPanel() {
   const entries = useImportStore((state) => state.entries);
   const hydrated = useImportStore((state) => state.hydrated);
-  const { hydrate, record, remove } = useImportStore((state) => state.actions);
+  const { hydrate, record, update, remove } = useImportStore((state) => state.actions);
   const { setInputText } = useTTSStore((state) => state.actions);
 
   const pipelines = usePipelineStore((state) => state.pipelines);
@@ -60,6 +67,7 @@ export function ImportPanel() {
         title: response.title,
         content: response.content ?? '',
         summary: response.summary,
+        summaryEngine: response.summaryEngine,
       });
       await record(entry);
       setStatus('Import saved.');
@@ -81,6 +89,21 @@ export function ImportPanel() {
   const handleUseEntry = (content: string) => {
     setInputText(content);
     setStatus('Imported content loaded into editor.');
+  };
+
+  const handleSummarizeOnDevice = async (entryId: string) => {
+    const entry = entries.find((item) => item.id === entryId);
+    if (!entry || !entry.content.trim()) {
+      return;
+    }
+    setStatus('Summarizing on this device…');
+    const result = await summarizeOnDevice(entry.content, { title: entry.title });
+    if (!result.summary) {
+      setStatus('Unable to produce a summary for this content.');
+      return;
+    }
+    await update(entryId, { summary: result.summary, summaryEngine: result.engine });
+    setStatus('Summary generated on this device — no API key needed.');
   };
 
   const setEntryPipelineStatus = (entryId: string, message: string) => {
@@ -194,7 +217,8 @@ export function ImportPanel() {
           Save import
         </button>
         <p className="text-xs text-cocoa-500">
-          Reddit links are handled via the .json API; article summaries use OpenAI when configured.
+          Reddit links are handled via the .json API. Summaries use OpenAI when you have an API key
+          or a managed plan; otherwise they are generated free on this device — no account needed.
         </p>
       </form>
 
@@ -215,8 +239,17 @@ export function ImportPanel() {
                 className="text-xs text-cocoa-500"
               />
             </div>
-            {entry.summary && <p className="text-xs text-cocoa-600">Summary: {entry.summary}</p>}
-            <div className="flex items-center gap-2">
+            {entry.summary && (
+              <p className="text-xs text-cocoa-600">
+                {entry.summaryEngine && (
+                  <span className="mr-2 rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-medium text-cocoa-700">
+                    {SUMMARY_ENGINE_LABELS[entry.summaryEngine]}
+                  </span>
+                )}
+                {entry.summary}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="action-button action-button--accent px-3 py-1"
@@ -224,6 +257,15 @@ export function ImportPanel() {
               >
                 Load into editor
               </button>
+              {!entry.summary && (
+                <button
+                  type="button"
+                  className="pill-button border-accent-400 text-charcoal-900 hover:bg-accent-200"
+                  onClick={() => void handleSummarizeOnDevice(entry.id)}
+                >
+                  Summarize on device
+                </button>
+              )}
               <div className="flex items-center gap-2 text-xs text-cocoa-600">
                 <select
                   className="field-input w-max min-w-[160px] border-cream-300 px-2 py-1 text-xs"

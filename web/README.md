@@ -44,6 +44,16 @@ Signed-in users have generation history, managed provisioning state, and pipelin
 
 Workspace layout persistence follows the same pattern: Convex stores the canonical snapshot, while the client-side repository falls back to a local cache in offline or unauthorised states. Server-to-client traffic always flows through the Next.js route to keep Convex admin keys out of the browser bundle.
 
+## Article Imports & Summaries
+
+Importing an article extracts readable content server-side (SSRF-guarded), then summarizes it by entitlement:
+
+- **Your own OpenAI key (BYOK)** — the server summarizes with your key.
+- **Managed plan** — the server summarizes with its own key as part of your subscription.
+- **Neither (free)** — the summary is generated **on your device**, free, with no account or API key: Chrome's built-in AI summarizer is used when it is already available (no model download is ever triggered), otherwise a deterministic extractive summarizer runs in the browser. Works offline for pasted content.
+
+Each import shows which engine produced its summary ("AI summary", "On-device AI summary", or "On-device summary"), and any entry without a summary has a **Summarize on device** button.
+
 ## Pipeline Automation
 
 Automation pipelines let you chain multiple post-processing steps after an import (cleaning, summarising, translating, tone adjustments, chunking, and queue preparation). They can be saved, rerun, or triggered externally. Pipelines are scoped to the account that created them — other users cannot see, edit, run, or delete them (pipelines created before ownership tracking remain visible to all verified users). Webhook triggers authenticate with the pipeline's secret and are unaffected.

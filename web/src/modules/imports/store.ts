@@ -6,6 +6,8 @@ import { get, set } from 'idb-keyval';
 const STORAGE_KEY = 'tts-imports-v1';
 const isBrowser = () => typeof window !== 'undefined' && 'indexedDB' in window;
 
+import type { SummaryEngine } from '@/lib/summarize/onDevice';
+
 export interface ImportedEntry {
   id: string;
   source: string;
@@ -13,6 +15,7 @@ export interface ImportedEntry {
   content: string;
   createdAt: string;
   summary?: string;
+  summaryEngine?: SummaryEngine;
 }
 
 interface ImportState {
@@ -22,6 +25,7 @@ interface ImportState {
   actions: {
     hydrate: () => Promise<void>;
     record: (entry: ImportedEntry) => Promise<void>;
+    update: (id: string, patch: Partial<Omit<ImportedEntry, 'id'>>) => Promise<void>;
     remove: (id: string) => Promise<void>;
     clear: () => Promise<void>;
   };
@@ -56,6 +60,11 @@ export const useImportStore = create<ImportState>((set, get) => ({
     },
     record: async (entry) => {
       const next = [entry, ...get().entries];
+      set({ entries: next });
+      await persistImports(next);
+    },
+    update: async (id, patch) => {
+      const next = get().entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry));
       set({ entries: next });
       await persistImports(next);
     },
