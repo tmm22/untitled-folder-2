@@ -101,6 +101,25 @@ describe('useTTSStore', () => {
     expect(state.isLoadingVoices).toBe(false);
   });
 
+  test('ignores a stale voice response after switching providers', async () => {
+    let resolveFirst!: (response: Response) => void;
+    const firstResponse = new Promise<Response>((resolve) => { resolveFirst = resolve; });
+    vi.spyOn(global, 'fetch')
+      .mockReturnValueOnce(firstResponse)
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        { id: 'eleven-voice', name: 'Eleven', language: 'en-US', gender: 'neutral', provider: 'elevenLabs' },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const first = useTTSStore.getState().actions.selectProvider('openAI');
+    const second = useTTSStore.getState().actions.selectProvider('elevenLabs');
+    await second;
+    resolveFirst(new Response(JSON.stringify(mockVoices), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await first;
+
+    expect(useTTSStore.getState().selectedProvider).toBe('elevenLabs');
+    expect(useTTSStore.getState().selectedVoice?.id).toBe('eleven-voice');
+  });
+
   test('generate surfaces errors from failed requests', async () => {
     vi.spyOn(global, 'fetch').mockImplementation(() =>
       Promise.resolve(

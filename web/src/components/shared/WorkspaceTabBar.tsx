@@ -36,6 +36,9 @@ export function WorkspaceTabBar({ tabs, activeTab, onTabChange, disabled = false
 
       event.preventDefault();
       onTabChange(tabs[nextIndex]);
+      const tabList = event.currentTarget.closest('[role="tablist"]');
+      const nextTab = tabList?.querySelector<HTMLButtonElement>(`#workspace-tab-${tabs[nextIndex]}`);
+      nextTab?.focus();
     },
     [disabled, onTabChange, tabs],
   );

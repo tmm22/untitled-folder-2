@@ -21,7 +21,12 @@ export function TextEditor() {
 
   return (
     <CollapsibleSection title="Script editor" className="flex h-full flex-col gap-4" minHeight={320} maxHeight={960}>
+      <label htmlFor="tts-script-editor" className="sr-only">
+        Narration script
+      </label>
       <textarea
+        id="tts-script-editor"
+        aria-describedby="tts-script-character-count"
         className="field-input min-h-[280px] resize-none border-cream-400 bg-cream-50/90 p-4 text-base leading-relaxed"
         placeholder="Paste your script or type what you want to hear..."
         value={inputText}
@@ -30,7 +35,7 @@ export function TextEditor() {
         spellCheck={false}
         maxLength={characterLimit * 2}
       />
-      <div className="flex items-center justify-between text-sm text-cocoa-500">
+      <div id="tts-script-character-count" className="flex items-center justify-between text-sm text-cocoa-500">
         <span>Character limit per generation</span>
         <span className={limitReached ? 'text-rose-600' : 'text-cocoa-700'}>
           {numberFormatter.format(inputText.length)} / {numberFormatter.format(characterLimit)} ({numberFormatter.format(remaining)} remaining)

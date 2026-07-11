@@ -185,6 +185,7 @@ export function CollapsibleSection({
           className="collapsible-panel__toggle"
           aria-expanded={!isCollapsed}
           aria-controls={contentId}
+          aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${title ?? 'panel'}`}
           onClick={toggleCollapsed}
         >
           <span aria-hidden className="collapsible-panel__chevron">
@@ -205,7 +206,13 @@ export function CollapsibleSection({
           </button>
         ) : null}
       </div>
-      <div id={contentId} className="collapsible-panel__content" ref={containerRef} style={contentStyles}>
+      <div
+        id={contentId}
+        className="collapsible-panel__content"
+        ref={containerRef}
+        style={contentStyles}
+        hidden={isCollapsed}
+      >
         <div className="collapsible-panel__content-inner">{children}</div>
       </div>
       {allowResize && !isCollapsed ? (

@@ -81,7 +81,7 @@ const NotificationPanel = dynamic(
 );
 import { WorkspaceTabBar } from '@/components/shared/WorkspaceTabBar';
 import { useWorkspaceLayoutStore } from '@/modules/workspaceLayout/store';
-import { ALL_WORKSPACE_PANEL_IDS, ALL_WORKSPACE_TAB_IDS, type WorkspaceTabId, type WorkspacePanelId } from '@/modules/workspaceLayout/types';
+import { ALL_WORKSPACE_PANEL_IDS, ALL_WORKSPACE_TAB_IDS, PANEL_LABELS, TAB_LABELS, type WorkspaceTabId, type WorkspacePanelId } from '@/modules/workspaceLayout/types';
 
 const stageLabels: Record<string, string> = {
   idle: 'Ready',
@@ -1339,6 +1339,7 @@ export function TransitTranscriptionPanel() {
     panelId,
     tabId,
     index,
+    panelCount,
     isDragging,
     onDragStart,
     onDragEnd,
@@ -1347,11 +1348,14 @@ export function TransitTranscriptionPanel() {
     panelId: WorkspacePanelId;
     tabId: WorkspaceTabId;
     index: number;
+    panelCount: number;
     isDragging: boolean;
     onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
     onDragEnd: (event: React.DragEvent<HTMLDivElement>) => void;
     children: ReactNode;
-  }) => (
+  }) => {
+    const panelLabel = PANEL_LABELS[panelId];
+    return (
     <div
       draggable={isArranging}
       onDragStart={isArranging ? onDragStart : undefined}
@@ -1363,9 +1367,48 @@ export function TransitTranscriptionPanel() {
         isDragging ? 'opacity-50' : 'opacity-100'
       }`}
     >
+      {isArranging ? (
+        <div role="group" aria-label={`Position ${panelLabel} panel`} className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-accent-200 bg-accent-50/80 p-2">
+          <span className="mr-auto text-xs font-semibold text-accent-800">Panel position</span>
+          <button
+            type="button"
+            className="rounded-lg border border-accent-300 px-2 py-1 text-xs font-semibold text-accent-800 disabled:opacity-40"
+            disabled={index === 0}
+            onClick={() => movePanel(panelId, tabId, index - 1)}
+            aria-label={`Move ${panelLabel} panel up in ${TAB_LABELS[tabId]}`}
+          >
+            Move up
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-accent-300 px-2 py-1 text-xs font-semibold text-accent-800"
+            disabled={index === panelCount - 1}
+            onClick={() => movePanel(panelId, tabId, index + 2)}
+            aria-label={`Move ${panelLabel} panel down in ${TAB_LABELS[tabId]}`}
+          >
+            Move down
+          </button>
+          <label className="flex items-center gap-2 text-xs font-semibold text-accent-800">
+            Move to
+            <select
+              className="rounded-lg border border-accent-300 bg-white px-2 py-1 text-xs"
+              value={tabId}
+              onChange={(event) => movePanel(panelId, event.target.value as WorkspaceTabId, Number.MAX_SAFE_INTEGER)}
+              aria-label={`Move ${panelLabel} panel to workspace tab`}
+            >
+              {ALL_WORKSPACE_TAB_IDS.map((targetTabId) => (
+                <option key={targetTabId} value={targetTabId}>
+                  {TAB_LABELS[targetTabId]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
       {children}
     </div>
-  );
+    );
+  };
 
   const WorkspaceTabContent = ({
     tabId,
@@ -1382,37 +1425,23 @@ export function TransitTranscriptionPanel() {
       aria-labelledby={`workspace-tab-${tabId}`}
       className="flex flex-col gap-4"
     >
-      <WorkspaceDropZone
-        tabId={tabId}
-        index={0}
-        isActive={dropTarget?.tabId === tabId && dropTarget.index === 0}
-        isVisible={Boolean(draggedPanel) || (isArranging && isHydrating) || panelIds.length === 0}
-        onDragOver={handleZoneDragOver(tabId, 0)}
-        onDrop={handleZoneDrop(tabId, 0)}
-        onDragLeave={handleZoneDragLeave(tabId, 0)}
-        label={panelIds.length === 0 ? 'Drop panels here' : undefined}
-      />
+      {WorkspaceDropZone({
+        tabId, index: 0,
+        isActive: dropTarget?.tabId === tabId && dropTarget.index === 0,
+        isVisible: Boolean(draggedPanel) || (isArranging && isHydrating) || panelIds.length === 0,
+        onDragOver: handleZoneDragOver(tabId, 0), onDrop: handleZoneDrop(tabId, 0),
+        onDragLeave: handleZoneDragLeave(tabId, 0),
+        label: panelIds.length === 0 ? 'Drop panels here' : undefined,
+      })}
       {panelIds.map((panelId, index) => (
         <Fragment key={`${tabId}-${panelId}`}>
-          <DraggableWorkspacePanel
-            panelId={panelId}
-            tabId={tabId}
-            index={index}
-            onDragStart={handleDragStartPanel(panelId)}
-            onDragEnd={handleDragEndPanel}
-            isDragging={draggedPanel === panelId}
-          >
-            {renderPanel(panelId)}
-          </DraggableWorkspacePanel>
-          <WorkspaceDropZone
-            tabId={tabId}
-            index={index + 1}
-            isActive={dropTarget?.tabId === tabId && dropTarget.index === index + 1}
-            isVisible={Boolean(draggedPanel)}
-            onDragOver={handleZoneDragOver(tabId, index + 1)}
-            onDrop={handleZoneDrop(tabId, index + 1)}
-            onDragLeave={handleZoneDragLeave(tabId, index + 1)}
-          />
+          {DraggableWorkspacePanel({ panelId, tabId, index, panelCount: panelIds.length,
+            onDragStart: handleDragStartPanel(panelId), onDragEnd: handleDragEndPanel,
+            isDragging: draggedPanel === panelId, children: renderPanel(panelId) })}
+          {WorkspaceDropZone({ tabId, index: index + 1,
+            isActive: dropTarget?.tabId === tabId && dropTarget.index === index + 1,
+            isVisible: Boolean(draggedPanel), onDragOver: handleZoneDragOver(tabId, index + 1),
+            onDrop: handleZoneDrop(tabId, index + 1), onDragLeave: handleZoneDragLeave(tabId, index + 1) })}
         </Fragment>
       ))}
     </div>
@@ -1488,11 +1517,7 @@ export function TransitTranscriptionPanel() {
       </div>
 
       <div className="mt-6">
-        <WorkspaceTabContent
-          tabId={activeTabId}
-          panelIds={activeTabPanels}
-          isHydrating={layoutIsHydrating}
-        />
+        {WorkspaceTabContent({ tabId: activeTabId, panelIds: activeTabPanels, isHydrating: layoutIsHydrating })}
       </div>
 
       {!hasResults && activeTabId === 'capture' && (

@@ -59,6 +59,35 @@ export const TAB_LABELS: Record<WorkspaceTabId, string> = {
   settings: 'Settings',
 };
 
+// Human-readable panel names matching each panel's visible title, for
+// accessible labels on arrange-mode controls.
+export const PANEL_LABELS: Record<WorkspacePanelId, string> = {
+  pipelineStatus: 'Pipeline status',
+  captureAudio: 'Capture audio',
+  uploadAudio: 'Upload audio file',
+  cleanupInstructions: 'Cleanup instructions',
+  importPanel: 'Imports',
+  snippetPanel: 'Snippet library',
+  transcriptHistory: 'Transcript history',
+  transcriptView: 'Transcript',
+  summary: 'Summary',
+  cleanupResult: 'Cleanup result',
+  actionItems: 'Action items',
+  suggestedCalendarEvent: 'Suggested calendar event',
+  calendarFollowUp: 'Calendar follow-up',
+  voiceSettings: 'Provider & voice',
+  scriptEditor: 'Script editor',
+  playbackControls: 'Playback controls',
+  batchQueue: 'Batch queue',
+  pronunciationPanel: 'Pronunciation glossary',
+  ttsHistory: 'Recent generations',
+  translationHistory: 'Translation history',
+  credentialsPanel: 'Provider credentials',
+  themePanel: 'Appearance',
+  compactPanel: 'Compact layout',
+  notificationPanel: 'Notifications',
+};
+
 export const ALL_WORKSPACE_PANEL_IDS: WorkspacePanelId[] = [
   'pipelineStatus',
   'captureAudio',

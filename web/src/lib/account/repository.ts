@@ -8,6 +8,8 @@ export interface AccountRepository {
   getOrCreate(userId: string): Promise<AccountPayload>;
   updateAccount(payload: AccountPayload): Promise<AccountPayload>;
   recordUsage(userId: string, provider: string, tokensUsed: number): Promise<AccountPayload>;
+  reserveUsage(userId: string, provider: string, tokensRequested: number): Promise<AccountPayload | null>;
+  releaseUsage(userId: string, tokensReserved: number): Promise<void>;
 }
 
 interface ConvexAccountRepositoryOptions {
@@ -27,6 +29,9 @@ const allowanceByTier: Record<string, number> = {
 };
 
 const now = () => Date.now();
+
+const isSameUtcMonth = (a: Date, b: Date) =>
+  a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
 
 export class ConvexAccountRepository implements AccountRepository {
   private readonly clientOptions: NextjsOptions;
@@ -85,6 +90,15 @@ export class ConvexAccountRepository implements AccountRepository {
       throw new Error('Convex account request failed: empty account response');
     }
     return result.account as AccountPayload;
+  }
+
+  async reserveUsage(userId: string, provider: string, tokensRequested: number): Promise<AccountPayload | null> {
+    const result = await this.mutation(internal.account.reserveUsage, { userId, provider, tokensRequested });
+    return result.account ? (result.account as AccountPayload) : null;
+  }
+
+  async releaseUsage(userId: string, tokensReserved: number): Promise<void> {
+    await this.mutation(internal.account.releaseUsage, { userId, tokensReserved });
   }
 }
 
@@ -155,6 +169,33 @@ export class InMemoryAccountRepository implements AccountRepository {
     this.records.set(userId, updated);
     return updated;
   }
+
+  async reserveUsage(userId: string, provider: string, tokensRequested: number): Promise<AccountPayload | null> {
+    let record = this.records.get(userId);
+    if (!record) {
+      record = {
+        userId, planTier: 'free', billingStatus: 'free',
+        usage: { monthTokensUsed: 0, monthlyAllowance: DEFAULT_FREE_ALLOWANCE, lastUpdated: now() },
+      };
+      this.records.set(userId, record);
+    }
+    const allowance = allowanceByTier[record.planTier] ?? DEFAULT_STARTER_ALLOWANCE;
+    const sameMonth = isSameUtcMonth(new Date(), new Date(record.usage?.lastUpdated ?? 0));
+    const used = sameMonth ? (record.usage?.monthTokensUsed ?? 0) : 0;
+    if (!Number.isSafeInteger(tokensRequested) || tokensRequested < 0 || used + tokensRequested > allowance) return null;
+    const updated = { ...record, usage: { monthTokensUsed: used + tokensRequested, monthlyAllowance: allowance, lastUpdated: now() } };
+    this.records.set(userId, updated);
+    return updated;
+  }
+
+  async releaseUsage(userId: string, tokensReserved: number): Promise<void> {
+    const record = this.records.get(userId);
+    if (!record) return;
+    // A reservation from a previous UTC month has already been zeroed by the
+    // rollover in reserveUsage; releasing it would resurrect stale usage.
+    if (!isSameUtcMonth(new Date(), new Date(record.usage?.lastUpdated ?? 0))) return;
+    this.records.set(userId, { ...record, usage: { ...record.usage, monthTokensUsed: Math.max(0, record.usage.monthTokensUsed - Math.max(0, tokensReserved)), lastUpdated: now() } });
+  }
 }
 
 export class JsonMockAccountRepository implements AccountRepository {
@@ -217,4 +258,11 @@ export class JsonMockAccountRepository implements AccountRepository {
       },
     };
   }
+
+  async reserveUsage(userId: string, provider: string, tokensRequested: number): Promise<AccountPayload | null> {
+    if (tokensRequested < 0 || tokensRequested > DEFAULT_FREE_ALLOWANCE) return null;
+    return this.recordUsage(userId, provider, tokensRequested);
+  }
+
+  async releaseUsage(): Promise<void> {}
 }
