@@ -1,5 +1,7 @@
 'use client';
 
+import { cleanForNarration, isNarratableSentence } from './narrationClean';
+
 export type SummaryEngine = 'openai' | 'browser-ai' | 'extractive';
 
 export interface OnDeviceSummaryOptions {
@@ -60,7 +62,7 @@ function tokenize(text: string): string[] {
  * sentences in their original order. Deterministic, offline, dependency-free.
  */
 export function extractiveSummary(text: string, options: OnDeviceSummaryOptions = {}): string {
-  const trimmed = text.trim().slice(0, MAX_INPUT_CHARS);
+  const trimmed = cleanForNarration(text).slice(0, MAX_INPUT_CHARS);
   if (trimmed.length === 0) {
     return '';
   }
@@ -69,7 +71,11 @@ export function extractiveSummary(text: string, options: OnDeviceSummaryOptions 
   }
 
   const sentenceCount = Math.max(1, options.sentenceCount ?? 3);
-  const sentences = splitSentences(trimmed);
+  const allSentences = splitSentences(trimmed);
+  const sentences = allSentences.filter(isNarratableSentence);
+  if (sentences.length === 0) {
+    return allSentences.slice(0, sentenceCount).join(' ');
+  }
   if (sentences.length <= sentenceCount) {
     return sentences.join(' ');
   }
@@ -194,12 +200,12 @@ export async function summarizeOnDevice(
         });
         try {
           const summary = await withTimeout(
-            summarizer.summarize(text.slice(0, MAX_INPUT_CHARS), {
+            summarizer.summarize(cleanForNarration(text).slice(0, MAX_INPUT_CHARS), {
               context: options.title ? `Article title: ${options.title}` : undefined,
             }),
             BROWSER_AI_TIMEOUT_MS,
           );
-          const cleaned = summary?.trim();
+          const cleaned = cleanForNarration(summary ?? '');
           if (cleaned) {
             return { summary: cleaned, engine: 'browser-ai' };
           }
