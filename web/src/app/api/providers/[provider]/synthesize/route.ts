@@ -4,7 +4,7 @@ import { resolveProviderAdapter } from '@/lib/providers';
 import { resolveProviderAuthorization } from '@/app/api/_lib/providerAuth';
 import { isAuthFailure, requireVerifiedIdentity } from '@/app/api/_lib/requireAuth';
 import { getProvisioningStore } from '@/app/api/provisioning/context';
-import { getAccountRepository } from '@/app/api/account/context';
+import { getAccountRepository, getAccountRepositoryKind } from '@/app/api/account/context';
 import { resolveRequestIdentity } from '@/lib/auth/identity';
 
 const SUPPORTED_PROVIDERS: readonly ProviderType[] = ['openAI', 'elevenLabs', 'google', 'tightAss'];
@@ -82,23 +82,43 @@ export async function POST(request: Request, context: ProviderRouteContext) {
   const identity = resolveRequestIdentity(request);
   const accountId = identity.userId ?? null;
 
-  // Spending the server's provider key requires a verified identity; BYOK and
-  // managed (provisioned) callers bring their own entitlement.
-  const hasCallerCredential = Boolean(authorization.apiKey) || Boolean(authorization.managedCredential);
-  if (!hasCallerCredential) {
+  // Spending the server's provider key requires a verified identity and an
+  // atomic quota reservation. BYOK callers bring their own key and skip the
+  // quota; managed (provisioned) callers spend the server key like everyone
+  // else and reserve against their tier's allowance.
+  const hasByokCredential = Boolean(authorization.apiKey);
+  const usesServerKey = !hasByokCredential;
+  const tokenCount = payload.text.length;
+  let reservedTokens = 0;
+  if (usesServerKey) {
     const verified = requireVerifiedIdentity(request);
     if (isAuthFailure(verified)) {
       return verified;
     }
+    // Quota enforcement needs the durable store; refuse rather than fall back
+    // to per-instance memory in production.
+    if (process.env.NODE_ENV === 'production' && getAccountRepositoryKind() !== 'convex') {
+      return NextResponse.json({ error: 'Usage service is temporarily unavailable.' }, { status: 503 });
+    }
+    const reservation = await getAccountRepository().reserveUsage(verified.userId, provider, tokenCount);
+    if (!reservation) {
+      return NextResponse.json({ error: 'Usage quota exceeded.' }, { status: 429 });
+    }
+    reservedTokens = tokenCount;
   }
 
   const recordUsage = async () => {
+    // Synthesis has succeeded: the reservation is spent, so a failure past
+    // this point must not refund it.
+    reservedTokens = 0;
     if (!accountId) {
       return;
     }
-    const tokensUsed = Math.max(0, Math.round(payload.text.length));
-    const accountRepo = getAccountRepository();
-    await accountRepo.recordUsage(accountId, provider, tokensUsed);
+    const tokensUsed = tokenCount;
+    if (hasByokCredential) {
+      const accountRepo = getAccountRepository();
+      await accountRepo.recordUsage(accountId, provider, tokensUsed);
+    }
 
     const store = getProvisioningStore();
     if ('recordUsage' in store) {
@@ -160,6 +180,13 @@ export async function POST(request: Request, context: ProviderRouteContext) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (reservedTokens > 0 && accountId) {
+      try {
+        await getAccountRepository().releaseUsage(accountId, reservedTokens);
+      } catch (releaseError) {
+        console.error('Failed to release reserved synthesis usage', releaseError);
+      }
+    }
     console.error('Failed to synthesize speech', error);
     return NextResponse.json(
       {

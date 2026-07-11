@@ -198,3 +198,56 @@ export const recordUsage = internalMutation({
     return { account: nextAccount };
   },
 });
+
+const isSameUtcMonth = (a: Date, b: Date) =>
+  a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
+
+export const reserveUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    provider: v.string(),
+    tokensRequested: v.number(),
+  },
+  returns: v.object({ account: v.union(accountResult.fields.account, v.null()) }),
+  handler: async (ctx, { userId, tokensRequested }) => {
+    const existing = await findAccount(ctx, userId);
+    const source = existing ?? buildDefaultAccount(userId);
+    const allowance = allowanceForTier(source.planTier);
+    const sameMonth = isSameUtcMonth(new Date(), new Date(source.usage.lastUpdated ?? 0));
+    const used = sameMonth ? (source.usage.monthTokensUsed ?? 0) : 0;
+    if (!Number.isSafeInteger(tokensRequested) || tokensRequested < 0 || used + tokensRequested > allowance) {
+      return { account: null };
+    }
+    const usage = { monthTokensUsed: used + tokensRequested, monthlyAllowance: allowance, lastUpdated: now() };
+    if (existing) {
+      await ctx.db.patch(existing._id, { usage });
+      return { account: { ...existing, usage } };
+    }
+    const account: AccountInsert = { ...source, usage };
+    await ctx.db.insert('accounts', account);
+    return { account };
+  },
+});
+
+export const releaseUsage = internalMutation({
+  args: { userId: v.string(), tokensReserved: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { userId, tokensReserved }) => {
+    const existing = await findAccount(ctx, userId);
+    if (!existing) return null;
+    // A reservation made in a previous UTC month has already been zeroed out
+    // by the rollover in reserveUsage; releasing it (and stamping a fresh
+    // lastUpdated) would resurrect the old month's usage into the new month.
+    if (!isSameUtcMonth(new Date(), new Date(existing.usage.lastUpdated ?? 0))) {
+      return null;
+    }
+    await ctx.db.patch(existing._id, {
+      usage: {
+        ...existing.usage,
+        monthTokensUsed: Math.max(0, existing.usage.monthTokensUsed - Math.max(0, tokensReserved)),
+        lastUpdated: now(),
+      },
+    });
+    return null;
+  },
+});

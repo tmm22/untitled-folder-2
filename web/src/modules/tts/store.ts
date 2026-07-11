@@ -115,6 +115,8 @@ const generateRequestId = () => {
   return Math.random().toString(36).slice(2);
 };
 
+let voiceLoadRequestId = 0;
+
 const createStore: StateCreator<TTSState> = (set, get) => ({
   ...baseState,
   ...computeState(baseState),
@@ -185,6 +187,7 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       });
     },
     loadVoices: async (provider) => {
+      const requestId = ++voiceLoadRequestId;
       set((prev) => ({
         ...prev,
         isLoadingVoices: true,
@@ -210,6 +213,7 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
         }
 
         const uniqueVoices = Array.from(new Map(voices.map((voice) => [voice.id, voice])).values());
+        if (requestId !== voiceLoadRequestId) return;
         set((prev) => ({
           ...prev,
           availableVoices: uniqueVoices,
@@ -219,13 +223,16 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
             uniqueVoices.length === 0 ? 'No voices available for this provider.' : undefined,
         }));
       } catch (error) {
+        if (requestId !== voiceLoadRequestId) return;
         console.error('Failed to load voices', error);
         set((prev) => ({
           ...prev,
           voiceLoadError: 'Unable to load voices. Please try again.',
         }));
       } finally {
-        set((prev) => ({ ...prev, isLoadingVoices: false }));
+        if (requestId === voiceLoadRequestId) {
+          set((prev) => ({ ...prev, isLoadingVoices: false }));
+        }
       }
     },
     generate: async () => {
@@ -614,6 +621,7 @@ const createStore: StateCreator<TTSState> = (set, get) => ({
       set((prev) => ({ ...prev, errorMessage: undefined }));
     },
     reset: () => {
+      voiceLoadRequestId += 1;
       const actions = get().actions;
       if (typeof window !== 'undefined') {
         if (isSpeechSynthesisSupported()) {

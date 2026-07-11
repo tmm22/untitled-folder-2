@@ -173,6 +173,9 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
           cleanupLabel: cleanupLabelToSend,
           signal: controller.signal,
           onEvent: (payload: TransitStreamPayload) => {
+            if (get().controller !== controller) {
+              return;
+            }
             if (payload.event === 'status') {
               const stage = payload.data.stage;
               set((state) => ({
@@ -243,6 +246,9 @@ export const useTransitTranscriptionStore = create<TransitTranscriptionState & I
           },
         });
       } catch (error) {
+        if (get().controller !== controller) {
+          return;
+        }
         if ((error as Error).name === 'AbortError') {
           set({
             stage: 'idle',

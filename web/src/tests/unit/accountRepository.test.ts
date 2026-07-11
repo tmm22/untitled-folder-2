@@ -16,4 +16,14 @@ describe('InMemoryAccountRepository', () => {
     expect(account.planTier).toBe('starter');
     expect(account.usage?.monthlyAllowance).toBeGreaterThan(50_000);
   });
+
+  it('atomically rejects usage reservations beyond the account allowance', async () => {
+    const repo = new InMemoryAccountRepository();
+    const accepted = await repo.reserveUsage('user-3', 'openAI', 49_999);
+    const rejected = await repo.reserveUsage('user-3', 'openAI', 2);
+
+    expect(accepted?.usage?.monthTokensUsed).toBe(49_999);
+    expect(rejected).toBeNull();
+    expect((await repo.getOrCreate('user-3')).usage?.monthTokensUsed).toBe(49_999);
+  });
 });

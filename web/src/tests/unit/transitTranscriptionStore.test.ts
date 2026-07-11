@@ -104,4 +104,29 @@ describe('useTransitTranscriptionStore cleanup workflow', () => {
     expect(state.cleanupResult?.label).toBe('Preset');
     expect(mockHistoryStoreState.actions.record).toHaveBeenCalled();
   });
+
+  test('ignores events from a superseded transcription request', async () => {
+    let firstOptions!: StreamTranscriptionOptions;
+    let finishFirst!: () => void;
+    mockStream
+      .mockImplementationOnce(async (options) => {
+        firstOptions = options;
+        await new Promise<void>((resolve) => { finishFirst = resolve; });
+      })
+      .mockImplementationOnce(async (options) => {
+        options.onEvent({ event: 'status', data: { stage: 'transcribing' } });
+      });
+
+    const actions = useTransitTranscriptionStore.getState().actions;
+    const first = actions.submit({ file: new Blob(['first']), title: 'First' });
+    await Promise.resolve();
+    const second = actions.submit({ file: new Blob(['second']), title: 'Second' });
+    await second;
+    firstOptions.onEvent({ event: 'segment', data: { index: 0, startMs: 0, endMs: 1, text: 'stale' } });
+    finishFirst();
+    await first;
+
+    expect(useTransitTranscriptionStore.getState().title).toBe('Second');
+    expect(useTransitTranscriptionStore.getState().transcriptText).not.toContain('stale');
+  });
 });
