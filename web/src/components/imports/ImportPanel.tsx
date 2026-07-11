@@ -5,6 +5,7 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useImportStore } from '@/modules/imports/store';
 import { importFromUrl, buildImportedEntry } from '@/modules/imports/service';
 import { summarizeOnDevice, type SummaryEngine } from '@/lib/summarize/onDevice';
+import { cleanForNarration } from '@/lib/summarize/narrationClean';
 import { useTTSStore } from '@/modules/tts/store';
 import { generateId } from '@/lib/utils/id';
 import { usePipelineStore } from '@/modules/pipelines/store';
@@ -87,8 +88,13 @@ export function ImportPanel() {
   };
 
   const handleUseEntry = (content: string) => {
-    setInputText(content);
-    setStatus('Imported content loaded into editor.');
+    setInputText(cleanForNarration(content));
+    setStatus('Imported content loaded into editor, cleaned for narration.');
+  };
+
+  const handleNarrateSummary = (summary: string) => {
+    setInputText(cleanForNarration(summary));
+    setStatus('Summary loaded into editor, ready to narrate.');
   };
 
   const handleSummarizeOnDevice = async (entryId: string) => {
@@ -257,6 +263,15 @@ export function ImportPanel() {
               >
                 Load into editor
               </button>
+              {entry.summary && (
+                <button
+                  type="button"
+                  className="pill-button border-accent-400 text-charcoal-900 hover:bg-accent-200"
+                  onClick={() => handleNarrateSummary(entry.summary ?? '')}
+                >
+                  Narrate summary
+                </button>
+              )}
               {!entry.summary && (
                 <button
                   type="button"
