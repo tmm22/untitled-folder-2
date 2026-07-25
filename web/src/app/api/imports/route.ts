@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { isAuthFailure, requireVerifiedIdentity } from '../_lib/requireAuth';
 import { resolveProviderAuthorization } from '../_lib/providerAuth';
 import { fetchReadableContent } from '@/lib/imports/fetcher';
-import { summariseText } from '@/lib/pipelines/openai';
+import { summariseTextEnriched } from '@/lib/pipelines/openai';
+import type { SummaryEnrichment } from '@/lib/summarize/types';
 
 interface ImportRequestBody {
   url?: string;
@@ -34,27 +35,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No readable content found' }, { status: 422 });
     }
 
-    // OpenAI summarisation runs only for callers with their own entitlement:
+    // OpenAI enrichment runs only for callers with their own entitlement:
     // BYOK keys are used directly; managed (provisioned) credentials spend the
     // server key. Everyone else gets content only and the client produces a
-    // free on-device summary.
+    // free on-device enrichment.
     const authorization = await resolveProviderAuthorization(request, 'openAI');
-    let summary: string | undefined;
-    let summaryEngine: 'openai' | undefined;
+    let enrichment: SummaryEnrichment | undefined;
     if (authorization.apiKey) {
-      summary = await summariseText(content, { apiKey: authorization.apiKey });
+      enrichment = await summariseTextEnriched(content, { apiKey: authorization.apiKey });
     } else if (authorization.managedCredential) {
-      summary = await summariseText(content);
-    }
-    if (summary) {
-      summaryEngine = 'openai';
+      enrichment = await summariseTextEnriched(content);
     }
 
     return NextResponse.json({
       title,
       content,
-      summary,
-      summaryEngine,
+      summary: enrichment?.summary,
+      keyPoints: enrichment?.keyPoints,
+      tags: enrichment?.tags,
+      summaryEngine: enrichment ? 'openai' : undefined,
     });
   } catch (error) {
     if (error instanceof Response) {

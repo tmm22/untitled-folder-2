@@ -4,9 +4,9 @@ import type { ImportTransportResponse } from '@/lib/imports/fetcher';
 let POST: typeof import('@/app/api/imports/route').POST;
 let fetcherTestHooks: typeof import('@/lib/imports/fetcher').__test;
 
-const { resolveIdentityMock, summariseTextMock, resolveAuthorizationMock } = vi.hoisted(() => ({
+const { resolveIdentityMock, summariseEnrichedMock, resolveAuthorizationMock } = vi.hoisted(() => ({
   resolveIdentityMock: vi.fn(),
-  summariseTextMock: vi.fn(),
+  summariseEnrichedMock: vi.fn(),
   resolveAuthorizationMock: vi.fn(),
 }));
 
@@ -15,7 +15,7 @@ vi.mock('@/lib/auth/identity', () => ({
 }));
 
 vi.mock('@/lib/pipelines/openai', () => ({
-  summariseText: summariseTextMock,
+  summariseTextEnriched: summariseEnrichedMock,
 }));
 
 vi.mock('@/app/api/_lib/providerAuth', () => ({
@@ -41,8 +41,12 @@ describe('/api/imports summary entitlement', () => {
   beforeEach(() => {
     resolveIdentityMock.mockReset();
     resolveIdentityMock.mockReturnValue({ userId: 'user-1', isVerified: true, source: 'clerk' });
-    summariseTextMock.mockReset();
-    summariseTextMock.mockResolvedValue('An OpenAI summary.');
+    summariseEnrichedMock.mockReset();
+    summariseEnrichedMock.mockResolvedValue({
+      summary: 'An OpenAI summary.',
+      keyPoints: ['First supporting detail.', 'Second supporting detail.'],
+      tags: ['energy', 'solar'],
+    });
     resolveAuthorizationMock.mockReset();
     transportMock.mockReset();
     transportMock.mockResolvedValue({
@@ -68,7 +72,16 @@ describe('/api/imports summary entitlement', () => {
     const payload = await response.json();
     expect(payload.summary).toBe('An OpenAI summary.');
     expect(payload.summaryEngine).toBe('openai');
-    expect(summariseTextMock).toHaveBeenCalledWith(expect.any(String), { apiKey: 'sk-byok' });
+    expect(summariseEnrichedMock).toHaveBeenCalledWith(expect.any(String), { apiKey: 'sk-byok' });
+  });
+
+  it('returns key points and tags alongside the summary', async () => {
+    resolveAuthorizationMock.mockResolvedValue({ apiKey: 'sk-byok' });
+
+    const response = await POST(buildRequest());
+    const payload = await response.json();
+    expect(payload.keyPoints).toEqual(['First supporting detail.', 'Second supporting detail.']);
+    expect(payload.tags).toEqual(['energy', 'solar']);
   });
 
   it('summarises with the server key for managed credential holders', async () => {
@@ -81,7 +94,7 @@ describe('/api/imports summary entitlement', () => {
     const payload = await response.json();
     expect(payload.summary).toBe('An OpenAI summary.');
     expect(payload.summaryEngine).toBe('openai');
-    expect(summariseTextMock).toHaveBeenCalledWith(expect.any(String));
+    expect(summariseEnrichedMock).toHaveBeenCalledWith(expect.any(String));
   });
 
   it('returns content without a summary for callers with no entitlement', async () => {
@@ -93,6 +106,20 @@ describe('/api/imports summary entitlement', () => {
     expect(payload.content).toContain('Example article body');
     expect(payload.summary).toBeUndefined();
     expect(payload.summaryEngine).toBeUndefined();
-    expect(summariseTextMock).not.toHaveBeenCalled();
+    expect(payload.keyPoints).toBeUndefined();
+    expect(payload.tags).toBeUndefined();
+    expect(summariseEnrichedMock).not.toHaveBeenCalled();
+  });
+
+  it('omits enrichment when OpenAI returns nothing usable', async () => {
+    resolveAuthorizationMock.mockResolvedValue({ apiKey: 'sk-byok' });
+    summariseEnrichedMock.mockResolvedValue(undefined);
+
+    const response = await POST(buildRequest());
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain('Example article body');
+    expect(payload.summary).toBeUndefined();
+    expect(payload.summaryEngine).toBeUndefined();
   });
 });

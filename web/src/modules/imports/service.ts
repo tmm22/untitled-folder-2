@@ -1,6 +1,8 @@
 import { secureFetchJson } from '@/lib/fetch/secureFetch';
 import { useCredentialStore } from '@/modules/credentials/store';
-import { summarizeOnDevice, type SummaryEngine } from '@/lib/summarize/onDevice';
+import { enrichOnDevice } from '@/lib/summarize/onDevice';
+import { estimateReadingMinutes } from '@/lib/summarize/readingTime';
+import type { SummaryEngine } from '@/lib/summarize/types';
 import type { ImportedEntry } from './store';
 
 interface ImportResponse {
@@ -8,6 +10,8 @@ interface ImportResponse {
   content?: string;
   summary?: string;
   summaryEngine?: SummaryEngine;
+  keyPoints?: string[];
+  tags?: string[];
   error?: string;
 }
 
@@ -35,11 +39,17 @@ export async function importFromUrl(url: string): Promise<ImportResponse> {
     });
 
     // Callers without an OpenAI entitlement get content only; produce a free
-    // on-device summary so imports work without any account or API key.
+    // on-device enrichment so imports work without any account or API key.
     if (!response.error && response.content && !response.summary) {
-      const onDevice = await summarizeOnDevice(response.content, { title: response.title });
+      const onDevice = await enrichOnDevice(response.content, { title: response.title });
       if (onDevice.summary) {
-        return { ...response, summary: onDevice.summary, summaryEngine: onDevice.engine };
+        return {
+          ...response,
+          summary: onDevice.summary,
+          summaryEngine: onDevice.engine,
+          keyPoints: onDevice.keyPoints,
+          tags: onDevice.tags,
+        };
       }
     }
 
@@ -57,14 +67,20 @@ export function buildImportedEntry(input: {
   content: string;
   summary?: string;
   summaryEngine?: SummaryEngine;
+  keyPoints?: string[];
+  tags?: string[];
 }): ImportedEntry {
+  const hasSummary = Boolean(input.summary);
   return {
     id: input.id,
     source: input.source,
     title: input.title ?? input.source,
     content: input.content,
     summary: input.summary,
-    summaryEngine: input.summary ? input.summaryEngine : undefined,
+    summaryEngine: hasSummary ? input.summaryEngine : undefined,
+    keyPoints: hasSummary && input.keyPoints?.length ? input.keyPoints : undefined,
+    tags: input.tags?.length ? input.tags : undefined,
+    readingMinutes: estimateReadingMinutes(input.content),
     createdAt: new Date().toISOString(),
   };
 }

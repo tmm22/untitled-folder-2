@@ -54,6 +54,14 @@ Importing an article extracts readable content server-side (SSRF-guarded), then 
 
 Each import shows which engine produced its summary ("AI summary", "On-device AI summary", or "On-device summary"), and any entry without a summary has a **Summarize on device** button.
 
+Every summary is enriched to the same shape regardless of tier, so the free path is not a downgrade in structure:
+
+- **Key points** — up to four short bullets that add detail the summary leaves out. They never restate the summary: the OpenAI path is instructed to add new information, and the on-device path drops any sentence the summary already covers.
+- **Tags** — up to five lowercase topic keywords, with terms from the article's own title ranked above raw word frequency.
+- **Reading time** — a whole-minute estimate derived locally from word count, so pasted and manual entries get one too. It never costs an API call.
+
+Key points and tags on the free path are always extractive and deterministic, whichever engine wrote the summary — they need no model and no network.
+
 ## Pipeline Automation
 
 Automation pipelines let you chain multiple post-processing steps after an import (cleaning, summarising, translating, tone adjustments, chunking, and queue preparation). They can be saved, rerun, or triggered externally. Pipelines are scoped to the account that created them — other users cannot see, edit, run, or delete them (pipelines created before ownership tracking remain visible to all verified users). Webhook triggers authenticate with the pipeline's secret and are unaffected.

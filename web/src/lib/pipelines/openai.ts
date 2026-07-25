@@ -3,6 +3,8 @@ import {
   OpenAIClientError,
   OpenAIUnavailableError,
 } from '@/lib/openai/client';
+import { cleanForNarration } from '@/lib/summarize/narrationClean';
+import { MAX_KEY_POINTS, MAX_TAGS, type SummaryEnrichment } from '@/lib/summarize/types';
 export { OpenAIUnavailableError };
 
 function describeOpenAIError(error: unknown): string {
@@ -119,6 +121,131 @@ export async function summariseText(text: string, options: SummariseOptions = {}
       return undefined;
     }
     console.error('OpenAI summarise failed:', describeOpenAIError(error));
+    return undefined;
+  }
+}
+
+const ENRICHED_SUMMARY_PROMPT = `You summarise articles that will be read aloud by a text-to-speech voice. Return a minified JSON object with this exact shape:
+{
+  "summary": string,
+  "keyPoints": string[],
+  "tags": string[]
+}
+"summary" is 2-3 plain sentences of prose — no bullet markers, no markdown, no headings.
+"keyPoints" holds at most ${MAX_KEY_POINTS} short standalone sentences that add detail the summary omits. Never repeat the summary. Use an empty array if the text is too thin.
+"tags" holds at most ${MAX_TAGS} lowercase single-word topic keywords.
+Write everything so it sounds natural spoken aloud: no URLs, citation markers, or symbols.`;
+
+const ENRICHED_SUMMARY_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'keyPoints', 'tags'],
+  properties: {
+    summary: { type: 'string' },
+    keyPoints: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    tags: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+};
+
+function normaliseStringList(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') {
+      continue;
+    }
+    const cleaned = cleanForNarration(item);
+    if (!cleaned) {
+      continue;
+    }
+    const dedupeKey = cleaned.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    result.push(cleaned);
+    if (result.length === limit) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function normaliseSummaryEnrichment(parsed: unknown): SummaryEnrichment | undefined {
+  if (!parsed || typeof parsed !== 'object') {
+    return undefined;
+  }
+  const payload = parsed as Partial<SummaryEnrichment>;
+  const summary = typeof payload.summary === 'string' ? cleanForNarration(payload.summary) : '';
+  if (!summary) {
+    return undefined;
+  }
+  return {
+    summary,
+    keyPoints: normaliseStringList(payload.keyPoints, MAX_KEY_POINTS),
+    tags: normaliseStringList(payload.tags, MAX_TAGS).map((tag) => tag.toLowerCase()),
+  };
+}
+
+/**
+ * Summary plus key points and topic tags in one structured call. Returns
+ * `undefined` when OpenAI is unavailable or the payload is unusable so callers
+ * can fall back to the on-device enrichment path.
+ */
+export async function summariseTextEnriched(
+  text: string,
+  options: { apiKey?: string | null; signal?: AbortSignal } = {},
+): Promise<SummaryEnrichment | undefined> {
+  if (!options.apiKey && !isOpenAIConfigured()) {
+    return undefined;
+  }
+
+  try {
+    const response = await callChatCompletion(
+      [
+        { role: 'system', content: ENRICHED_SUMMARY_PROMPT },
+        { role: 'user', content: text.slice(0, 6000) },
+      ],
+      {
+        maxOutputTokens: 500,
+        temperature: 0.2,
+        apiKey: options.apiKey,
+        responseFormat: {
+          type: 'json_schema',
+          name: 'enriched_summary',
+          schema: ENRICHED_SUMMARY_SCHEMA,
+          strict: true,
+        },
+        signal: options.signal,
+      },
+    );
+
+    if (!response) {
+      return undefined;
+    }
+
+    try {
+      return normaliseSummaryEnrichment(JSON.parse(response) as unknown);
+    } catch (parseError) {
+      console.warn('Failed to parse enriched summary response', parseError);
+      // A non-JSON body is still usable as plain prose.
+      const summary = cleanForNarration(response);
+      return summary ? { summary, keyPoints: [], tags: [] } : undefined;
+    }
+  } catch (error) {
+    if (error instanceof OpenAIUnavailableError) {
+      return undefined;
+    }
+    console.error('OpenAI enriched summarise failed:', describeOpenAIError(error));
     return undefined;
   }
 }

@@ -6,7 +6,7 @@ import { get, set } from 'idb-keyval';
 const STORAGE_KEY = 'tts-imports-v1';
 const isBrowser = () => typeof window !== 'undefined' && 'indexedDB' in window;
 
-import type { SummaryEngine } from '@/lib/summarize/onDevice';
+import type { SummaryEngine } from '@/lib/summarize/types';
 
 export interface ImportedEntry {
   id: string;
@@ -16,6 +16,9 @@ export interface ImportedEntry {
   createdAt: string;
   summary?: string;
   summaryEngine?: SummaryEngine;
+  keyPoints?: string[];
+  tags?: string[];
+  readingMinutes?: number;
 }
 
 interface ImportState {
