@@ -112,7 +112,6 @@ export function PremiumDashboard() {
     <CollapsibleSection title="Premium workspace">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="panel-title">Premium workspace</h2>
           <p className="panel-subtitle">
             Managed API provisioning keeps the app running even when you do not supply your own keys.
           </p>

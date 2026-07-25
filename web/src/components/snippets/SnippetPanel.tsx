@@ -65,7 +65,6 @@ export function SnippetPanel() {
 
   return (
     <CollapsibleSection title="Snippet library" minHeight={280} maxHeight={840}>
-      <h2 className="panel-title">Snippet library</h2>
       <p className="panel-subtitle">Store reusable intros, outros, and prompts.</p>
       <form className="mt-4 flex flex-col gap-4" onSubmit={handleSave}>
         <label className="flex flex-col gap-2">
