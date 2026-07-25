@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection';
 import { useImportStore } from '@/modules/imports/store';
 import { importFromUrl, buildImportedEntry } from '@/modules/imports/service';
-import { summarizeOnDevice, type SummaryEngine } from '@/lib/summarize/onDevice';
+import { enrichOnDevice } from '@/lib/summarize/onDevice';
+import type { SummaryEngine } from '@/lib/summarize/types';
 import { cleanForNarration } from '@/lib/summarize/narrationClean';
 import { useTTSStore } from '@/modules/tts/store';
 import { generateId } from '@/lib/utils/id';
@@ -69,6 +70,8 @@ export function ImportPanel() {
         content: response.content ?? '',
         summary: response.summary,
         summaryEngine: response.summaryEngine,
+        keyPoints: response.keyPoints,
+        tags: response.tags,
       });
       await record(entry);
       setStatus('Import saved.');
@@ -103,12 +106,17 @@ export function ImportPanel() {
       return;
     }
     setStatus('Summarizing on this device…');
-    const result = await summarizeOnDevice(entry.content, { title: entry.title });
+    const result = await enrichOnDevice(entry.content, { title: entry.title });
     if (!result.summary) {
       setStatus('Unable to produce a summary for this content.');
       return;
     }
-    await update(entryId, { summary: result.summary, summaryEngine: result.engine });
+    await update(entryId, {
+      summary: result.summary,
+      summaryEngine: result.engine,
+      keyPoints: result.keyPoints.length > 0 ? result.keyPoints : undefined,
+      tags: result.tags.length > 0 ? result.tags : undefined,
+    });
     setStatus('Summary generated on this device — no API key needed.');
   };
 
@@ -194,7 +202,6 @@ export function ImportPanel() {
 
   return (
     <CollapsibleSection title="Imports" minHeight={320} maxHeight={960}>
-      <h2 className="panel-title">Imports</h2>
       <p className="panel-subtitle">Fetch web content or stash manual notes for later narration.</p>
       <form className="mt-4 flex flex-col gap-4" onSubmit={handleImport}>
         <label className="flex flex-col gap-2">
@@ -245,15 +252,39 @@ export function ImportPanel() {
                 className="text-xs text-cocoa-500"
               />
             </div>
-            {entry.summary && (
-              <p className="text-xs text-cocoa-600">
+            {(Boolean(entry.summaryEngine) || (entry.readingMinutes ?? 0) > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
                 {entry.summaryEngine && (
-                  <span className="mr-2 rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-medium text-cocoa-700">
+                  <span className="rounded-full bg-cream-200 px-2 py-0.5 text-[11px] font-medium text-cocoa-700">
                     {SUMMARY_ENGINE_LABELS[entry.summaryEngine]}
                   </span>
                 )}
-                {entry.summary}
-              </p>
+                {(entry.readingMinutes ?? 0) > 0 && (
+                  <span className="text-[11px] text-cocoa-500">
+                    {entry.readingMinutes} min read
+                  </span>
+                )}
+              </div>
+            )}
+            {entry.summary && <p className="text-xs text-cocoa-600">{entry.summary}</p>}
+            {entry.keyPoints && entry.keyPoints.length > 0 && (
+              <ul className="ml-4 list-disc space-y-1 text-xs text-cocoa-600">
+                {entry.keyPoints.map((point, index) => (
+                  <li key={`${entry.id}-point-${index}`}>{point}</li>
+                ))}
+              </ul>
+            )}
+            {entry.tags && entry.tags.length > 0 && (
+              <ul className="flex flex-wrap gap-1.5">
+                {entry.tags.map((tag, index) => (
+                  <li
+                    key={`${entry.id}-tag-${index}`}
+                    className="rounded-full border border-cream-300 px-2 py-0.5 text-[11px] text-cocoa-600"
+                  >
+                    {tag}
+                  </li>
+                ))}
+              </ul>
             )}
             <div className="flex flex-wrap items-center gap-2">
               <button
